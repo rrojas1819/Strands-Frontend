@@ -1,47 +1,16 @@
-# Purpose:
-Our project, Strands, is a web app that brings together salon owners, employees, customers, and admins in one place to make salon management easier.
+# React + Vite
 
-Most salons still handle scheduling, appointments, and staff management separately. 
-This causes confusion, missed bookings, and extra work for both customers and owners.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-We built a single platform that lets:
+Currently, two official plugins are available:
 
-Customers book and pay for appointments online
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-Salon owners manage staff, schedules, and revenue from one dashboard
+## React Compiler
 
-Admins verify salons and view reports on activity and performance and more.
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-# Tech Stack:
+## Expanding the ESLint configuration
 
-**Frontend**:
-```
-Framework: React (Vite + ES Modules)
-Routing: React Router (SPA)
-HTTP: Axios for API calls with interceptors
-Styling: Tailwind CSS
-Forms: React Hook Form
-Mockup: Figma
-```
-
-**Backend**:
-```
-Runtime: Node.js
-Framework: Express.js
-Database: MySQL
-Authentication: JWT 
-Encryption: bcrypt
-Hosting: Deployed on AWS EC2 with Route 53 for domain and DNS management
-
-```
-# Frontend Development Team:
-
-Md Shams Uddin,
-Ismail Shaikh,
-Josh Marquez
-
-# Backend Development Team:
-
-Jonathan Malave,
-Richie Rojas,
-Mitchell Lipnitsky
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
