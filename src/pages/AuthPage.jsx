@@ -7,7 +7,8 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
-import { ArrowLeft, User, Store, Scissors, Shield, Check } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { ArrowLeft, User, Store, Scissors, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
@@ -23,7 +24,11 @@ export default function AuthPage() {
     confirmPassword: '',
     name: '',
     role: '',
-    salonType: '',
+  });
+
+  const [loginForm, setLoginForm] = useState({
+    email: '',
+    password: '',
   });
 
   const handleRegister = async (e) => {
@@ -43,11 +48,6 @@ export default function AuthPage() {
       return;
     }
 
-    if (registerForm.role === 'OWNER' && !registerForm.salonType) {
-      setError('Please select your salon type');
-      setIsLoading(false);
-      return;
-    }
 
     if (registerForm.password.length < 6) {
       setError('Password must be at least 6 characters long');
@@ -61,9 +61,7 @@ export default function AuthPage() {
         email: registerForm.email,
         password: registerForm.password,
         name: registerForm.name,
-        role: registerForm.role,
-        phone: registerForm.phone || '',
-        salonType: registerForm.salonType || ''
+        role: registerForm.role
       });
       
       console.log('Signup result:', result);
@@ -80,6 +78,40 @@ export default function AuthPage() {
     } catch (err) {
       console.error('Signup error:', err);
       setError('Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    if (!loginForm.email || !loginForm.password) {
+      setError('Please fill in all fields');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Attempting login with data:', loginForm);
+      const result = await authContext?.login({
+        email: loginForm.email,
+        password: loginForm.password
+      });
+      
+      console.log('Login result:', result);
+      
+      if (result?.success) {
+        toast.success('Welcome back!');
+        // Navigation is handled by the login function in App.jsx
+      } else {
+        setError(result?.error || 'Login failed. Please try again.');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -135,164 +167,183 @@ export default function AuthPage() {
           <h1 className="text-2xl font-bold text-foreground">Join Strands and start your journey</h1>
         </div>
 
-        {/* Signup Form */}
+        {/* Auth Tabs */}
         <Card>
           <CardHeader>
-            <CardTitle>Sign Up</CardTitle>
+            <CardTitle>Welcome to Strands</CardTitle>
             <CardDescription>
-              Create your account to access the platform
+              Sign in to your account or create a new one
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleRegister} className="space-y-6">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              </TabsList>
+              
+              {/* Login Tab */}
+              <TabsContent value="login" className="space-y-6">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
 
-              {/* Name Field */}
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={registerForm.name}
-                  onChange={(e) => setRegisterForm(prev => ({ ...prev, name: e.target.value }))}
-                  required
-                />
-              </div>
-
-              {/* Email Field */}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={registerForm.email}
-                  onChange={(e) => setRegisterForm(prev => ({ ...prev, email: e.target.value }))}
-                  required
-                />
-              </div>
-
-              {/* Password Field */}
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Create a password"
-                  value={registerForm.password}
-                  onChange={(e) => setRegisterForm(prev => ({ ...prev, password: e.target.value }))}
-                  required
-                />
-              </div>
-
-              {/* Confirm Password Field */}
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={registerForm.confirmPassword}
-                  onChange={(e) => setRegisterForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                  required
-                />
-              </div>
-
-              {/* Role Selection */}
-              <div className="space-y-4">
-                <Label className="text-base font-medium">I am a...</Label>
-                
-                {/* Primary Roles */}
-                <div className="grid grid-cols-2 gap-3">
-                  {primaryRoles.map((role) => {
-                    const Icon = role.icon;
-                    return (
-                      <Button
-                        key={role.value}
-                        type="button"
-                        variant={registerForm.role === role.value ? 'default' : 'outline'}
-                        onClick={() => setRegisterForm(prev => ({ ...prev, role: role.value }))}
-                        className="h-auto p-4 flex flex-col items-center space-y-2"
-                      >
-                        <Icon className="w-5 h-5" />
-                        <span className="font-medium">{role.label}</span>
-                        {role.badge && (
-                          <Badge variant="secondary" className="text-xs">
-                            {role.badge}
-                          </Badge>
-                        )}
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                {/* Other Roles */}
-                <div className="grid grid-cols-2 gap-3">
-                  {otherRoles.map((role) => {
-                    const Icon = role.icon;
-                    return (
-                      <Button
-                        key={role.value}
-                        type="button"
-                        variant={registerForm.role === role.value ? 'default' : 'outline'}
-                        onClick={() => setRegisterForm(prev => ({ ...prev, role: role.value }))}
-                        className="h-auto p-4 flex flex-col items-center space-y-2"
-                      >
-                        <Icon className="w-5 h-5" />
-                        <span className="font-medium">{role.label}</span>
-                        {role.badge && (
-                          <Badge variant="secondary" className="text-xs">
-                            {role.badge}
-                          </Badge>
-                        )}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Salon Type (only for owners) */}
-              {registerForm.role === 'OWNER' && (
-                <div className="space-y-4">
-                  <Label className="text-base font-medium">Salon Type</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      type="button"
-                      variant={registerForm.salonType === 'HAIR SALON' ? 'default' : 'outline'}
-                      onClick={() => setRegisterForm(prev => ({ ...prev, salonType: 'HAIR SALON' }))}
-                      className="h-auto p-4 flex flex-col items-center space-y-2"
-                    >
-                      <Scissors className="w-5 h-5" />
-                      <span className="font-medium">Hair Salon</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={registerForm.salonType === 'NAIL SALON' ? 'default' : 'outline'}
-                      onClick={() => setRegisterForm(prev => ({ ...prev, salonType: 'NAIL SALON' }))}
-                      className="h-auto p-4 flex flex-col items-center space-y-2"
-                    >
-                      <Shield className="w-5 h-5" />
-                      <span className="font-medium">Nail Salon</span>
-                    </Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={loginForm.email}
+                      onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))}
+                      required
+                    />
                   </div>
-                </div>
-              )}
 
-              {/* Submit Button */}
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading}
-                size="lg"
-              >
-                {isLoading ? 'Creating Account...' : 'Create Account'}
-              </Button>
-            </form>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password">Password</Label>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      placeholder="Enter your password"
+                      value={loginForm.password}
+                      onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                    size="lg"
+                  >
+                    {isLoading ? 'Signing In...' : 'Sign In'}
+                  </Button>
+                </form>
+              </TabsContent>
+              
+              {/* Signup Tab */}
+              <TabsContent value="signup" className="space-y-6">
+                <form onSubmit={handleRegister} className="space-y-4">
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={registerForm.name}
+                      onChange={(e) => setRegisterForm(prev => ({ ...prev, name: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={registerForm.email}
+                      onChange={(e) => setRegisterForm(prev => ({ ...prev, email: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Create a password"
+                      value={registerForm.password}
+                      onChange={(e) => setRegisterForm(prev => ({ ...prev, password: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="Confirm your password"
+                      value={registerForm.confirmPassword}
+                      onChange={(e) => setRegisterForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label className="text-base font-medium">I am a...</Label>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {primaryRoles.map((role) => {
+                        const Icon = role.icon;
+                        return (
+                          <Button
+                            key={role.value}
+                            type="button"
+                            variant={registerForm.role === role.value ? 'default' : 'outline'}
+                            onClick={() => setRegisterForm(prev => ({ ...prev, role: role.value }))}
+                            className="h-auto p-4 flex flex-col items-center space-y-2"
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span className="font-medium">{role.label}</span>
+                            {role.badge && (
+                              <Badge variant="secondary" className="text-xs">
+                                {role.badge}
+                              </Badge>
+                            )}
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {otherRoles.map((role) => {
+                        const Icon = role.icon;
+                        return (
+                          <Button
+                            key={role.value}
+                            type="button"
+                            variant={registerForm.role === role.value ? 'default' : 'outline'}
+                            onClick={() => setRegisterForm(prev => ({ ...prev, role: role.value }))}
+                            className="h-auto p-4 flex flex-col items-center space-y-2"
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span className="font-medium">{role.label}</span>
+                            {role.badge && (
+                              <Badge variant="secondary" className="text-xs">
+                                {role.badge}
+                              </Badge>
+                            )}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                    size="lg"
+                  >
+                    {isLoading ? 'Creating Account...' : 'Create Account'}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
 
             {/* Back to Landing */}
             <div className="mt-6 text-center">

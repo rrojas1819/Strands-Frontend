@@ -34,12 +34,12 @@ export default function App() {
     initializeAuth();
   }, []);
 
-  // UAR 1.1: Only signup functionality
+  // UAR 1.1: Signup functionality - Updated to auto-login after signup
   const register = async (userData) => {
     try {
       console.log('Sending signup request to backend:', userData);
       
-      const response = await fetch('http://localhost:3001/api/user/signup', {
+      const signupResponse = await fetch('http://localhost:3001/api/user/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,11 +52,84 @@ export default function App() {
         }),
       });
 
+      console.log('Signup response status:', signupResponse.status);
+      const signupData = await signupResponse.json();
+      console.log('Signup response data:', signupData);
+
+      if (signupResponse.ok && signupData.message === "User signed up successfully") {
+        // After successful signup, automatically log in the user
+        console.log('Signup successful, now logging in user...');
+        
+        const loginResponse = await fetch('http://localhost:3001/api/user/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: userData.email,
+            password: userData.password
+          }),
+        });
+
+        console.log('Auto-login response status:', loginResponse.status);
+        const loginData = await loginResponse.json();
+        console.log('Auto-login response data:', loginData);
+
+        if (loginResponse.ok && loginData.message === "Login successful") {
+          const userInfo = {
+            user_id: loginData.data.user_id,
+            full_name: loginData.data.full_name,
+            role: loginData.data.role
+          };
+          
+          // Store token in both localStorage and cookie
+          localStorage.setItem('auth_token', loginData.data.token);
+          localStorage.setItem('user_data', JSON.stringify(userInfo));
+          
+          // Set HTTP-only cookie for token (more secure)
+          document.cookie = `auth_token=${loginData.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
+          
+          setUser(userInfo);
+          
+          // Redirect to dashboard after successful registration and login
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 100);
+          
+          return { success: true, user: userInfo };
+        } else {
+          // Signup succeeded but auto-login failed
+          return { success: false, error: 'Account created but login failed. Please try logging in manually.' };
+        }
+      }
+      return { success: false, error: signupData.message || 'Registration failed' };
+    } catch (error) {
+      console.error('Signup error:', error);
+      return { success: false, error: 'Registration failed. Please try again.' };
+    }
+  };
+
+  // UAR 1.2: Login functionality
+  const login = async (userData) => {
+    try {
+      console.log('Sending login request to backend:', userData);
+      
+      const response = await fetch('http://localhost:3001/api/user/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userData.email,
+          password: userData.password
+        }),
+      });
+
       console.log('Backend response status:', response.status);
       const data = await response.json();
       console.log('Backend response data:', data);
 
-      if (response.ok && data.message === "User signed up successfully") {
+      if (response.ok && data.message === "Login successful") {
         const userData = {
           user_id: data.data.user_id,
           full_name: data.data.full_name,
@@ -72,23 +145,43 @@ export default function App() {
         
         setUser(userData);
         
-        // Redirect to dashboard after successful registration
+        // Redirect to dashboard after successful login
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 100);
         
         return { success: true, user: userData };
       }
-      return { success: false, error: data.message || 'Registration failed' };
+      return { success: false, error: data.message || 'Login failed' };
     } catch (error) {
-      console.error('Signup error:', error);
-      return { success: false, error: 'Registration failed. Please try again.' };
+      console.error('Login error:', error);
+      return { success: false, error: 'Login failed. Please try again.' };
     }
   };
 
   const logout = async () => {
     try {
-      // Clear localStorage immediately
+      // Get the current token for the logout API call
+      const token = localStorage.getItem('auth_token');
+      
+      if (token) {
+        console.log('Calling backend logout endpoint...');
+        
+        // Call backend logout endpoint
+        const response = await fetch('http://localhost:3001/api/user/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+        });
+
+        console.log('Logout response status:', response.status);
+        const data = await response.json();
+        console.log('Logout response data:', data);
+      }
+      
+      // Clear localStorage
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
       
@@ -113,7 +206,8 @@ export default function App() {
 
   const authValue = {
     user,
-    register, // Only register for UAR 1.1
+    register, // UAR 1.1: Signup functionality
+    login,    // UAR 1.2: Login functionality
     logout,
     loading,
   };
@@ -166,6 +260,10 @@ export default function App() {
             />
             <Route 
               path="/signup" 
+              element={!user ? <AuthPage /> : <Navigate to="/dashboard" replace />} 
+            />
+            <Route 
+              path="/login" 
               element={!user ? <AuthPage /> : <Navigate to="/dashboard" replace />} 
             />
             <Route 
