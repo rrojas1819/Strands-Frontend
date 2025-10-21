@@ -1,35 +1,186 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 
-function App() {
-  const [count, setCount] = useState(0)
+// Components
+import LandingPage from './pages/LandingPage';
+import AuthPage from './pages/AuthPage';
+
+// Context
+import { AuthContext } from './context/AuthContext';
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Initialize auth state on app load
+  useEffect(() => {
+    const initializeAuth = () => {
+      const savedUser = localStorage.getItem('user_data');
+      const savedToken = localStorage.getItem('auth_token');
+      
+      // Check for cookie as backup
+      const cookieToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+      
+      if (savedUser && (savedToken || cookieToken)) {
+        setUser(JSON.parse(savedUser));
+      }
+      setLoading(false);
+    };
+
+    initializeAuth();
+  }, []);
+
+  // UAR 1.1: Only signup functionality
+  const register = async (userData) => {
+    try {
+      console.log('Sending signup request to backend:', userData);
+      
+      const response = await fetch('http://localhost:3001/api/user/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: userData.name,
+          email: userData.email,
+          password: userData.password,
+          role: userData.role
+        }),
+      });
+
+      console.log('Backend response status:', response.status);
+      const data = await response.json();
+      console.log('Backend response data:', data);
+
+      if (response.ok && data.message === "User signed up successfully") {
+        const userData = {
+          user_id: data.data.user_id,
+          full_name: data.data.full_name,
+          role: data.data.role
+        };
+        
+        // Store token in both localStorage and cookie
+        localStorage.setItem('auth_token', data.data.token);
+        localStorage.setItem('user_data', JSON.stringify(userData));
+        
+        // Set HTTP-only cookie for token (more secure)
+        document.cookie = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
+        
+        setUser(userData);
+        
+        // Redirect to dashboard after successful registration
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 100);
+        
+        return { success: true, user: userData };
+      }
+      return { success: false, error: data.message || 'Registration failed' };
+    } catch (error) {
+      console.error('Signup error:', error);
+      return { success: false, error: 'Registration failed. Please try again.' };
+    }
+  };
+
+  const logout = async () => {
+    try {
+      // Clear localStorage immediately
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+      
+      // Clear cookie
+      document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      
+      // Clear user state
+      setUser(null);
+      
+      // Redirect to landing page
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if API fails, still clear local state
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+      document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      setUser(null);
+      window.location.href = '/';
+    }
+  };
+
+  const authValue = {
+    user,
+    register, // Only register for UAR 1.1
+    logout,
+    loading,
+  };
+
+  // Simple dashboard placeholder for UAR 1.1
+  const getDashboardComponent = () => {
+    if (loading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        </div>
+      );
+    }
+    
+    if (!user) return <Navigate to="/" replace />;
+    
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Welcome, {user.full_name}!</h1>
+          <p className="text-gray-600 mb-4">You have successfully signed up!</p>
+          <p className="text-gray-600 mb-4">Role: {user.role}</p>
+          <button 
+            onClick={logout}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <AuthContext.Provider value={authValue}>
+      <Router>
+        <div className="min-h-screen bg-background">
+          <Routes>
+            <Route 
+              path="/" 
+              element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} 
+            />
+            <Route 
+              path="/signup" 
+              element={!user ? <AuthPage /> : <Navigate to="/dashboard" replace />} 
+            />
+            <Route 
+              path="/auth" 
+              element={!user ? <AuthPage /> : <Navigate to="/dashboard" replace />} 
+            />
+            <Route 
+              path="/dashboard" 
+              element={getDashboardComponent()} 
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <Toaster position="top-right" />
+        </div>
+      </Router>
+    </AuthContext.Provider>
+  );
 }
-
-export default App
