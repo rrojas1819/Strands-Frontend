@@ -39,7 +39,7 @@ export default function App() {
     try {
       console.log('Sending signup request to backend:', userData);
       
-      const signupResponse = await fetch('http://localhost:3001/api/user/signup', {
+      const signupResponse = await fetch(`${import.meta.env.VITE_API_URL}/user/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ export default function App() {
         // After successful signup, automatically log in the user
         console.log('Signup successful, now logging in user...');
         
-        const loginResponse = await fetch('http://localhost:3001/api/user/login', {
+        const loginResponse = await fetch(`${import.meta.env.VITE_API_URL}/user/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -114,7 +114,7 @@ export default function App() {
     try {
       console.log('Sending login request to backend:', userData);
       
-      const response = await fetch('http://localhost:3001/api/user/login', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/user/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -168,7 +168,7 @@ export default function App() {
         console.log('Calling backend logout endpoint...');
         
         // Call backend logout endpoint
-        const response = await fetch('http://localhost:3001/api/user/logout', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/user/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
