@@ -19,10 +19,10 @@ export default function LandingPage() {
             <img src={strandsLogo} alt="Strands" className="w-12 h-12" />
           </div>
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate('/auth')}>
+            <Button variant="ghost" onClick={() => navigate('/login')}>
               Sign In
             </Button>
-            <Button onClick={() => navigate('/auth')}>
+            <Button onClick={() => navigate('/signup')}>
               Get Started
             </Button>
           </div>
@@ -43,7 +43,7 @@ export default function LandingPage() {
             payments, staff, and grow your business with powerful analytics.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" onClick={() => navigate('/auth')}>
+            <Button size="lg" onClick={() => navigate('/signup')}>
               Start Free Trial
             </Button>
             <Button size="lg" variant="outline">
