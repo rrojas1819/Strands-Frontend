@@ -93,34 +93,25 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      {/* Navigation Bar */}
-      <nav className="bg-muted/50 border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
-              Demographics
-            </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              User Engagement
-            </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              Appointment Trends
-            </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              Salon Revenues
-            </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              Loyalty Program
-            </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              Retention Metrics
-            </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              Reports
-            </button>
-          </div>
-        </div>
-      </nav>
+            {/* Navigation Bar - Analytics Sections */}
+            <nav className="bg-muted/50 border-b">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex space-x-8">
+                  <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
+                    Demographics
+                  </button>
+                  <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                    User Analytics
+                  </button>
+                  <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                    Business Metrics
+                  </button>
+                  <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                    Revenue Analytics
+                  </button>
+                </div>
+                  </div>
+            </nav>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -137,8 +128,8 @@ export default function AdminDashboard() {
           </h2>
           <p className="text-muted-foreground">
             Monitor platform performance and user engagement with real-time analytics.
-          </p>
-            </div>
+                    </p>
+                  </div>
 
         {/* Analytics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -156,24 +147,6 @@ export default function AdminDashboard() {
               <CardContent>
               {demographics ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {Object.entries(demographics).map(([role, count]) => (
-                      <div key={role} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-3 h-3 rounded-full ${
-                            role === 'CUSTOMER' ? 'bg-blue-500' :
-                            role === 'OWNER' ? 'bg-green-500' :
-                            role === 'EMPLOYEE' ? 'bg-purple-500' :
-                            'bg-red-500'
-                          }`}></div>
-                          <span className="font-medium capitalize">{role.toLowerCase()}</span>
-                        </div>
-                        <Badge variant="secondary" className="text-lg font-bold">
-                          {count}
-                            </Badge>
-                    </div>
-                  ))}
-                </div>
                   
                   {/* Pie Chart Visualization */}
                   <div className="mt-6">
@@ -250,7 +223,7 @@ export default function AdminDashboard() {
                               style={{ backgroundColor: color }}
                             ></div>
                             <span className="capitalize">{role.toLowerCase()}</span>
-                            <span className="text-muted-foreground">({percentage}%)</span>
+                            <span className="text-muted-foreground">— {count} users ({percentage}%)</span>
                           </div>
                         );
                       })}
@@ -307,9 +280,6 @@ export default function AdminDashboard() {
         <div className="mt-8 flex space-x-4">
           <Button onClick={fetchDemographics} variant="outline">
             Refresh Data
-                  </Button>
-          <Button variant="outline">
-            Export Report
                   </Button>
                 </div>
       </main>
