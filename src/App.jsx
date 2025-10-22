@@ -6,6 +6,7 @@ import { Toaster } from 'sonner';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
+import SalonOwnerDashboard from './pages/SalonOwnerDashboard';
 
 // Context
 import { AuthContext } from './context/AuthContext';
@@ -230,8 +231,12 @@ export default function App() {
       return <AdminDashboard />;
     }
     
-    // Default dashboard for other roles (CUSTOMER, OWNER, EMPLOYEE)
-  return (
+    if (user.role === 'OWNER') {
+      return <SalonOwnerDashboard />;
+    }
+    
+    // Default dashboard for other roles (CUSTOMER, EMPLOYEE)
+    return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Welcome, {user.full_name}!</h1>
