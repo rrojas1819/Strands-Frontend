@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -74,7 +75,11 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <BarChart3 className="w-8 h-8 text-primary" />
+              <img 
+                src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
+                alt="Strands Logo" 
+                className="w-8 h-8"
+              />
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
                 <p className="text-sm text-muted-foreground">Platform Analytics & Insights</p>
@@ -93,10 +98,16 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-            {/* Navigation Bar - Analytics Sections */}
+            {/* Navigation Bar - Admin Features */}
             <nav className="bg-muted/50 border-b">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex space-x-8">
+                  <Link 
+                    to="/admin/salon-verification"
+                    className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                  >
+                    Salon Verification
+                  </Link>
                   <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
                     Demographics
                   </button>
@@ -124,7 +135,7 @@ export default function AdminDashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back, {authContext.user?.full_name}!
+            Platform Analytics
           </h2>
           <p className="text-muted-foreground">
             Monitor platform performance and user engagement with real-time analytics.
