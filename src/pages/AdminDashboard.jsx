@@ -98,31 +98,28 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-            {/* Navigation Bar - Admin Features */}
-            <nav className="bg-muted/50 border-b">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex space-x-8">
-                  <Link 
-                    to="/admin/salon-verification"
-                    className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
-                  >
-                    Salon Verification
-                  </Link>
-                  <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
-                    Demographics
-                  </button>
-                  <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-                    User Analytics
-                  </button>
-                  <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-                    Business Metrics
-                  </button>
-                  <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-                    Revenue Analytics
-                  </button>
-                </div>
-                  </div>
-            </nav>
+          {/* Navigation Bar - Admin Features */}
+          <nav className="bg-muted/50 border-b">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex space-x-8">
+                <Link
+                  to="/admin/salon-verification"
+                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                >
+                  Salon Management
+                </Link>
+                <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
+                  User Analytics
+                </button>
+                <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                  Business Insights
+                </button>
+                <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                  Revenue Tracking
+                </button>
+              </div>
+            </div>
+          </nav>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -135,10 +132,10 @@ export default function AdminDashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            Platform Analytics
+            User Analytics
           </h2>
           <p className="text-muted-foreground">
-            Monitor platform performance and user engagement with real-time analytics.
+            View user demographics and engagement metrics to understand your platform's user base.
                     </p>
                   </div>
 

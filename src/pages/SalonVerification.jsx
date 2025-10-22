@@ -6,6 +6,8 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { CheckCircle, XCircle, Clock, MapPin, Phone, Mail, Building, LogOut } from 'lucide-react';
+import { Notifications } from '../utils/notifications';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function SalonVerification() {
   const { user, logout } = useContext(AuthContext);
@@ -14,6 +16,8 @@ export default function SalonVerification() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalData, setModalData] = useState(null);
 
   useEffect(() => {
     if (!user || user.role !== 'ADMIN') {
@@ -21,141 +25,209 @@ export default function SalonVerification() {
       return;
     }
 
-    // TODO: Replace with actual API call when backend is ready
-    // const fetchSalons = async () => {
-    //   setLoading(true);
-    //   setError('');
-    //   try {
-    //     const token = localStorage.getItem('auth_token');
-    //     const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/salons`, {
-    //       headers: {
-    //         'Authorization': `Bearer ${token}`,
-    //       },
-    //     });
+    // TODO: Replace with actual API call when UAR 1.6 backend is ready
+    // For now, we'll use mock data but integrate the approval endpoint
+    const fetchSalons = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        // This endpoint will be implemented in UAR 1.6
+        // const token = localStorage.getItem('auth_token');
+        // const response = await fetch(`${import.meta.env.VITE_API_URL}/salons`, {
+        //   headers: {
+        //     'Authorization': `Bearer ${token}`,
+        //   },
+        // });
 
-    //     if (!response.ok) {
-    //       const errorData = await response.json();
-    //       throw new Error(errorData.message || 'Failed to fetch salons');
-    //     }
+        // if (!response.ok) {
+        //   const errorData = await response.json();
+        //   throw new Error(errorData.message || 'Failed to fetch salons');
+        // }
 
-    //     const data = await response.json();
-    //     setSalons(data.data);
-    //   } catch (err) {
-    //     console.error('Error fetching salons:', err);
-    //     setError(err.message || 'Failed to load salon registrations.');
-    //   } finally {
-    //     setLoading(false);
-    //   }
-    // };
+        // const data = await response.json();
+        // setSalons(data.data);
 
-    // fetchSalons();
+        // Mock data for now - will be replaced in UAR 1.6
+        const mockSalons = [
+          {
+            salon_id: 1,
+            name: "Bella's Beauty Studio",
+            owner: "Bella Johnson",
+            email: "bella@bellasbeauty.com",
+            phone: "(555) 123-4567",
+            address: "123 Main St, New York, NY 10001",
+            category: "HAIR SALON",
+            status: "PENDING",
+            created_at: "2024-01-15T10:30:00Z",
+            description: "Full-service hair salon specializing in cuts, coloring, and styling."
+          },
+          {
+            salon_id: 2,
+            name: "Nail Art Paradise",
+            owner: "Maria Rodriguez",
+            email: "maria@nailartparadise.com",
+            phone: "(555) 234-5678",
+            address: "456 Oak Ave, Los Angeles, CA 90210",
+            category: "NAIL SALON",
+            status: "APPROVED",
+            created_at: "2024-01-10T14:20:00Z",
+            description: "Premium nail services with artistic designs and luxury treatments."
+          },
+          {
+            salon_id: 3,
+            name: "Zen Spa & Wellness",
+            owner: "David Chen",
+            email: "david@zenspa.com",
+            phone: "(555) 345-6789",
+            address: "789 Pine St, Miami, FL 33101",
+            category: "SPA & WELLNESS",
+            status: "REJECTED",
+            created_at: "2024-01-08T09:15:00Z",
+            description: "Holistic wellness center offering massage, facials, and relaxation therapies."
+          },
+          {
+            salon_id: 4,
+            name: "Elite Barbershop",
+            owner: "James Wilson",
+            email: "james@elitebarbers.com",
+            phone: "(555) 456-7890",
+            address: "321 Broadway, Chicago, IL 60601",
+            category: "BARBERSHOP",
+            status: "PENDING",
+            created_at: "2024-01-12T16:45:00Z",
+            description: "Traditional barbershop with modern amenities and classic cuts."
+          },
+          {
+            salon_id: 5,
+            name: "Luxury Lash Studio",
+            owner: "Sarah Kim",
+            email: "sarah@luxurylash.com",
+            phone: "(555) 567-8901",
+            address: "654 Sunset Blvd, Las Vegas, NV 89101",
+            category: "EYELASH STUDIO",
+            status: "PENDING",
+            created_at: "2024-01-14T11:20:00Z",
+            description: "Specialized eyelash extensions and lash lift services."
+          },
+          {
+            salon_id: 6,
+            name: "Full Service Beauty",
+            owner: "Lisa Martinez",
+            email: "lisa@fullservicebeauty.com",
+            phone: "(555) 678-9012",
+            address: "987 Park Ave, Boston, MA 02101",
+            category: "FULL SERVICE BEAUTY",
+            status: "APPROVED",
+            created_at: "2024-01-05T09:30:00Z",
+            description: "Complete beauty services including hair, nails, and skincare."
+          }
+        ];
 
-    // Mock data for now
-    const mockSalons = [
-      {
-        id: 1,
-        name: "Bella's Beauty Studio",
-        owner: "Bella Johnson",
-        email: "bella@bellasbeauty.com",
-        phone: "(555) 123-4567",
-        address: "123 Main St, New York, NY 10001",
-        category: "HAIR SALON",
-        status: "PENDING",
-        created_at: "2024-01-15T10:30:00Z",
-        description: "Full-service hair salon specializing in cuts, coloring, and styling."
-      },
-      {
-        id: 2,
-        name: "Nail Art Paradise",
-        owner: "Maria Rodriguez",
-        email: "maria@nailartparadise.com",
-        phone: "(555) 234-5678",
-        address: "456 Oak Ave, Los Angeles, CA 90210",
-        category: "NAIL SALON",
-        status: "APPROVED",
-        created_at: "2024-01-10T14:20:00Z",
-        description: "Premium nail services with artistic designs and luxury treatments."
-      },
-      {
-        id: 3,
-        name: "Zen Spa & Wellness",
-        owner: "David Chen",
-        email: "david@zenspa.com",
-        phone: "(555) 345-6789",
-        address: "789 Pine St, Miami, FL 33101",
-        category: "SPA & WELLNESS",
-        status: "REJECTED",
-        created_at: "2024-01-08T09:15:00Z",
-        description: "Holistic wellness center offering massage, facials, and relaxation therapies."
-      },
-      {
-        id: 4,
-        name: "Elite Barbershop",
-        owner: "James Wilson",
-        email: "james@elitebarbers.com",
-        phone: "(555) 456-7890",
-        address: "321 Broadway, Chicago, IL 60601",
-        category: "BARBERSHOP",
-        status: "PENDING",
-        created_at: "2024-01-12T16:45:00Z",
-        description: "Traditional barbershop with modern amenities and classic cuts."
-      },
-      {
-        id: 5,
-        name: "Luxury Lash Studio",
-        owner: "Sarah Kim",
-        email: "sarah@luxurylash.com",
-        phone: "(555) 567-8901",
-        address: "654 Sunset Blvd, Las Vegas, NV 89101",
-        category: "EYELASH STUDIO",
-        status: "PENDING",
-        created_at: "2024-01-14T11:20:00Z",
-        description: "Specialized eyelash extensions and lash lift services."
-      },
-      {
-        id: 6,
-        name: "Full Service Beauty",
-        owner: "Lisa Martinez",
-        email: "lisa@fullservicebeauty.com",
-        phone: "(555) 678-9012",
-        address: "987 Park Ave, Boston, MA 02101",
-        category: "FULL SERVICE BEAUTY",
-        status: "APPROVED",
-        created_at: "2024-01-05T09:30:00Z",
-        description: "Complete beauty services including hair, nails, and skincare."
+        setSalons(mockSalons);
+      } catch (err) {
+        console.error('Error fetching salons:', err);
+        setError(err.message || 'Failed to load salon registrations.');
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
 
-    // Simulate quick loading for better UX
-    setTimeout(() => {
-      setSalons(mockSalons);
-      setLoading(false);
-    }, 300);
+    fetchSalons();
   }, [user, navigate]);
 
-  const handleApprove = async (salonId) => {
-    // TODO: Implement approve functionality when backend is ready
-    console.log('Approving salon:', salonId);
-    // Update local state for now
-    setSalons(prev => prev.map(salon => 
-      salon.id === salonId ? { ...salon, status: 'APPROVED' } : salon
-    ));
-    // Show success feedback
-    alert(`Salon ${salonId} has been approved!`);
+  const handleApprove = (salonId) => {
+    const salon = salons.find(s => s.salon_id === salonId);
+    const salonName = salon ? salon.name : 'Salon';
+    
+    setModalData({
+      salonId,
+      salonName,
+      action: 'approve',
+      title: 'Approve Salon',
+      message: `Are you sure you want to approve "${salonName}"?\n\nThis salon will be approved and become visible to customers on the platform.`,
+      confirmText: 'Approve',
+      cancelText: 'Cancel',
+      type: 'success'
+    });
+    setModalOpen(true);
   };
 
-  const handleReject = async (salonId) => {
-    // TODO: Implement reject functionality when backend is ready
-    console.log('Rejecting salon:', salonId);
-    // Update local state for now
-    setSalons(prev => prev.map(salon => 
-      salon.id === salonId ? { ...salon, status: 'REJECTED' } : salon
-    ));
-    // Show success feedback
-    alert(`Salon ${salonId} has been rejected!`);
+  const handleReject = (salonId) => {
+    const salon = salons.find(s => s.salon_id === salonId);
+    const salonName = salon ? salon.name : 'Salon';
+    
+    setModalData({
+      salonId,
+      salonName,
+      action: 'reject',
+      title: 'Reject Salon',
+      message: `Are you sure you want to reject "${salonName}"?\n\nThis salon registration will be rejected and will not be approved for the platform.`,
+      confirmText: 'Reject',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    setModalOpen(true);
+  };
+
+  const handleModalConfirm = async () => {
+    if (!modalData) return;
+    
+    const { salonId, salonName, action } = modalData;
+    
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/approve`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          salon_id: salonId,
+          status: action === 'approve' ? 'APPROVED' : 'REJECTED'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to ${action} salon`);
+      }
+
+      const result = await response.json();
+      console.log('Backend response:', result);
+      
+      // Update local state
+      setSalons(prev => prev.map(salon => 
+        salon.salon_id === salonId ? { ...salon, status: action === 'approve' ? 'APPROVED' : 'REJECTED' } : salon
+      ));
+      
+      // Show appropriate notification
+      if (action === 'approve') {
+        Notifications.salonApproved(salonName);
+      } else {
+        Notifications.salonRejected(salonName);
+      }
+      
+    } catch (error) {
+      console.error(`Error ${action}ing salon:`, error);
+      Notifications.notifyError(
+        `Failed to ${action} salon`,
+        error.message || `Unable to ${action} salon. Please try again.`
+      );
+    }
+    
+    // Close modal
+    setModalOpen(false);
+    setModalData(null);
+  };
+
+  const handleModalClose = () => {
+    setModalOpen(false);
+    setModalData(null);
   };
 
   const handleLogout = () => {
+    Notifications.logoutSuccess();
     logout();
   };
 
@@ -223,31 +295,28 @@ export default function SalonVerification() {
         </div>
       </header>
 
-      {/* Navigation Bar - Updated for UAR 1.5 */}
-      <nav className="bg-muted/50 border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
-              Salon Verification
-            </button>
-            <Link 
-              to="/dashboard"
-              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
-            >
-              Demographics
-            </Link>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              User Analytics
-            </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              Business Metrics
-            </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              Revenue Analytics
-            </button>
-          </div>
-        </div>
-      </nav>
+          {/* Navigation Bar - Updated for UAR 1.5 */}
+          <nav className="bg-muted/50 border-b">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex space-x-8">
+                <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
+                  Salon Management
+                </button>
+                <Link
+                  to="/dashboard"
+                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                >
+                  User Analytics
+                </Link>
+                <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                  Business Insights
+                </button>
+                <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                  Revenue Tracking
+                </button>
+              </div>
+            </div>
+          </nav>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -259,7 +328,7 @@ export default function SalonVerification() {
 
         {/* Welcome Section */}
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">Salon Verification</h2>
+          <h2 className="text-3xl font-bold text-foreground mb-2">Salon Management</h2>
           <p className="text-muted-foreground">Review and verify salon registrations to ensure only legitimate businesses are listed on the platform.</p>
         </div>
 
@@ -291,10 +360,10 @@ export default function SalonVerification() {
           </Button>
         </div>
 
-        {/* Salon Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredSalons.map((salon) => (
-            <Card key={salon.id} className="hover:shadow-lg transition-shadow">
+            {/* Salon Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredSalons.map((salon) => (
+                <Card key={salon.salon_id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
@@ -334,14 +403,14 @@ export default function SalonVerification() {
                 {salon.status === 'PENDING' && (
                   <div className="flex space-x-2 pt-4">
                     <Button 
-                      onClick={() => handleApprove(salon.id)}
+                      onClick={() => handleApprove(salon.salon_id)}
                       className="flex-1 bg-green-600 hover:bg-green-700"
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Approve
                     </Button>
                     <Button 
-                      onClick={() => handleReject(salon.id)}
+                      onClick={() => handleReject(salon.salon_id)}
                       variant="destructive"
                       className="flex-1"
                     >
@@ -362,6 +431,18 @@ export default function SalonVerification() {
           </div>
         )}
       </main>
+
+      {/* Beautiful Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={modalOpen}
+        onClose={handleModalClose}
+        onConfirm={handleModalConfirm}
+        title={modalData?.title}
+        message={modalData?.message}
+        confirmText={modalData?.confirmText}
+        cancelText={modalData?.cancelText}
+        type={modalData?.type}
+      />
     </div>
   );
 }
