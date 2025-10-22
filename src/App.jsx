@@ -7,6 +7,7 @@ import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
 import SalonVerification from './pages/SalonVerification';
+import HairstylistDashboard from './pages/HairstylistDashboard';
 
 // Context
 import { AuthContext } from './context/AuthContext';
@@ -231,7 +232,12 @@ export default function App() {
       return <AdminDashboard />;
     }
     
-    // Default dashboard for other roles (CUSTOMER, OWNER, EMPLOYEE)
+    // UAR-1.8: Route EMPLOYEE role to HairstylistDashboard
+    if (user.role === 'EMPLOYEE') {
+      return <HairstylistDashboard />;
+    }
+    
+    // Default dashboard for other roles (CUSTOMER, OWNER)
   return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
