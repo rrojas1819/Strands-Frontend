@@ -279,7 +279,7 @@ export default function SalonVerification() {
               />
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-                <p className="text-sm text-muted-foreground">Review and approve salon registrations</p>
+                <p className="text-sm text-muted-foreground">Review And Approve Salon Registrations</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
