@@ -6,6 +6,7 @@ import { Toaster } from 'sonner';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
+import SalonVerification from './pages/SalonVerification';
 import HairstylistDashboard from './pages/HairstylistDashboard';
 
 // Context
@@ -286,6 +287,10 @@ export default function App() {
             <Route 
               path="/dashboard" 
               element={getDashboardComponent()} 
+            />
+            <Route 
+              path="/admin/salon-verification" 
+              element={user && user.role === 'ADMIN' ? <SalonVerification /> : <Navigate to="/" replace />} 
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
