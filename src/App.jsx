@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 // Components
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
+import AdminDashboard from './pages/AdminDashboard';
 
 // Context
 import { AuthContext } from './context/AuthContext';
@@ -212,7 +213,7 @@ export default function App() {
     loading,
   };
 
-  // Simple dashboard placeholder for UAR 1.1
+  // Role-based dashboard routing
   const getDashboardComponent = () => {
     if (loading) {
       return (
@@ -224,7 +225,13 @@ export default function App() {
     
     if (!user) return <Navigate to="/" replace />;
     
-    return (
+    // Role-based dashboard routing
+    if (user.role === 'ADMIN') {
+      return <AdminDashboard />;
+    }
+    
+    // Default dashboard for other roles (CUSTOMER, OWNER, EMPLOYEE)
+  return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Welcome, {user.full_name}!</h1>
