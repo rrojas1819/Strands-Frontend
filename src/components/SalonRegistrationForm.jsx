@@ -25,7 +25,7 @@ export default function SalonRegistrationForm() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState(authContext?.user?.email ?? '');
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
 
@@ -41,14 +41,10 @@ export default function SalonRegistrationForm() {
   });
 
   useEffect(() => {
-    const email = localStorage.getItem('user_email');
-    console.log('Retrieved email from localStorage:', email);
-    if (email) {
-      setOwnerEmail(email);
-    } else {
-      console.log('No email found in localStorage');
+    if (authContext?.user?.email) {
+      setOwnerEmail(authContext.user.email);
     }
-  }, []);
+  }, [authContext?.user?.email]);
 
   const handleInputChange = (field, value) => {
     console.log('Form input change:', field, value);

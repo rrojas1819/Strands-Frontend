@@ -81,13 +81,13 @@ export default function App() {
           const userInfo = {
             user_id: loginData.data.user_id,
             full_name: loginData.data.full_name,
-            role: loginData.data.role
+            role: loginData.data.role,
+            email: userData.email
           };
           
           // Store token in both localStorage and cookie
           localStorage.setItem('auth_token', loginData.data.token);
           localStorage.setItem('user_data', JSON.stringify(userInfo));
-          localStorage.setItem('user_email', userData.email);
           
           // Set HTTP-only cookie for token (more secure)
           document.cookie = `auth_token=${loginData.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
@@ -136,13 +136,13 @@ export default function App() {
         const userInfo = {
           user_id: data.data.user_id,
           full_name: data.data.full_name,
-          role: data.data.role
+          role: data.data.role,
+          email: userData.email
         };
         
         // Store token in both localStorage and cookie
         localStorage.setItem('auth_token', data.data.token);
         localStorage.setItem('user_data', JSON.stringify(userInfo));
-        localStorage.setItem('user_email', userData.email);
         
         // Set HTTP-only cookie for token (more secure)
         document.cookie = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
@@ -154,7 +154,7 @@ export default function App() {
           window.location.href = '/dashboard';
         }, 100);
         
-        return { success: true, user: userData };
+        return { success: true, user: userInfo };
       }
       return { success: false, error: data.message || 'Login failed' };
     } catch (error) {
@@ -188,7 +188,6 @@ export default function App() {
       // Clear localStorage
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
-      localStorage.removeItem('user_email');
       
       // Clear cookie
       document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -203,7 +202,6 @@ export default function App() {
       // Even if API fails, still clear local state
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
-      localStorage.removeItem('user_email');
       document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       setUser(null);
       window.location.href = '/';

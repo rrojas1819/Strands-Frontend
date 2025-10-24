@@ -206,7 +206,7 @@ export default function SalonOwnerDashboard() {
               <p className="text-muted-foreground mb-6">
                 {salonStatus === 'APPROVED' ? 'Your salon is live and accepting bookings! You can now manage your business through the dashboard.' :
                  salonStatus === 'PENDING' ? 'Your salon registration is under review. Please wait for approval before you can start accepting bookings.' :
-                 'Your salon registration was rejected. Please contact support for more information or submit a new registration.'}
+                 'Your salon registration was rejected. Please contact support for further inquiries.'}
               </p>
             </div>
           </div>
