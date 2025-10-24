@@ -1,21 +1,24 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext, RewardsContext } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { MapPin, Phone, Mail, Star, Clock, LogOut, Search, Filter } from 'lucide-react';
+import { MapPin, Phone, Mail, Star, Clock, LogOut, Search, Filter, ChevronDown, Check } from 'lucide-react';
 import { Notifications } from '../utils/notifications';
 
 export default function SalonBrowser() {
   const { user, logout } = useContext(AuthContext);
+  const { rewardsCount } = useContext(RewardsContext);
   const navigate = useNavigate();
   const [salons, setSalons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Salon categories
   const categories = [
@@ -27,6 +30,30 @@ export default function SalonBrowser() {
     { value: 'EYELASH STUDIO', label: 'Eyelash Studio' },
     { value: 'FULL SERVICE BEAUTY', label: 'Full Service Beauty' }
   ];
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
+  }, []);
+
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isDropdownOpen && !event.target.closest('.relative')) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   useEffect(() => {
     if (!user) {
@@ -94,6 +121,23 @@ export default function SalonBrowser() {
     );
   };
 
+  // Function to check if salon is currently open
+  const isSalonOpen = () => {
+    const now = currentTime;
+    const day = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const currentTimeMinutes = hour * 60 + minute;
+
+    // Salon hours: Mon-Fri 9AM-7PM, Sat 9AM-5PM, Sun Closed
+    if (day === 0) return false; // Sunday - Closed
+    if (day === 6) { // Saturday
+      return currentTimeMinutes >= 9 * 60 && currentTimeMinutes < 17 * 60; // 9AM-5PM
+    }
+    // Monday-Friday
+    return currentTimeMinutes >= 9 * 60 && currentTimeMinutes < 19 * 60; // 9AM-7PM
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
@@ -120,6 +164,13 @@ export default function SalonBrowser() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <Link
+                to="/loyalty-points"
+                className="flex items-center space-x-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors"
+              >
+                <Star className="w-4 h-4 text-yellow-600" />
+                <span className="text-sm font-medium text-yellow-800">{rewardsCount} rewards ready</span>
+              </Link>
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 {user?.role || 'User'}
               </Badge>
@@ -147,9 +198,12 @@ export default function SalonBrowser() {
             </button>
             
             {/* Loyalty & Rewards */}
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
-              Loyalty Points
-            </button>
+            <Link
+              to="/loyalty-points"
+              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+            >
+              Loyalty Program
+            </Link>
             
             {/* Profile & History */}
             <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
@@ -191,17 +245,37 @@ export default function SalonBrowser() {
             </div>
             <div className="flex items-center space-x-2">
               <Filter className="w-4 h-4 text-muted-foreground" />
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {categories.map((category) => (
-                  <option key={category.value} value={category.value}>
-                    {category.label}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center justify-between px-3 py-2 border border-input rounded-md bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring min-w-[180px]"
+                >
+                  <span>{categories.find(cat => cat.value === selectedCategory)?.label || 'All Categories'}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {isDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-input rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                    {categories.map((category) => (
+                      <button
+                        key={category.value}
+                        onClick={() => {
+                          setSelectedCategory(category.value);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground ${
+                          selectedCategory === category.value ? 'bg-accent text-accent-foreground' : ''
+                        }`}
+                      >
+                        <span>{category.label}</span>
+                        {selectedCategory === category.value && (
+                          <Check className="w-4 h-4 text-primary" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -243,6 +317,14 @@ export default function SalonBrowser() {
                     <Mail className="w-4 h-4 mr-2" />
                     <span>{salon.email}</span>
                   </div>
+                  <div className="flex items-start text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-1">
+                      <div>Mon-Fri: 9:00 AM - 7:00 PM</div>
+                      <div>Saturday: 9:00 AM - 5:00 PM</div>
+                      <div>Sunday: Closed</div>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="pt-2 border-t">
@@ -250,13 +332,21 @@ export default function SalonBrowser() {
                 </div>
 
                 <div className="flex items-center justify-between pt-4">
-                  <div className="flex items-center text-sm text-muted-foreground">
+                  <div className={`flex items-center text-sm ${isSalonOpen() ? 'text-green-600' : 'text-red-600'}`}>
                     <Clock className="w-4 h-4 mr-1" />
-                    <span>Open now</span>
+                    <span>{isSalonOpen() ? 'Open now' : 'Closed'}</span>
                   </div>
-                  <Button className="bg-primary hover:bg-primary/90">
-                    Book Now
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => navigate(`/salon/${salon.salon_id}`)}
+                    >
+                      View Details
+                    </Button>
+                    <Button className="bg-primary hover:bg-primary/90">
+                      Book Now
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

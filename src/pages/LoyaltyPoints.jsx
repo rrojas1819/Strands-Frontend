@@ -1,0 +1,463 @@
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext, RewardsContext } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { Star, Gift, Trophy, Clock, LogOut, TrendingUp, Award, Zap } from 'lucide-react';
+import { Notifications } from '../utils/notifications';
+
+export default function LoyaltyPoints() {
+  const { user, logout } = useContext(AuthContext);
+  const { setRewardsCount } = useContext(RewardsContext);
+  const navigate = useNavigate();
+  const [loyaltyData, setLoyaltyData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Loyalty program - visits and rewards per salon
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchLoyaltyData = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const token = localStorage.getItem('auth_token');
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+        
+        // Get all salons first
+        const salonsResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!salonsResponse.ok) {
+          throw new Error('Failed to fetch salons');
+        }
+
+        const salonsData = await salonsResponse.json();
+        const salons = salonsData.data || [];
+        
+        // Check loyalty for each salon
+        const salonProgress = [];
+        let totalRewards = 0;
+        let totalVisits = 0;
+        let goldenSalons = 0;
+        const recentActivity = [];
+        
+        for (const salon of salons) {
+          try {
+            const loyaltyResponse = await fetch(`${apiUrl}/user/loyalty/view?salon_id=${salon.salon_id}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+
+            if (loyaltyResponse.ok) {
+              const loyaltyData = await loyaltyResponse.json();
+              const userData = loyaltyData.userData;
+              
+              
+              if (userData) {
+                const visits = userData.visits_count || 0;
+                const visitsNeeded = userData.target_visits || 5;
+                const availableRewards = userData.available_rewards || 0;
+                const discountPercentage = userData.discount_percentage || 10;
+                const salonName = userData.salon_name || salon.name;
+                
+                // Check if reward earned
+                const hasEarnedReward = visits >= visitsNeeded;
+                const earnedRewards = hasEarnedReward ? Math.floor(visits / visitsNeeded) : 0;
+                totalRewards += earnedRewards;
+                totalVisits += visits;
+                if (visits >= 5) goldenSalons++;
+                
+                salonProgress.push({
+                  salonId: salon.salon_id,
+                  salonName: salonName,
+                  visits: visits,
+                  visitsNeeded: visitsNeeded,
+                  nextReward: `${discountPercentage}% off next visit`,
+                  tier: visits >= 5 ? 'Gold' : 'Bronze',
+                  rewardEarned: hasEarnedReward,
+                  availableRewards: earnedRewards
+                });
+                
+                // Add to activity if visited
+                if (visits > 0) {
+                  recentActivity.push({
+                    id: salon.salon_id,
+                    type: 'visit',
+                    description: `Visit at ${salonName}`,
+                    salon: salonName,
+                    visitNumber: visits,
+                    progress: `${visits}/${visitsNeeded} visits`,
+                    rewardEarned: availableRewards > 0
+                  });
+                }
+              }
+            }
+          } catch (err) {
+            // No loyalty data for this salon
+          }
+        }
+        
+        // Build rewards list
+        const availableRewards = [];
+        salonProgress.forEach(salon => {
+          if (salon.rewardEarned && salon.availableRewards > 0) {
+            for (let i = 0; i < salon.availableRewards; i++) {
+              availableRewards.push({
+                id: `${salon.salonId}-${i}`,
+                name: salon.nextReward,
+                salon: salon.salonName,
+                type: 'discount',
+                description: `Redeem at ${salon.salonName}`,
+                discount: salon.nextReward
+              });
+            }
+          }
+        });
+
+
+        // Update state
+        setLoyaltyData({
+          salonProgress: salonProgress,
+          totalVisits: totalVisits,
+          overallTier: goldenSalons > 0 ? 'Gold' : 'Bronze',
+          recentActivity: recentActivity.slice(0, 5),
+          availableRewards: availableRewards
+        });
+        
+        // Update header count
+        setRewardsCount(totalRewards);
+        
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching loyalty data:', err);
+        setError(err.message || 'Failed to load loyalty points.');
+        setLoading(false);
+      }
+    };
+
+    fetchLoyaltyData();
+  }, [user, navigate]);
+
+  const handleLogout = () => {
+    Notifications.logoutSuccess();
+    logout();
+  };
+
+  const getTierBadge = (tier) => {
+    const tierColors = {
+      'Bronze': 'bg-orange-100 text-orange-800',
+      'Silver': 'bg-gray-100 text-gray-800',
+      'Gold': 'bg-yellow-100 text-yellow-800',
+      'Platinum': 'bg-purple-100 text-purple-800',
+      'Diamond': 'bg-blue-100 text-blue-800'
+    };
+    
+    return (
+      <Badge variant="secondary" className={tierColors[tier] || 'bg-gray-100 text-gray-800'}>
+        <Trophy className="w-3 h-3 mr-1" />
+        {tier}
+      </Badge>
+    );
+  };
+
+  const getActivityIcon = (type) => {
+    return type === 'earned' ? 
+      <TrendingUp className="w-4 h-4 text-green-600" /> : 
+      <Gift className="w-4 h-4 text-red-600" />;
+  };
+
+  const getActivityColor = (type) => {
+    return type === 'earned' ? 'text-green-600' : 'text-red-600';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-muted/30">
+      {/* Header */}
+      <header className="bg-background border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <img 
+                src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
+                alt="Strands Logo" 
+                className="w-8 h-8"
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Loyalty Program</h1>
+                <p className="text-sm text-muted-foreground">Track Your Visits And Rewards</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <Star className="w-4 h-4 text-yellow-600" />
+                <span className="text-sm font-medium text-yellow-800">
+                  {loyaltyData?.salonProgress?.reduce((total, salon) => total + salon.availableRewards, 0) || '0'} rewards ready
+                </span>
+              </div>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                {user?.role || 'User'}
+              </Badge>
+              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Navigation Bar */}
+      <nav className="bg-muted/50 border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8">
+            <Link
+              to="/dashboard"
+              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+            >
+              Browse Salons
+            </Link>
+            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+              My Appointments
+            </button>
+            <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
+              Loyalty Program
+            </button>
+            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+              My Profile
+            </button>
+            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+              Reviews
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {loyaltyData && (
+          <>
+            {/* Salon Progress Overview */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4">Your Salon Progress</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {loyaltyData.salonProgress.map((salon) => (
+                  <Card key={salon.salonId} className={`p-4 ${salon.rewardEarned ? 'border-green-200 bg-green-50' : ''}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-sm">{salon.salonName}</h3>
+                      <div className="flex items-center space-x-2">
+                        {salon.rewardEarned && (
+                          <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                            Reward Ready
+                          </Badge>
+                        )}
+                        <Badge variant="secondary" className={`text-xs ${salon.tier === 'Gold' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {salon.tier} Status
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-primary mb-1">
+                      {salon.visits}/{salon.visitsNeeded}
+                    </div>
+                    {salon.rewardEarned ? (
+                      <div className="mb-2">
+                        <p className="text-xs text-green-600 font-medium mb-1">
+                          {salon.availableRewards} reward{salon.availableRewards > 1 ? 's' : ''} available
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Redeem when booking your next appointment
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {salon.visitsNeeded - salon.visits} more visits for next reward
+                      </p>
+                    )}
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${salon.rewardEarned ? 'bg-green-500' : 'bg-primary'}`}
+                        style={{ width: `${Math.min((salon.visits / salon.visitsNeeded) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-blue-600 font-medium mt-2">
+                      {salon.rewardEarned ? `Available: ${salon.nextReward}` : `Next: ${salon.nextReward}`}
+                    </p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Available Rewards Reminder */}
+            {loyaltyData.salonProgress.some(salon => salon.rewardEarned) && (
+              <Card className="mb-8 border-green-200 bg-green-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2 text-green-800">
+                    <Gift className="w-5 h-5" />
+                    <span>Rewards Ready for Your Next Booking!</span>
+                  </CardTitle>
+                  <CardDescription className="text-green-700">
+                    You have earned rewards at these salons. We'll remind you to redeem them when booking your next appointment.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {loyaltyData.salonProgress
+                      .filter(salon => salon.rewardEarned)
+                      .map((salon) => (
+                        <div key={salon.salonId} className="flex items-center justify-between p-3 bg-white rounded-lg border border-green-200">
+                          <div>
+                            <p className="font-medium text-sm">{salon.salonName}</p>
+                            <p className="text-xs text-muted-foreground">{salon.availableRewards} reward{salon.availableRewards > 1 ? 's' : ''} available</p>
+                          </div>
+                          <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            {salon.nextReward}
+                          </Badge>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Overall Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{loyaltyData.totalVisits}</div>
+                  <p className="text-xs text-muted-foreground">Across all salons</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Gold Salons</CardTitle>
+                  <Trophy className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {loyaltyData.salonProgress.filter(salon => salon.tier === 'Gold').length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Salons with 5+ visits
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Recent Activity */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="w-5 h-5" />
+                    <span>Recent Activity</span>
+                  </CardTitle>
+                  <CardDescription>Your latest visits and rewards</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {loyaltyData.recentActivity.map((activity) => (
+                      <div key={activity.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          {getActivityIcon(activity.type)}
+                          <div>
+                            <p className="font-medium text-sm">{activity.description}</p>
+                            <p className="text-xs text-muted-foreground">{activity.salon}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-bold ${getActivityColor(activity.type)}`}>
+                            {activity.type === 'visit' ? activity.progress : activity.discount}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Available Rewards */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Gift className="w-5 h-5" />
+                    <span>Available Rewards</span>
+                  </CardTitle>
+                  <CardDescription>Earn rewards based on your visits</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {loyaltyData.availableRewards && loyaltyData.availableRewards.length > 0 ? (
+                      loyaltyData.availableRewards.map((reward) => (
+                        <div key={reward.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                              <Award className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">{reward.name}</p>
+                              <p className="text-xs text-muted-foreground">{reward.description}</p>
+                              <p className="text-xs text-blue-600 font-medium">{reward.salon}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Button 
+                              size="sm" 
+                              className="mt-1 bg-green-600 hover:bg-green-700 text-white font-medium"
+                              onClick={() => {
+                                // Extract salon ID from reward ID (format: salonId-index)
+                                const salonId = reward.id.split('-')[0];
+                                navigate(`/salon/${salonId}`);
+                              }}
+                            >
+                              Redeem {reward.discount}
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Gift className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No rewards available yet</p>
+                        <p className="text-sm">Visit salons to earn rewards!</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}

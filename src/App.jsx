@@ -9,16 +9,19 @@ import AdminDashboard from './pages/AdminDashboard';
 import SalonOwnerDashboard from './pages/SalonOwnerDashboard';
 import SalonVerification from './pages/SalonVerification';
 import SalonBrowser from './pages/SalonBrowser';
+import SalonDetail from './pages/SalonDetail';
+import LoyaltyPoints from './pages/LoyaltyPoints';
 import HairstylistDashboard from './pages/HairstylistDashboard';
 
 // Context
-import { AuthContext } from './context/AuthContext';
+import { AuthContext, RewardsContext } from './context/AuthContext';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [rewardsCount, setRewardsCount] = useState(0);
 
-  // Initialize auth state on app load
+  // Check auth on load
   useEffect(() => {
     const initializeAuth = () => {
       const savedUser = localStorage.getItem('user_data');
@@ -250,7 +253,7 @@ export default function App() {
   };
 
   if (loading) {
-    return (
+  return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
@@ -259,7 +262,8 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={authValue}>
-      <Router>
+      <RewardsContext.Provider value={{ rewardsCount, setRewardsCount }}>
+        <Router>
         <div className="min-h-screen bg-background">
           <Routes>
             <Route 
@@ -286,11 +290,20 @@ export default function App() {
               path="/admin/salon-verification" 
               element={user && user.role === 'ADMIN' ? <SalonVerification /> : <Navigate to="/" replace />} 
             />
+            <Route 
+              path="/loyalty-points" 
+              element={user ? <LoyaltyPoints /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/salon/:salonId" 
+              element={user ? <SalonDetail /> : <Navigate to="/login" replace />} 
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <Toaster position="top-right" />
-        </div>
+      </div>
       </Router>
+      </RewardsContext.Provider>
     </AuthContext.Provider>
   );
 }
