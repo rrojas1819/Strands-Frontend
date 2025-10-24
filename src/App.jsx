@@ -8,6 +8,7 @@ import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
 import SalonOwnerDashboard from './pages/SalonOwnerDashboard';
 import SalonVerification from './pages/SalonVerification';
+import SalonBrowser from './pages/SalonBrowser';
 import HairstylistDashboard from './pages/HairstylistDashboard';
 
 // Context
@@ -244,22 +245,8 @@ export default function App() {
       return <HairstylistDashboard />;
     }
     
-    // Default dashboard for other roles (CUSTOMER, OWNER)
-  return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Welcome, {user.full_name}!</h1>
-          <p className="text-gray-600 mb-4">You have successfully signed up!</p>
-          <p className="text-gray-600 mb-4">Role: {user.role}</p>
-          <button 
-            onClick={logout}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-    );
+    // Default dashboard for other roles (CUSTOMER, OWNER) - Show salon browser directly
+    return <SalonBrowser />;
   };
 
   if (loading) {
