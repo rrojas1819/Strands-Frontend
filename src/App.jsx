@@ -6,6 +6,7 @@ import { Toaster } from 'sonner';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
+import SalonOwnerDashboard from './pages/SalonOwnerDashboard';
 import SalonVerification from './pages/SalonVerification';
 import HairstylistDashboard from './pages/HairstylistDashboard';
 
@@ -82,7 +83,8 @@ export default function App() {
           const userInfo = {
             user_id: loginData.data.user_id,
             full_name: loginData.data.full_name,
-            role: loginData.data.role
+            role: loginData.data.role,
+            email: userData.email
           };
           
           // Store token in both localStorage and cookie
@@ -133,27 +135,28 @@ export default function App() {
       console.log('Backend response data:', data);
 
       if (response.ok && data.message === "Login successful") {
-        const userData = {
+        const userInfo = {
           user_id: data.data.user_id,
           full_name: data.data.full_name,
-          role: data.data.role
+          role: data.data.role,
+          email: userData.email
         };
         
         // Store token in both localStorage and cookie
         localStorage.setItem('auth_token', data.data.token);
-        localStorage.setItem('user_data', JSON.stringify(userData));
+        localStorage.setItem('user_data', JSON.stringify(userInfo));
         
         // Set HTTP-only cookie for token (more secure)
         document.cookie = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
         
-        setUser(userData);
+        setUser(userInfo);
         
         // Redirect to dashboard after successful login
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 100);
         
-        return { success: true, user: userData };
+        return { success: true, user: userInfo };
       }
       return { success: false, error: data.message || 'Login failed' };
     } catch (error) {
@@ -230,6 +233,10 @@ export default function App() {
     // Role-based dashboard routing
     if (user.role === 'ADMIN') {
       return <AdminDashboard />;
+    }
+    
+    if (user.role === 'OWNER') {
+      return <SalonOwnerDashboard />;
     }
     
     // UAR-1.8: Route EMPLOYEE role to HairstylistDashboard
