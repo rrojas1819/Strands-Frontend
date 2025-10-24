@@ -25,105 +25,24 @@ export default function SalonVerification() {
       return;
     }
 
-    // TODO: Replace with actual API call when UAR 1.6 backend is ready
-    // For now, we'll use mock data but integrate the approval endpoint
     const fetchSalons = async () => {
       setLoading(true);
       setError('');
       try {
-        // This endpoint will be implemented in UAR 1.6
-        // const token = localStorage.getItem('auth_token');
-        // const response = await fetch(`${import.meta.env.VITE_API_URL}/salons`, {
-        //   headers: {
-        //     'Authorization': `Bearer ${token}`,
-        //   },
-        // });
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/browse?status=all`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-        // if (!response.ok) {
-        //   const errorData = await response.json();
-        //   throw new Error(errorData.message || 'Failed to fetch salons');
-        // }
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to fetch salons');
+        }
 
-        // const data = await response.json();
-        // setSalons(data.data);
-
-        // Mock data for now - will be replaced in UAR 1.6
-        const mockSalons = [
-          {
-            salon_id: 1,
-            name: "Bella's Beauty Studio",
-            owner: "Bella Johnson",
-            email: "bella@bellasbeauty.com",
-            phone: "(555) 123-4567",
-            address: "123 Main St, New York, NY 10001",
-            category: "HAIR SALON",
-            status: "PENDING",
-            created_at: "2024-01-15T10:30:00Z",
-            description: "Full-service hair salon specializing in cuts, coloring, and styling."
-          },
-          {
-            salon_id: 2,
-            name: "Nail Art Paradise",
-            owner: "Maria Rodriguez",
-            email: "maria@nailartparadise.com",
-            phone: "(555) 234-5678",
-            address: "456 Oak Ave, Los Angeles, CA 90210",
-            category: "NAIL SALON",
-            status: "APPROVED",
-            created_at: "2024-01-10T14:20:00Z",
-            description: "Premium nail services with artistic designs and luxury treatments."
-          },
-          {
-            salon_id: 3,
-            name: "Zen Spa & Wellness",
-            owner: "David Chen",
-            email: "david@zenspa.com",
-            phone: "(555) 345-6789",
-            address: "789 Pine St, Miami, FL 33101",
-            category: "SPA & WELLNESS",
-            status: "REJECTED",
-            created_at: "2024-01-08T09:15:00Z",
-            description: "Holistic wellness center offering massage, facials, and relaxation therapies."
-          },
-          {
-            salon_id: 4,
-            name: "Elite Barbershop",
-            owner: "James Wilson",
-            email: "james@elitebarbers.com",
-            phone: "(555) 456-7890",
-            address: "321 Broadway, Chicago, IL 60601",
-            category: "BARBERSHOP",
-            status: "PENDING",
-            created_at: "2024-01-12T16:45:00Z",
-            description: "Traditional barbershop with modern amenities and classic cuts."
-          },
-          {
-            salon_id: 5,
-            name: "Luxury Lash Studio",
-            owner: "Sarah Kim",
-            email: "sarah@luxurylash.com",
-            phone: "(555) 567-8901",
-            address: "654 Sunset Blvd, Las Vegas, NV 89101",
-            category: "EYELASH STUDIO",
-            status: "PENDING",
-            created_at: "2024-01-14T11:20:00Z",
-            description: "Specialized eyelash extensions and lash lift services."
-          },
-          {
-            salon_id: 6,
-            name: "Full Service Beauty",
-            owner: "Lisa Martinez",
-            email: "lisa@fullservicebeauty.com",
-            phone: "(555) 678-9012",
-            address: "987 Park Ave, Boston, MA 02101",
-            category: "FULL SERVICE BEAUTY",
-            status: "APPROVED",
-            created_at: "2024-01-05T09:30:00Z",
-            description: "Complete beauty services including hair, nails, and skincare."
-          }
-        ];
-
-        setSalons(mockSalons);
+        const data = await response.json();
+        setSalons(data.data);
       } catch (err) {
         console.error('Error fetching salons:', err);
         setError(err.message || 'Failed to load salon registrations.');
@@ -380,7 +299,7 @@ export default function SalonVerification() {
                 <div className="space-y-2">
                   <div className="flex items-center text-sm text-muted-foreground">
                     <span className="font-medium">Owner:</span>
-                    <span className="ml-2">{salon.owner}</span>
+                    <span className="ml-2">{salon.owner_name || 'N/A'}</span>
                   </div>
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Mail className="w-4 h-4 mr-2" />
@@ -392,7 +311,7 @@ export default function SalonVerification() {
                   </div>
                   <div className="flex items-center text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4 mr-2" />
-                    <span>{salon.address}</span>
+                    <span>{salon.address}, {salon.city}, {salon.state} {salon.postal_code}</span>
                   </div>
                 </div>
                 
