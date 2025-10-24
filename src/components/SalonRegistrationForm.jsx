@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Button } from './ui/button';
@@ -7,8 +7,9 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Building2 } from 'lucide-react';
+import StrandsSelect from './ui/strands-select';
+import StrandsModal from './ui/strands-modal';
 
 const SALON_CATEGORIES = [
   { value: 'HAIR SALON', label: 'Hair Salon' },
@@ -24,6 +25,9 @@ export default function SalonRegistrationForm() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [modalConfig, setModalConfig] = useState({});
 
   const [formData, setFormData] = useState({
     name: '',
@@ -36,7 +40,18 @@ export default function SalonRegistrationForm() {
     description: ''
   });
 
+  useEffect(() => {
+    const email = localStorage.getItem('user_email');
+    console.log('Retrieved email from localStorage:', email);
+    if (email) {
+      setOwnerEmail(email);
+    } else {
+      console.log('No email found in localStorage');
+    }
+  }, []);
+
   const handleInputChange = (field, value) => {
+    console.log('Form input change:', field, value);
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -59,9 +74,9 @@ export default function SalonRegistrationForm() {
       return false;
     }
 
-    const zipRegex = /^\d{5}(-\d{4})?$/;
+    const zipRegex = /^\d+$/;
     if (!zipRegex.test(formData.postal_code)) {
-      setError('Please enter a valid US postal code (12345 or 12345-6789)');
+      setError('Please enter a valid postal code (digits only)');
       return false;
     }
 
@@ -87,7 +102,7 @@ export default function SalonRegistrationForm() {
         description: formData.description,
         owner_user_id: authContext?.user?.user_id,
         status: 'PENDING',
-        email: authContext?.user?.email || '',
+        email: ownerEmail,
         city: formData.city,
         state: formData.state,
         postal_code: formData.postal_code,
@@ -95,16 +110,45 @@ export default function SalonRegistrationForm() {
         profile_picture_url: ''
       };
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       console.log('Salon data to submit:', salonData);
       
-      alert('Salon registration submitted successfully! Your salon is pending approval.');
-      navigate('/owner-dashboard');
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(salonData)
+      });
+
+      console.log('Backend response status:', response.status);
+      const responseData = await response.json();
+      console.log('Backend response data:', responseData);
+
+      if (response.ok) {
+        setModalConfig({
+          title: 'Registration Successful',
+          message: 'Salon registration submitted successfully! Your salon is pending approval.',
+          type: 'success',
+          onConfirm: () => {
+            setShowModal(false);
+            navigate('/owner-dashboard');
+          }
+        });
+        setShowModal(true);
+      } else {
+        throw new Error(responseData.message || 'Registration failed');
+      }
       
     } catch (err) {
       console.error('Salon registration error:', err);
-      setError('Failed to register salon. Please try again.');
+      setModalConfig({
+        title: 'Registration Failed',
+        message: 'Failed to register salon. Please try again.',
+        type: 'error'
+      });
+      setShowModal(true);
     } finally {
       setIsLoading(false);
     }
@@ -128,28 +172,38 @@ export default function SalonRegistrationForm() {
           
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Salon Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    placeholder="Enter salon name"
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Salon Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  placeholder="Enter salon name"
+                  required
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder="(555) 123-4567"
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  value={ownerEmail || ''}
+                  disabled
+                  className="bg-gray-50 cursor-not-allowed"
+                  placeholder={ownerEmail ? '' : 'Loading email...'}
+                />
+                <p className="text-sm text-gray-500">This email is locked to your account</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  placeholder="(555) 123-4567"
+                  required
+                />
               </div>
 
                   <div className="space-y-2">
@@ -200,18 +254,13 @@ export default function SalonRegistrationForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="category">Salon Type</Label>
-                <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select salon type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SALON_CATEGORIES.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <StrandsSelect
+                  value={formData.category}
+                  onValueChange={(value) => handleInputChange('category', value)}
+                  placeholder="Select salon type"
+                  options={SALON_CATEGORIES}
+                  className="w-full"
+                />
               </div>
 
               <div className="space-y-2">
@@ -243,6 +292,16 @@ export default function SalonRegistrationForm() {
           </CardContent>
         </Card>
       </div>
+      
+      <StrandsModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText || 'OK'}
+      />
     </div>
   );
 }

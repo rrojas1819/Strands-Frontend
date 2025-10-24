@@ -87,6 +87,7 @@ export default function App() {
           // Store token in both localStorage and cookie
           localStorage.setItem('auth_token', loginData.data.token);
           localStorage.setItem('user_data', JSON.stringify(userInfo));
+          localStorage.setItem('user_email', userData.email);
           
           // Set HTTP-only cookie for token (more secure)
           document.cookie = `auth_token=${loginData.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
@@ -132,7 +133,7 @@ export default function App() {
       console.log('Backend response data:', data);
 
       if (response.ok && data.message === "Login successful") {
-        const userData = {
+        const userInfo = {
           user_id: data.data.user_id,
           full_name: data.data.full_name,
           role: data.data.role
@@ -140,12 +141,13 @@ export default function App() {
         
         // Store token in both localStorage and cookie
         localStorage.setItem('auth_token', data.data.token);
-        localStorage.setItem('user_data', JSON.stringify(userData));
+        localStorage.setItem('user_data', JSON.stringify(userInfo));
+        localStorage.setItem('user_email', userData.email);
         
         // Set HTTP-only cookie for token (more secure)
         document.cookie = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
         
-        setUser(userData);
+        setUser(userInfo);
         
         // Redirect to dashboard after successful login
         setTimeout(() => {
@@ -186,6 +188,7 @@ export default function App() {
       // Clear localStorage
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
+      localStorage.removeItem('user_email');
       
       // Clear cookie
       document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -200,6 +203,7 @@ export default function App() {
       // Even if API fails, still clear local state
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
+      localStorage.removeItem('user_email');
       document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       setUser(null);
       window.location.href = '/';

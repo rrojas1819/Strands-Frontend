@@ -12,19 +12,23 @@ const Select = ({ children, value, onValueChange, ...props }) => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [isOpen]);
 
   const handleValueChange = (newValue) => {
+    console.log('Select value changing to:', newValue);
     onValueChange?.(newValue);
     setIsOpen(false);
   };
 
   return (
-    <div ref={selectRef} className="relative" {...props}>
+    <div ref={selectRef} className="relative w-full" {...props}>
       {React.Children.map(children, child => {
         if (React.isValidElement(child)) {
           return React.cloneElement(child, {
@@ -44,12 +48,17 @@ const SelectTrigger = React.forwardRef(({ className = '', children, isOpen, setI
   <button
     ref={ref}
     type="button"
-    className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-    onClick={() => setIsOpen(!isOpen)}
+    className={`flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('SelectTrigger clicked, current isOpen:', isOpen);
+      setIsOpen(!isOpen);
+    }}
     {...props}
   >
     {children}
-    <ChevronDown className={`h-4 w-4 opacity-50 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+    <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
   </button>
 ));
 SelectTrigger.displayName = 'SelectTrigger';
@@ -57,7 +66,7 @@ SelectTrigger.displayName = 'SelectTrigger';
 const SelectValue = React.forwardRef(({ className = '', placeholder, value, ...props }, ref) => (
   <span
     ref={ref}
-    className={`${!value ? 'text-muted-foreground' : ''} ${className}`}
+    className={`block truncate ${!value ? 'text-gray-500' : 'text-gray-900'} ${className}`}
     {...props}
   >
     {value || placeholder}
@@ -71,10 +80,13 @@ const SelectContent = React.forwardRef(({ className = '', children, isOpen, ...p
   return (
     <div
       ref={ref}
-      className={`absolute z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md top-full left-0 right-0 mt-1 ${className}`}
+      className={`absolute z-[9999] w-full min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg top-full left-0 mt-1 ${className}`}
+      style={{ position: 'absolute', zIndex: 9999 }}
       {...props}
     >
-      {children}
+      <div className="py-1">
+        {children}
+      </div>
     </div>
   );
 });
@@ -83,8 +95,18 @@ SelectContent.displayName = 'SelectContent';
 const SelectItem = React.forwardRef(({ className = '', children, value, onValueChange, ...props }, ref) => (
   <div
     ref={ref}
-    className={`relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-3 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${className}`}
-    onClick={() => onValueChange(value)}
+    className={`relative flex w-full cursor-pointer items-center rounded-sm py-2 px-3 text-sm text-gray-900 hover:bg-blue-50 hover:text-blue-900 focus:bg-blue-50 focus:text-blue-900 focus:outline-none transition-colors duration-150 ${className}`}
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('SelectItem clicked:', value);
+      onValueChange?.(value);
+    }}
+    onMouseDown={(e) => {
+      e.preventDefault();
+    }}
+    role="option"
+    tabIndex={0}
     {...props}
   >
     {children}
