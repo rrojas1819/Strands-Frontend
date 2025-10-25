@@ -15,10 +15,14 @@ import {
   MessageSquare,
   Megaphone,
   Settings,
-  LogOut
+  LogOut,
+  Plus,
+  X,
+  UserX
 } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 import { toast } from 'sonner';
+import StrandsModal from '../components/ui/strands-modal';
 
 
 export default function SalonOwnerDashboard() {
@@ -28,6 +32,27 @@ export default function SalonOwnerDashboard() {
   const [salonStatus, setSalonStatus] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    total_pages: 0,
+    total_employees: 0,
+    limit: 10,
+    offset: 0,
+    has_next_page: false,
+    has_prev_page: false
+  });
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
+  const [isAddingEmployee, setIsAddingEmployee] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({
+    email: '',
+    title: ''
+  });
+  const [showModal, setShowModal] = useState(false);
+  const [modalConfig, setModalConfig] = useState({});
+  const [showFireModal, setShowFireModal] = useState(false);
+  const [employeeToFire, setEmployeeToFire] = useState(null);
 
   useEffect(() => {
     const checkSalonStatus = async () => {
@@ -62,13 +87,209 @@ export default function SalonOwnerDashboard() {
     }
   }, [authContext?.user?.user_id]);
 
+  useEffect(() => {
+    if (activeTab === 'staff-services' && salonStatus === 'APPROVED') {
+      fetchEmployees(1);
+    }
+  }, [activeTab, salonStatus]);
+
+  const fetchEmployees = async (page = 1) => {
+    setEmployeesLoading(true);
+    
+    try {
+      const token = localStorage.getItem('auth_token');
+      const userData = JSON.parse(localStorage.getItem('user_data'));
+      
+      const limit = 10;
+      const offset = (page - 1) * limit;
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/viewEmployees`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          salon_id: userData.salon_id,
+          limit: limit,
+          offset: offset
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setEmployees(data.data);
+        setPagination(data.pagination);
+      } else {
+        setModalConfig({
+          title: 'Error',
+          message: data.message || 'Failed to fetch employees',
+          type: 'error',
+          onConfirm: () => setShowModal(false)
+        });
+        setShowModal(true);
+      }
+    } catch (error) {
+      console.error('Fetch employees error:', error);
+      setModalConfig({
+        title: 'Error',
+        message: 'Failed to fetch employees. Please try again.',
+        type: 'error',
+        onConfirm: () => setShowModal(false)
+      });
+      setShowModal(true);
+    } finally {
+      setEmployeesLoading(false);
+    }
+  };
+
+  const handleAddEmployee = async (e) => {
+    e.preventDefault();
+    setIsAddingEmployee(true);
+    
+    try {
+      const token = localStorage.getItem('auth_token');
+      const userData = JSON.parse(localStorage.getItem('user_data'));
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/addEmployee`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          salon_id: userData.salon_id,
+          email: newEmployee.email,
+          title: newEmployee.title
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setModalConfig({
+          title: 'Success',
+          message: 'Employee added successfully!',
+          type: 'success',
+          onConfirm: () => {
+            setShowModal(false);
+            setShowAddEmployeeModal(false);
+            setNewEmployee({ email: '', title: '' });
+            fetchEmployees(pagination.current_page);
+          }
+        });
+        setShowModal(true);
+      } else {
+        setModalConfig({
+          title: 'Error',
+          message: data.message || 'Failed to add employee',
+          type: 'error',
+          onConfirm: () => setShowModal(false)
+        });
+        setShowModal(true);
+      }
+    } catch (error) {
+      console.error('Add employee error:', error);
+      setModalConfig({
+        title: 'Error',
+        message: 'Failed to add employee. Please try again.',
+        type: 'error',
+        onConfirm: () => setShowModal(false)
+      });
+      setShowModal(true);
+    } finally {
+      setIsAddingEmployee(false);
+    }
+  };
+
+  const handleFireEmployee = (employee) => {
+    setEmployeeToFire(employee);
+    setShowFireModal(true);
+  };
+
+  const confirmFireEmployee = async () => {
+    if (!employeeToFire) return;
+
+    // Store employee data before clearing state
+    const employeeName = employeeToFire.full_name;
+    const employeeEmail = employeeToFire.email;
+
+    // Close the confirmation modal first
+    setShowFireModal(false);
+    setEmployeeToFire(null);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const userData = JSON.parse(localStorage.getItem('user_data'));
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/removeEmployee`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          salon_id: userData.salon_id,
+          email: employeeEmail
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setModalConfig({
+          title: 'Success',
+          message: `${employeeName} has been removed from the salon.`,
+          type: 'success',
+          onConfirm: () => {
+            setShowModal(false);
+            fetchEmployees(pagination.current_page);
+          }
+        });
+        setShowModal(true);
+      } else {
+        setModalConfig({
+          title: 'Error',
+          message: data.message || 'Failed to remove employee',
+          type: 'error',
+          onConfirm: () => setShowModal(false)
+        });
+        setShowModal(true);
+      }
+    } catch (error) {
+      console.error('Fire employee error:', error);
+      setModalConfig({
+        title: 'Error',
+        message: 'Failed to remove employee. Please try again.',
+        type: 'error',
+        onConfirm: () => setShowModal(false)
+      });
+      setShowModal(true);
+    }
+  };
+
   const handleLogout = async () => {
     try {
-      toast.success('Signed out successfully');
-      await authContext?.logout();
+      setModalConfig({
+        title: 'Success',
+        message: 'Signed out successfully',
+        type: 'success',
+        onConfirm: () => {
+          setShowModal(false);
+          authContext?.logout();
+        }
+      });
+      setShowModal(true);
     } catch (error) {
       console.error('Logout error:', error);
-      toast.error('Error signing out');
+      setModalConfig({
+        title: 'Error',
+        message: 'Error signing out',
+        type: 'error',
+        onConfirm: () => setShowModal(false)
+      });
+      setShowModal(true);
     }
   };
 
@@ -118,8 +339,12 @@ export default function SalonOwnerDashboard() {
             {salonStatus === 'APPROVED' && (
               <>
                 <button 
-                  onClick={() => toast.info('Staff management coming soon!')}
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                  onClick={() => setActiveTab('staff-services')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'staff-services' 
+                      ? 'border-primary text-primary' 
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
                 >
                   Staff & Services
                 </button>
@@ -180,7 +405,7 @@ export default function SalonOwnerDashboard() {
 
         {!hasSalon && <SalonRegistrationForm />}
         
-        {hasSalon && (
+        {hasSalon && salonStatus !== 'APPROVED' && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-background border rounded-lg p-8 text-center">
               <div className="flex justify-center mb-6">
@@ -211,6 +436,204 @@ export default function SalonOwnerDashboard() {
             </div>
           </div>
         )}
+
+        {activeTab === 'staff-services' && salonStatus === 'APPROVED' && (
+          <div className="space-y-8">
+            <div className="bg-background border rounded-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold">Staff Management</h3>
+                  <p className="text-muted-foreground">
+                    Manage your salon employees ({pagination.total_employees} total)
+                  </p>
+                </div>
+                <Button onClick={() => setShowAddEmployeeModal(true)}>
+                  <Users className="w-4 h-4 mr-2" />
+                  Add Employee
+                </Button>
+              </div>
+              
+              {employeesLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    {employees.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No employees added yet</p>
+                        <p className="text-sm">Add your first stylist to get started</p>
+                      </div>
+                    ) : (
+                      employees.map((employee) => (
+                        <div key={employee.employee_id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center space-x-4">
+                            <Avatar>
+                              <AvatarImage src={employee.profile_picture_url} />
+                              <AvatarFallback>
+                                {employee.full_name.split(' ').map(n => n[0]).join('')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h4 className="font-medium">{employee.full_name}</h4>
+                              <p className="text-sm text-muted-foreground">{employee.email}</p>
+                              <div className="flex items-center space-x-2 mt-1">
+                                <Badge variant="outline">{employee.title}</Badge>
+                                <Badge variant="outline" className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${employee.active ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100'}`}>
+                                  {employee.active ? 'Active' : 'Inactive'}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => handleFireEmployee(employee)}
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Fire
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  
+                  {pagination.total_pages > 1 && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                      <div className="text-sm text-muted-foreground">
+                        Showing {employees.length} of {pagination.total_employees} employees
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fetchEmployees(pagination.current_page - 1)}
+                          disabled={!pagination.has_prev_page}
+                        >
+                          Previous
+                        </Button>
+                        
+                        <div className="flex items-center space-x-1">
+                          {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
+                            const pageNum = i + 1;
+                            return (
+                              <Button
+                                key={pageNum}
+                                variant={pagination.current_page === pageNum ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => fetchEmployees(pageNum)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {pageNum}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fetchEmployees(pagination.current_page + 1)}
+                          disabled={!pagination.has_next_page}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showAddEmployeeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-background rounded-lg p-6 w-full max-w-md mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Add Employee</h3>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setShowAddEmployeeModal(false);
+                  setNewEmployee({ email: '', title: '' });
+                }}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <form onSubmit={handleAddEmployee} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Employee Email</label>
+                  <input
+                    type="email"
+                    value={newEmployee.email}
+                    onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="stylist@example.com"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    The employee must already have an account in the system
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Job Title</label>
+                  <input
+                    type="text"
+                    value={newEmployee.title}
+                    onChange={(e) => setNewEmployee({...newEmployee, title: e.target.value})}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="Senior Stylist, Junior Stylist, etc."
+                    required
+                  />
+                </div>
+                
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => {
+                    setShowAddEmployeeModal(false);
+                    setNewEmployee({ email: '', title: '' });
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isAddingEmployee}>
+                    {isAddingEmployee ? 'Adding...' : 'Add Employee'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        <StrandsModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          type={modalConfig.type}
+          onConfirm={modalConfig.onConfirm}
+          confirmText={modalConfig.confirmText || 'OK'}
+          showCancel={modalConfig.showCancel || false}
+          cancelText={modalConfig.cancelText || 'Cancel'}
+        />
+
+        <StrandsModal
+          isOpen={showFireModal}
+          onClose={() => {
+            setShowFireModal(false);
+            setEmployeeToFire(null);
+          }}
+          title="Remove Employee"
+          message={`Are you sure you want to remove ${employeeToFire?.full_name} from the salon? This action cannot be undone.`}
+          type="warning"
+          onConfirm={confirmFireEmployee}
+          confirmText="Remove"
+          showCancel={true}
+          cancelText="Cancel"
+        />
       </main>
     </div>
   );
