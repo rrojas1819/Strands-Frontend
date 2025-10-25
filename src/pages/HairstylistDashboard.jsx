@@ -4,8 +4,10 @@ import { AuthContext } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
+import { Card, CardContent } from '../components/ui/card';
+import { toast } from 'sonner';
 
 export default function HairstylistDashboard() {
   const authContext = useContext(AuthContext);
@@ -18,8 +20,18 @@ export default function HairstylistDashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [viewType, setViewType] = useState('day'); // 'day', 'week' only
-  const [backendSchedule, setBackendSchedule] = useState(null); // Store raw backend schedule data
-
+  const [backendSchedule, setBackendSchedule] = useState(null);
+  
+  // BS-1.5: Block unavailable time slots
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showUnblockModal, setShowUnblockModal] = useState(false);
+  const [blockFormData, setBlockFormData] = useState({
+    weekday: '',
+    start_time: '',
+    end_time: ''
+  });
+  const [blockedSlots, setBlockedSlots] = useState([]);
+  const [blockLoading, setBlockLoading] = useState(false);
   useEffect(() => {
     fetchStylistSalon();
   }, []);
@@ -29,6 +41,13 @@ export default function HairstylistDashboard() {
       fetchScheduleData();
     }
   }, [salonData, activeTab, viewType, selectedDate]); // Added selectedDate back for day navigation
+
+  // BS-1.5: Fetch blocked slots when salon data is loaded
+  useEffect(() => {
+    if (salonData) {
+      fetchBlockedSlots();
+    }
+  }, [salonData]);
 
   const fetchStylistSalon = async () => {
     try {
@@ -232,6 +251,118 @@ export default function HairstylistDashboard() {
       await authContext?.logout();
     } catch (error) {
       console.error('Logout error:', error);
+    }
+  };
+
+  // BS-1.5: Fetch employee ID is no longer needed
+  // The backend now handles employee_id lookup internally based on authenticated user
+
+  // BS-1.5: Fetch blocked time slots
+  const fetchBlockedSlots = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/unavailability`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setBlockedSlots(data.data || []);
+      } else if (response.status === 404) {
+        // Employee not found or no blocks yet
+        setBlockedSlots([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch blocked slots:', err);
+    }
+  };
+
+  // BS-1.5: Create blocked time slot
+  const handleBlockTimeSlot = async () => {
+    if (!blockFormData.weekday || !blockFormData.start_time || !blockFormData.end_time) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    setBlockLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/unavailability`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            weekday: parseInt(blockFormData.weekday),
+            start_time: blockFormData.start_time,
+            end_time: blockFormData.end_time,
+            slot_interval_minutes: 30
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Time slot blocked successfully');
+        setShowBlockModal(false);
+        setBlockFormData({ weekday: '', start_time: '', end_time: '' });
+        fetchBlockedSlots();
+        // Refresh schedule to show new unavailability
+        fetchScheduleData();
+      } else {
+        toast.error(data.message || 'Failed to block time slot');
+      }
+    } catch (err) {
+      console.error('Failed to block time slot:', err);
+      toast.error('Failed to block time slot');
+    } finally {
+      setBlockLoading(false);
+    }
+  };
+
+  // BS-1.5: Delete blocked time slot
+  const handleDeleteBlockedSlot = async (slot) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/unavailability`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            weekday: slot.weekday,
+            start_time: slot.start_time,
+            end_time: slot.end_time
+          })
+        }
+      );
+
+      if (response.ok) {
+        toast.success('Time slot unblocked successfully');
+        fetchBlockedSlots();
+        // Refresh schedule to update unavailability display
+        fetchScheduleData();
+      } else {
+        const data = await response.json();
+        toast.error(data.message || 'Failed to unblock time slot');
+      }
+    } catch (err) {
+      console.error('Failed to unblock time slot:', err);
+      toast.error('Failed to unblock time slot');
     }
   };
 
@@ -482,9 +613,32 @@ export default function HairstylistDashboard() {
             Manage your appointments, customers, and professional profile at {salonData?.name}.
           </p>
           <div className="mt-4 flex items-center justify-between">
-            <Button onClick={fetchStylistSalon} variant="outline" size="sm">
-              Refresh Data
-            </Button>
+            <div className="flex items-center space-x-3">
+              <Button onClick={fetchStylistSalon} variant="outline" size="sm">
+                Refresh Data
+              </Button>
+              <Button 
+                onClick={() => setShowBlockModal(true)} 
+                variant="outline" 
+                size="sm"
+                className="flex items-center space-x-2"
+              >
+                <Ban className="w-4 h-4" />
+                <span>Block Time</span>
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowUnblockModal(true);
+                  fetchBlockedSlots(); // Refresh blocked slots when opening modal
+                }} 
+                variant="outline" 
+                size="sm"
+                className="flex items-center space-x-2"
+              >
+                <X className="w-4 h-4" />
+                <span>Unblock Time</span>
+              </Button>
+            </div>
             
             {/* View Settings */}
             <div className="bg-white rounded-lg border p-2 flex items-center space-x-2">
@@ -857,6 +1011,208 @@ export default function HairstylistDashboard() {
           </div>
         )}
       </main>
+
+        {/* BS-1.5: Block Time Slot Modal */}
+        {showBlockModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md mx-auto shadow-2xl">
+              <CardContent className="pt-8 px-6 pb-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3 bg-orange-50 p-3 rounded-lg">
+                  <Ban className="w-6 h-6 text-orange-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Block Time Slot</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowBlockModal(false);
+                    setBlockFormData({ weekday: '', start_time: '', end_time: '' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              {/* Form */}
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Day of Week
+                  </label>
+                  <select
+                    value={blockFormData.weekday}
+                    onChange={(e) => setBlockFormData({ ...blockFormData, weekday: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select a day</option>
+                    <option value="0">Sunday</option>
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={blockFormData.start_time}
+                    onChange={(e) => setBlockFormData({ ...blockFormData, start_time: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={blockFormData.end_time}
+                    onChange={(e) => setBlockFormData({ ...blockFormData, end_time: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-sm text-blue-800">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    This will block the selected time slot every week on the chosen day.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex space-x-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowBlockModal(false);
+                    setBlockFormData({ weekday: '', start_time: '', end_time: '' });
+                  }}
+                  className="px-6 py-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                  disabled={blockLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleBlockTimeSlot}
+                  disabled={blockLoading}
+                  className="px-6 py-2 text-white font-medium bg-orange-600 hover:bg-orange-700"
+                >
+                  {blockLoading ? 'Blocking...' : 'Block Time'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+        {/* BS-1.5: Unblock Time Slot Modal */}
+        {showUnblockModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md mx-auto shadow-2xl">
+              <CardContent className="pt-8 px-6 pb-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3 bg-blue-50 p-3 rounded-lg">
+                  <Clock className="w-6 h-6 text-blue-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Unblock Time Slot</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowUnblockModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              {/* List of blocked slots */}
+              <div className="mb-6">
+                {blockedSlots.length === 0 ? (
+                  <div className="text-center py-8 bg-muted/30 rounded-lg">
+                    <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">No blocked time slots</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      You don't have any blocked time slots to unblock
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {blockedSlots.map((slot) => {
+                      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                      const formatTime = (time) => {
+                        const [hours, minutes] = time.split(':');
+                        const hour = parseInt(hours);
+                        const period = hour >= 12 ? 'PM' : 'AM';
+                        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                        return `${displayHour}:${minutes} ${period}`;
+                      };
+
+                      return (
+                        <div
+                          key={slot.unavailability_id}
+                          className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="bg-orange-100 p-2 rounded-lg">
+                              <Clock className="w-4 h-4 text-orange-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground text-sm">
+                                {dayNames[slot.weekday]}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              handleDeleteBlockedSlot(slot);
+                              // Close modal if no more slots after deletion
+                              if (blockedSlots.length === 1) {
+                                setShowUnblockModal(false);
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            <span className="text-xs">Remove</span>
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowUnblockModal(false)}
+                  className="px-6 py-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Close
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
