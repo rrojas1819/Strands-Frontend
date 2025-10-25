@@ -190,7 +190,7 @@ export default function HairstylistDashboard() {
           // Map backend status to frontend status
           let status = 'pending';
           if (booking.status === 'CONFIRMED') status = 'confirmed';
-          else if (booking.status === 'CANCELLED') status = 'cancelled';
+          else if (booking.status === 'CANCELED') status = 'canceled';
           else if (booking.status === 'COMPLETED') status = 'confirmed';
           
           appointments.push({
@@ -317,7 +317,7 @@ export default function HairstylistDashboard() {
     switch (status) {
       case 'confirmed': return '!bg-green-200 !text-green-800 border-green-200';
       case 'pending': return '!bg-yellow-200 !text-yellow-800 border-yellow-200';
-      case 'cancelled': return '!bg-red-200 !text-red-800 border-red-200';
+      case 'canceled': return '!bg-red-200 !text-red-800 border-red-200';
       default: return '!bg-gray-200 !text-gray-800 border-gray-200';
     }
   };
@@ -607,7 +607,7 @@ export default function HairstylistDashboard() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <div className="w-6 h-6 bg-red-200 border-l-4 border-red-500 rounded"></div>
-                      <span className="text-sm text-foreground">Cancelled</span>
+                      <span className="text-sm text-foreground">Canceled</span>
                     </div>
                   </div>
                 </div>
@@ -767,9 +767,9 @@ export default function HairstylistDashboard() {
                         <Clock className="w-5 h-5 text-red-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-foreground">Cancelled</p>
+                        <p className="text-sm font-medium text-foreground">Canceled</p>
                         <p className="text-2xl font-bold text-foreground">
-                          {scheduleData.filter(apt => apt.status === 'cancelled').length}
+                          {scheduleData.filter(apt => apt.status === 'canceled').length}
                         </p>
                       </div>
                     </div>
