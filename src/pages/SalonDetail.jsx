@@ -60,7 +60,10 @@ export default function SalonDetail() {
         // Handle loyalty data (optional)
         if (loyaltyResponse.status === 'fulfilled' && loyaltyResponse.value.ok) {
           const loyaltyResult = await loyaltyResponse.value.json();
-          setLoyaltyData(loyaltyResult.userData);
+          setLoyaltyData({
+            ...loyaltyResult.userData,
+            userRewards: loyaltyResult.userRewards || []
+          });
         }
         
         setLoading(false);
@@ -247,7 +250,7 @@ export default function SalonDetail() {
                   <div className="space-y-3">
                     <div className="flex items-center">
                       <MapPin className="w-5 h-5 text-muted-foreground mr-3" />
-                      <span>{salon.address}, {salon.city}, {salon.state} {salon.postal_code}</span>
+                      <span>{salon.address || [salon.city, salon.state, salon.postal_code].filter(Boolean).join(', ')}</span>
                     </div>
                     <div className="flex items-center">
                       <Phone className="w-5 h-5 text-muted-foreground mr-3" />
@@ -341,23 +344,29 @@ export default function SalonDetail() {
                       </div>
                     </div>
 
-                    {loyaltyData.visits_count >= loyaltyData.target_visits ? (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <Award className="w-4 h-4 text-green-600 mr-2" />
-                            <span className="text-sm font-medium text-green-800">
-                              {loyaltyData.discount_percentage || 10}% off next visit available!
-                            </span>
-                          </div>
-                          <Button 
-                            size="sm" 
-                            className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-                            onClick={() => setShowRedeemModal(true)}
-                          >
-                            Redeem
-                          </Button>
-                        </div>
+                    {loyaltyData.userRewards && loyaltyData.userRewards.length > 0 ? (
+                      <div className="space-y-3">
+                        {loyaltyData.userRewards
+                          .filter(reward => reward.active === 1)
+                          .map((reward) => (
+                            <div key={reward.reward_id} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <Award className="w-4 h-4 text-green-600 mr-2" />
+                                  <span className="text-sm font-medium text-green-800">
+                                    {reward.discount_percentage}% off next visit available!
+                                  </span>
+                                </div>
+                                <Button 
+                                  size="sm" 
+                                  className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+                                  onClick={() => setShowRedeemModal(true)}
+                                >
+                                  Redeem
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
                       </div>
                     ) : (
                       <div className="text-center">
