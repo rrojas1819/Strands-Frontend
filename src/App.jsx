@@ -109,7 +109,9 @@ export default function App() {
         }),
       });
 
+      console.log('Signup response status:', signupResponse.status);
       const signupData = await signupResponse.json();
+      console.log('Signup response data:', signupData);
 
       if (signupResponse.ok && signupData.message === "User signed up successfully") {
         // After successful signup, automatically log in the user
