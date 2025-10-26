@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonRegistrationForm from '../components/SalonRegistrationForm';
+import LoyaltyConfiguration from '../components/LoyaltyConfiguration';
 import { Button } from '../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
@@ -373,8 +374,12 @@ export default function SalonOwnerDashboard() {
                   Reviews
                 </button>
                 <button 
-                  onClick={() => toast.info('Loyalty rewards coming soon!')}
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                  onClick={() => setActiveTab('loyalty')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'loyalty' 
+                      ? 'border-primary text-primary' 
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
                 >
                   Loyalty
                 </button>
@@ -549,6 +554,29 @@ export default function SalonOwnerDashboard() {
               )}
             </div>
           </div>
+        )}
+
+        {activeTab === 'loyalty' && salonStatus === 'APPROVED' && (
+          <LoyaltyConfiguration 
+            onSuccess={(message) => {
+              setModalConfig({
+                title: 'Success',
+                message: message,
+                type: 'success',
+                onConfirm: () => setShowModal(false)
+              });
+              setShowModal(true);
+            }}
+            onError={(error) => {
+              setModalConfig({
+                title: 'Error',
+                message: error,
+                type: 'error',
+                onConfirm: () => setShowModal(false)
+              });
+              setShowModal(true);
+            }}
+          />
         )}
 
         {showAddEmployeeModal && (

@@ -46,6 +46,17 @@ export default function SalonRegistrationForm() {
     }
   }, [authContext?.user?.email]);
 
+  const formatPhoneNumber = (value) => {
+    const phoneNumber = value.replace(/\D/g, '');
+    const phoneNumberLength = phoneNumber.length;
+    
+    if (phoneNumberLength < 4) return phoneNumber;
+    if (phoneNumberLength < 7) {
+      return `(${phoneNumber.slice(0, 3)})-${phoneNumber.slice(3)}`;
+    }
+    return `(${phoneNumber.slice(0, 3)})-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+  };
+
   const handleInputChange = (field, value) => {
     console.log('Form input change:', field, value);
     setFormData(prev => ({
@@ -196,7 +207,7 @@ export default function SalonRegistrationForm() {
                 <Input
                   id="phone"
                   value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  onChange={(e) => handleInputChange('phone', formatPhoneNumber(e.target.value))}
                   placeholder="(555) 123-4567"
                   required
                 />
