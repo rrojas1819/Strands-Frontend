@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 
 export default function AdminDashboard() {
   const [demographics, setDemographics] = useState(null);
+  const [approvedSalonsCount, setApprovedSalonsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const authContext = useContext(AuthContext);
@@ -47,6 +48,29 @@ export default function AdminDashboard() {
         setDemographics(data.data);
       } else {
         setError(data.message || 'Failed to fetch demographics data');
+      }
+
+      // Fetch approved salons count
+      console.log('Fetching approved salons count...');
+      const salonsResponse = await fetch(`${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (salonsResponse.ok) {
+        const salonsData = await salonsResponse.json();
+        console.log('Salons API response:', salonsData);
+        // Handle both array and object response formats
+        const count = Array.isArray(salonsData) ? salonsData.length : (salonsData.data?.length || salonsData.length || 0);
+        setApprovedSalonsCount(count);
+        console.log('Approved salons count:', count);
+      } else {
+        const errorData = await salonsResponse.json().catch(() => ({}));
+        console.log('Failed to fetch approved salons:', salonsResponse.status, errorData);
+        setApprovedSalonsCount(0);
       }
     } catch (err) {
       console.error('Demographics fetch error:', err);
@@ -107,6 +131,12 @@ export default function AdminDashboard() {
                   className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
                 >
                   Salon Management
+                </Link>
+                <Link
+                  to="/admin/loyalty-monitoring"
+                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                >
+                  Loyalty Monitoring
                 </Link>
                 <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
                   User Analytics
@@ -265,7 +295,7 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Active Salons</span>
                 <span className="text-2xl font-bold">
-                  {demographics?.OWNER || 0}
+                  {approvedSalonsCount}
                 </span>
                     </div>
               <div className="flex items-center justify-between">

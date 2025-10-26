@@ -214,7 +214,7 @@ export default function SalonVerification() {
         </div>
       </header>
 
-          {/* Navigation Bar - Updated for UAR 1.5 */}
+          {/* Navigation Bar - Admin Features */}
           <nav className="bg-muted/50 border-b">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex space-x-8">
@@ -222,7 +222,13 @@ export default function SalonVerification() {
                   Salon Management
                 </button>
                 <Link
-                  to="/dashboard"
+                  to="/admin/loyalty-monitoring"
+                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                >
+                  Loyalty Monitoring
+                </Link>
+                <Link
+                  to="/admin/dashboard"
                   className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
                 >
                   User Analytics
@@ -311,7 +317,7 @@ export default function SalonVerification() {
                   </div>
                   <div className="flex items-center text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4 mr-2" />
-                    <span>{salon.address}, {salon.city}, {salon.state} {salon.postal_code}</span>
+                    <span>{salon.address || [salon.city, salon.state, salon.postal_code].filter(Boolean).join(', ')}</span>
                   </div>
                 </div>
                 
