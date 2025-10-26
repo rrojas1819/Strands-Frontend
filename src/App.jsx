@@ -11,6 +11,7 @@ import SalonVerification from './pages/SalonVerification';
 import SalonBrowser from './pages/SalonBrowser';
 import SalonDetail from './pages/SalonDetail';
 import LoyaltyPoints from './pages/LoyaltyPoints';
+import LoyaltyMonitoring from './pages/LoyaltyMonitoring';
 import HairstylistDashboard from './pages/HairstylistDashboard';
 
 // Context
@@ -20,6 +21,51 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rewardsCount, setRewardsCount] = useState(0);
+
+  // Fetch rewards count for user
+  const fetchRewardsCount = async (userId) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Get all approved salons first
+      const salonsResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!salonsResponse.ok) return;
+
+      const salonsData = await salonsResponse.json();
+      const salons = salonsData.data || [];
+      
+      let totalRewards = 0;
+      
+      // Check loyalty data for each salon
+      for (const salon of salons) {
+        try {
+          const loyaltyResponse = await fetch(`${apiUrl}/user/loyalty/view?salon_id=${salon.salon_id}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+
+          if (loyaltyResponse.ok) {
+            const loyaltyData = await loyaltyResponse.json();
+            const userRewards = loyaltyData.userRewards || [];
+            const activeRewards = userRewards.filter(reward => reward.active === 1);
+            totalRewards += activeRewards.length;
+          }
+        } catch (err) {
+          // Skip this salon if there's an error
+          continue;
+        }
+      }
+
+      setRewardsCount(totalRewards);
+    } catch (error) {
+      console.error('Error fetching rewards count:', error);
+    }
+  };
 
   // Check auth on load
   useEffect(() => {
@@ -34,7 +80,10 @@ export default function App() {
         ?.split('=')[1];
       
       if (savedUser && (savedToken || cookieToken)) {
-        setUser(JSON.parse(savedUser));
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+        // Fetch rewards count for existing user
+        fetchRewardsCount(userData.user_id);
       }
       setLoading(false);
     };
@@ -100,6 +149,9 @@ export default function App() {
           
           setUser(userInfo);
           
+          // Fetch rewards count for the newly registered user
+          fetchRewardsCount(userInfo.user_id);
+          
           // Redirect to dashboard after successful registration and login
           setTimeout(() => {
             window.location.href = '/dashboard';
@@ -154,6 +206,9 @@ export default function App() {
         document.cookie = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
         
         setUser(userInfo);
+        
+        // Fetch rewards count for the logged-in user
+        fetchRewardsCount(userInfo.user_id);
         
         // Redirect to dashboard after successful login
         setTimeout(() => {
@@ -289,6 +344,10 @@ export default function App() {
             <Route 
               path="/admin/salon-verification" 
               element={user && user.role === 'ADMIN' ? <SalonVerification /> : <Navigate to="/" replace />} 
+            />
+            <Route 
+              path="/admin/loyalty-monitoring" 
+              element={user && user.role === 'ADMIN' ? <LoyaltyMonitoring /> : <Navigate to="/" replace />} 
             />
             <Route 
               path="/loyalty-points" 

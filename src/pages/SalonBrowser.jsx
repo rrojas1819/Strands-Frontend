@@ -307,7 +307,7 @@ export default function SalonBrowser() {
                 <div className="space-y-2">
                   <div className="flex items-center text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4 mr-2" />
-                    <span>{salon.address}, {salon.city}, {salon.state}</span>
+                    <span>{salon.address || [salon.city, salon.state].filter(Boolean).join(', ')}</span>
                   </div>
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Phone className="w-4 h-4 mr-2" />
