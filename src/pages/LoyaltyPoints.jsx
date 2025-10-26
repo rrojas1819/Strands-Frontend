@@ -50,7 +50,7 @@ export default function LoyaltyPoints() {
         });
 
         if (!salonsResponse.ok) {
-          console.log('Failed to fetch salons:', salonsResponse.status);
+          console.log('ailed to fetch salons:', salonsResponse.status);
           throw new Error('Failed to fetch salons');
         }
 
@@ -488,4 +488,3 @@ export default function LoyaltyPoints() {
     </div>
   );
 }
-
