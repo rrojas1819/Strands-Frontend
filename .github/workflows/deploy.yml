@@ -11,28 +11,52 @@ concurrency:
 
 env:
   NODE_VERSION: '20'
-  REMOTE_DIR: '~/Strands-Frontend'
+  REMOTE_DIR: '/home/ubuntu/Strands-Frontend'   # 👈 absolute path
   PM2_APP: 'frontend'
+  FRONTEND_DIR: '.'  # change if your Vite app is in a subfolder
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: Package dist
+          cache-dependency-path: ${{ env.FRONTEND_DIR }}/package-lock.json
+
+      - name: Install deps
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npm ci
+
+      - name: Build
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npm run build
+
+      - name: Verify build output
+        working-directory: ${{ env.FRONTEND_DIR }}
         run: |
+          set -eux
+          test -d dist
+          test -f dist/index.html
+
+      - name: Package dist
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: |
+          set -eux
           mkdir -p release
-          tar -czf release/${GITHUB_SHA}.tar.gz dist
-      - uses: actions/upload-artifact@v4
+          tar -czf release/dist.tar.gz dist
+          ls -l release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ github.sha }}
-          path: release/${GITHUB_SHA}.tar.gz
+          name: dist
+          path: ${{ env.FRONTEND_DIR }}/release/dist.tar.gz
+          if-no-files-found: error
+          retention-days: 7
 
   deploy:
     runs-on: ubuntu-latest
@@ -40,16 +64,36 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: dist-${{ github.sha }}
+          name: dist
           path: .
+
+      - name: List downloaded files
+        run: |
+          set -eux
+          ls -lah
+          tar -tzf dist.tar.gz | head -n 20
+
+      - name: Prep remote dirs
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euxo pipefail
+            BASE=${{ env.REMOTE_DIR }}
+            mkdir -p "$BASE/releases" "$BASE/current"
+            chown -R ubuntu:ubuntu "$BASE"
+
       - name: Upload to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: ./*.tar.gz
+          source: ./dist.tar.gz
           target: ${{ env.REMOTE_DIR }}/releases/
+
       - name: Activate release on EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -61,19 +105,26 @@ jobs:
             BASE=${{ env.REMOTE_DIR }}
             REL="${BASE}/releases"
             CUR="${BASE}/current"
-            FILE=$(ls -1 ${REL}/*.tar.gz | tail -n1)
-            NAME=$(basename "$FILE" .tar.gz)
-            NEW="${REL}/${NAME}"
+            TS="$(date +%Y%m%d%H%M%S)"
+            NEW="${REL}/${TS}"
 
             mkdir -p "$NEW"
-            tar -xzf "$FILE" -C "$NEW"
+            tar -xzf "${REL}/dist.tar.gz" -C "$NEW"
             ln -sfn "${NEW}/dist" "$CUR"
 
-            if ! command -v pm2 >/dev/null; then
-              sudo npm i -g pm2 serve
-            fi
-
-            pm2 reload ${{ env.PM2_APP }} || pm2 start "serve" --name ${{ env.PM2_APP }} -- -s "$CUR" -l 4173
+            if ! command -v pm2 >/dev/null; then sudo npm i -g pm2 serve; fi
+            pm2 reload ${{ env.PM2_APP }} || pm2 start serve --name ${{ env.PM2_APP }} -- -s "$CUR" -l 4173
             pm2 save || true
 
             cd "$REL" && ls -1dt */ | tail -n +6 | xargs -r rm -rf
+
+      - name: Verify on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -eux
+            ls -l ${{ env.REMOTE_DIR }}/current
+            pm2 ls
