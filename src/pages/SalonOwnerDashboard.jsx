@@ -58,6 +58,8 @@ export default function SalonOwnerDashboard() {
   const [employeeToFire, setEmployeeToFire] = useState(null);
   const [showEmployeeHoursModal, setShowEmployeeHoursModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [salonInfo, setSalonInfo] = useState(null);
+  const [salonInfoLoading, setSalonInfoLoading] = useState(false);
 
   useEffect(() => {
     const checkSalonStatus = async () => {
@@ -95,6 +97,12 @@ export default function SalonOwnerDashboard() {
   useEffect(() => {
     if (activeTab === 'staff-services' && salonStatus === 'APPROVED') {
       fetchEmployees(1);
+    }
+  }, [activeTab, salonStatus]);
+
+  useEffect(() => {
+    if (activeTab === 'overview' && salonStatus === 'APPROVED') {
+      fetchSalonInfo();
     }
   }, [activeTab, salonStatus]);
 
@@ -147,6 +155,45 @@ export default function SalonOwnerDashboard() {
     } finally {
       setEmployeesLoading(false);
     }
+  };
+
+  const fetchSalonInfo = async () => {
+    setSalonInfoLoading(true);
+    
+    try {
+      const token = localStorage.getItem('auth_token');
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/information`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSalonInfo(data.data);
+      } else {
+        console.error('Failed to fetch salon info:', data.message);
+      }
+    } catch (error) {
+      console.error('Fetch salon info error:', error);
+    } finally {
+      setSalonInfoLoading(false);
+    }
+  };
+
+  const formatTimeTo12Hour = (time) => {
+    if (!time) return 'N/A';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  const getShortDayName = (day) => {
+    return day.substring(0, 3);
   };
 
   const handleAddEmployee = async (e) => {
@@ -458,6 +505,81 @@ export default function SalonOwnerDashboard() {
                  'Your salon registration was rejected. Please contact support for further inquiries.'}
               </p>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'overview' && hasSalon && salonStatus === 'APPROVED' && (
+          <div className="bg-background border rounded-lg p-6">
+            {salonInfo && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-xl font-semibold mb-4">Salon Information</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Name</p>
+                        <p className="font-medium">{salonInfo.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Category</p>
+                        <p className="font-medium">{salonInfo.category}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Description</p>
+                        <p className="font-medium">{salonInfo.description || 'No description'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${salonInfo.status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' : salonInfo.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100' : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100'}`}>
+                          {salonInfo.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl font-semibold mb-4">Contact Information</h3>
+                    <div className="space-y-3">
+                      {salonInfo.phone && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Phone</p>
+                          <p className="font-medium">{salonInfo.phone}</p>
+                        </div>
+                      )}
+                      {salonInfo.email && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Email</p>
+                          <p className="font-medium">{salonInfo.email}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm text-muted-foreground">Address</p>
+                        <p className="font-medium">
+                          {salonInfo.address || 'No address'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="text-xl font-semibold mb-4">Operating Hours</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {Object.entries(salonInfo.weekly_hours || {}).map(([day, hours]) => (
+                      <div key={day} className="flex flex-col">
+                        <p className="text-sm font-medium mb-2">{getShortDayName(day)}</p>
+                        <p className={`text-sm ${hours.is_open ? 'text-muted-foreground' : 'text-red-500'}`}>
+                          {hours.is_open 
+                            ? `${formatTimeTo12Hour(hours.start_time)} - ${formatTimeTo12Hour(hours.end_time)}`
+                            : 'Closed'
+                          }
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
