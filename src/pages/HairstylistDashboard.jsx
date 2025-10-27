@@ -4,9 +4,11 @@ import { AuthContext } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban } from 'lucide-react';
+import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 import { Card, CardContent } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 
 export default function HairstylistDashboard() {
@@ -32,6 +34,23 @@ export default function HairstylistDashboard() {
   });
   const [blockedSlots, setBlockedSlots] = useState([]);
   const [blockLoading, setBlockLoading] = useState(false);
+  
+  // BS-1.01: Services management
+  const [services, setServices] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [showEditServiceModal, setShowEditServiceModal] = useState(false);
+  const [showDeleteServiceModal, setShowDeleteServiceModal] = useState(false);
+  const [deletingService, setDeletingService] = useState(null);
+  const [editingService, setEditingService] = useState(null);
+  const [serviceFormData, setServiceFormData] = useState({
+    name: '',
+    description: '',
+    duration_minutes: '',
+    price: ''
+  });
+  const [serviceLoading, setServiceLoading] = useState(false);
+  
   useEffect(() => {
     fetchStylistSalon();
   }, []);
@@ -48,6 +67,13 @@ export default function HairstylistDashboard() {
       fetchBlockedSlots();
     }
   }, [salonData]);
+  
+  // BS-1.01: Fetch services when services tab is active
+  useEffect(() => {
+    if (activeTab === 'services') {
+      fetchServices();
+    }
+  }, [activeTab]);
 
   const fetchStylistSalon = async () => {
     try {
@@ -366,6 +392,160 @@ export default function HairstylistDashboard() {
     }
   };
 
+  // BS-1.01: Services management functions
+  const fetchServices = async () => {
+    try {
+      setServicesLoading(true);
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/stylist/myServices`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setServices(data.data.services || []);
+      } else {
+        console.error('Failed to fetch services:', data.message);
+        setServices([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch services:', err);
+      setServices([]);
+    } finally {
+      setServicesLoading(false);
+    }
+  };
+
+  const handleCreateService = async () => {
+    if (!serviceFormData.name || !serviceFormData.description || !serviceFormData.duration_minutes || !serviceFormData.price) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    setServiceLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/stylist/createService`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: serviceFormData.name,
+          description: serviceFormData.description,
+          duration_minutes: parseInt(serviceFormData.duration_minutes),
+          price: parseFloat(serviceFormData.price)
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('Service created successfully');
+        setShowServiceModal(false);
+        setServiceFormData({ name: '', description: '', duration_minutes: '', price: '' });
+        fetchServices();
+      } else {
+        toast.error(data.message || 'Failed to create service');
+      }
+    } catch (err) {
+      console.error('Failed to create service:', err);
+      toast.error('Failed to create service');
+    } finally {
+      setServiceLoading(false);
+    }
+  };
+
+  const handleUpdateService = async () => {
+    if (!editingService) return;
+
+    setServiceLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const updateData = {};
+      if (serviceFormData.name) updateData.name = serviceFormData.name;
+      if (serviceFormData.description) updateData.description = serviceFormData.description;
+      if (serviceFormData.duration_minutes) updateData.duration_minutes = parseInt(serviceFormData.duration_minutes);
+      if (serviceFormData.price) updateData.price = parseFloat(serviceFormData.price);
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/stylist/updateService/${editingService.service_id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('Service updated successfully');
+        setShowEditServiceModal(false);
+        setEditingService(null);
+        setServiceFormData({ name: '', description: '', duration_minutes: '', price: '' });
+        fetchServices();
+      } else {
+        toast.error(data.message || 'Failed to update service');
+      }
+    } catch (err) {
+      console.error('Failed to update service:', err);
+      toast.error('Failed to update service');
+    } finally {
+      setServiceLoading(false);
+    }
+  };
+
+  const handleDeleteService = async () => {
+    if (!deletingService) return;
+
+    setServiceLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/stylist/removeService/${deletingService.service_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('Service removed successfully');
+        setShowDeleteServiceModal(false);
+        setDeletingService(null);
+        fetchServices();
+      } else {
+        toast.error(data.message || 'Failed to remove service');
+      }
+    } catch (err) {
+      console.error('Failed to remove service:', err);
+      toast.error('Failed to remove service');
+    } finally {
+      setServiceLoading(false);
+    }
+  };
+
+  const openDeleteModal = (service) => {
+    setDeletingService(service);
+    setShowDeleteServiceModal(true);
+  };
+
+  const openEditModal = (service) => {
+    setEditingService(service);
+    setServiceFormData({
+      name: service.name,
+      description: service.description,
+      duration_minutes: service.duration_minutes.toString(),
+      price: service.price.toString()
+    });
+    setShowEditServiceModal(true);
+  };
+
   const formatDate = (date) => {
     if (viewType === 'week') {
       const startOfWeek = new Date(date);
@@ -446,7 +626,7 @@ export default function HairstylistDashboard() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed': return '!bg-green-200 !text-green-800 border-green-200';
+      case 'confirmed': return '!bg-purple-200 !text-purple-800 border-purple-200';
       case 'pending': return '!bg-yellow-200 !text-yellow-800 border-yellow-200';
       case 'canceled': return '!bg-red-200 !text-red-800 border-red-200';
       default: return '!bg-gray-200 !text-gray-800 border-gray-200';
@@ -478,10 +658,26 @@ export default function HairstylistDashboard() {
     return days;
   };
 
+  const formatWeekRange = () => {
+    const weekDays = getWeekDays();
+    const startDay = weekDays[0];
+    const endDay = weekDays[6];
+    
+    // Check if the week spans two different months
+    if (startDay.getMonth() === endDay.getMonth()) {
+      // Same month - only show month on start date
+      return `${startDay.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${endDay.toLocaleDateString('en-US', { day: 'numeric' })}`;
+    } else {
+      // Different months - show month on both dates
+      return `${startDay.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${endDay.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
+    }
+  };
+
   // Month view removed - only showing current week
 
   const tabs = [
     { id: 'schedule', label: 'Schedule' },
+    { id: 'services', label: 'Services' },
     { id: 'customers', label: 'Customers' },
     { id: 'reviews', label: 'Reviews' },
     { id: 'profile', label: 'Profile' }
@@ -612,57 +808,59 @@ export default function HairstylistDashboard() {
           <p className="text-muted-foreground">
             Manage your appointments, customers, and professional profile at {salonData?.name}.
           </p>
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Button onClick={fetchStylistSalon} variant="outline" size="sm">
-                Refresh Data
-              </Button>
-              <Button 
-                onClick={() => setShowBlockModal(true)} 
-                variant="outline" 
-                size="sm"
-                className="flex items-center space-x-2"
-              >
-                <Ban className="w-4 h-4" />
-                <span>Block Time</span>
-              </Button>
-              <Button 
-                onClick={() => {
-                  setShowUnblockModal(true);
-                  fetchBlockedSlots(); // Refresh blocked slots when opening modal
-                }} 
-                variant="outline" 
-                size="sm"
-                className="flex items-center space-x-2"
-              >
-                <X className="w-4 h-4" />
-                <span>Unblock Time</span>
-              </Button>
-            </div>
-            
-            {/* View Settings */}
-            <div className="bg-white rounded-lg border p-2 flex items-center space-x-2">
-              <Settings className="w-4 h-4 text-muted-foreground" />
-              <div className="flex space-x-1">
-                <Button
-                  variant={viewType === 'day' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewType('day')}
-                  className="px-3 py-1 text-xs"
-                >
-                  Day
+          {activeTab === 'schedule' && (
+            <div className="mt-4 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Button onClick={fetchStylistSalon} variant="outline" size="sm">
+                  Refresh Data
                 </Button>
-                <Button
-                  variant={viewType === 'week' ? 'default' : 'outline'}
+                <Button 
+                  onClick={() => setShowBlockModal(true)} 
+                  variant="outline" 
                   size="sm"
-                  onClick={() => setViewType('week')}
-                  className="px-3 py-1 text-xs"
+                  className="flex items-center space-x-2"
                 >
-                  Week
+                  <Ban className="w-4 h-4" />
+                  <span>Block Time</span>
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setShowUnblockModal(true);
+                    fetchBlockedSlots(); // Refresh blocked slots when opening modal
+                  }} 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Unblock Time</span>
                 </Button>
               </div>
+              
+              {/* View Settings */}
+              <div className="bg-white rounded-lg border p-2 flex items-center space-x-2">
+                <Settings className="w-4 h-4 text-muted-foreground" />
+                <div className="flex space-x-1">
+                  <Button
+                    variant={viewType === 'day' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewType('day')}
+                    className="px-3 py-1 text-xs"
+                  >
+                    Day
+                  </Button>
+                  <Button
+                    variant={viewType === 'week' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewType('week')}
+                    className="px-3 py-1 text-xs"
+                  >
+                    Week
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Tab Content */}
@@ -715,7 +913,7 @@ export default function HairstylistDashboard() {
               ) : (
                 <div className="text-center">
                   <h3 className="text-lg font-semibold text-foreground">
-                    Week of {getWeekDays()[0].toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}-{getWeekDays()[6].toLocaleDateString('en-US', { day: 'numeric' })}
+                    Week of {formatWeekRange()}
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     Your weekly schedule
@@ -749,60 +947,60 @@ export default function HairstylistDashboard() {
                   {/* Separator */}
                   <div className="h-6 w-px bg-gray-300"></div>
                   
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm font-medium text-foreground">Bookings:</span>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-green-200 border-l-4 border-green-500 rounded"></div>
-                      <span className="text-sm text-foreground">Confirmed</span>
+                                                                           <div className="flex items-center space-x-4">
+                      <span className="text-sm font-medium text-foreground">Bookings:</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-purple-200 border-l-4 border-purple-500 rounded"></div>
+                        <span className="text-sm text-foreground">Completed</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-yellow-200 border-l-4 border-yellow-500 rounded"></div>
+                        <span className="text-sm text-foreground">Scheduled</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-red-200 border-l-4 border-red-500 rounded"></div>
+                        <span className="text-sm text-foreground">Cancelled</span>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-yellow-200 border-l-4 border-yellow-500 rounded"></div>
-                      <span className="text-sm text-foreground">Pending</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-red-200 border-l-4 border-red-500 rounded"></div>
-                      <span className="text-sm text-foreground">Canceled</span>
-                    </div>
-                  </div>
                 </div>
 
-                <div className="grid grid-cols-8 gap-2">
-                  {/* Time column header */}
-                  <div className="text-center text-sm font-medium text-muted-foreground py-2 border-r">
-                    Time
-                  </div>
-                  
-                  {/* Day headers */}
-                  {getWeekDays().map((day, index) => (
-                    <div key={index} className="text-center text-sm font-medium text-muted-foreground py-2 border-r">
-                      <div className="font-semibold">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                      <div className="text-lg">{day.getDate()}</div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Time grid */}
-                <div className="grid grid-cols-8 gap-2 relative">
-                  {/* Time labels */}
-                  <div className="col-span-1 border-r">
-                    {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => (
-                      <div key={hour} className="h-12 border-b border-dashed border-gray-200 flex items-start justify-end pr-2 text-xs text-muted-foreground">
-                        {hour > 12 ? `${hour - 12}:00 PM` : hour === 12 ? '12:00 PM' : `${hour}:00 AM`}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Day columns */}
-                  {getWeekDays().map((day, dayIndex) => {
-                    const dayScheduleData = getBackendDaySchedule(day, backendSchedule);
-                    const availability = dayScheduleData?.availability;
-                    const unavailabilities = dayScheduleData?.unavailability || [];
-                    
-                    return (
-                      <div key={dayIndex} className="col-span-1 border-r relative">
-                        {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => (
-                          <div key={hour} className="h-12 border-b border-dashed border-gray-200"></div>
-                        ))}
+                                 <div className="grid grid-cols-[80px_repeat(7,1fr)]">
+                   {/* Time column header */}
+                   <div className="text-center text-sm font-medium text-muted-foreground py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                     Time
+                   </div>
+                   
+                   {/* Day headers */}
+                   {getWeekDays().map((day, index) => (
+                     <div key={index} className="text-center text-sm font-medium text-muted-foreground py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                       <div className="font-semibold">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                       <div className="text-lg">{day.getDate()}</div>
+                     </div>
+                   ))}
+                 </div>
+                 
+                                   {/* Time grid */}
+                  <div className="grid grid-cols-[80px_repeat(7,1fr)] relative" style={{ borderTop: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                   {/* Time labels */}
+                   <div className="col-span-1" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                     {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => (
+                       <div key={hour} className="h-12 flex items-start justify-end pr-2 text-xs text-muted-foreground" style={{ borderBottom: '1px dashed rgba(0, 0, 0, 0.2)' }}>
+                         {hour > 12 ? `${hour - 12}:00 PM` : hour === 12 ? '12:00 PM' : `${hour}:00 AM`}
+                       </div>
+                     ))}
+                   </div>
+                   
+                   {/* Day columns */}
+                   {getWeekDays().map((day, dayIndex) => {
+                     const dayScheduleData = getBackendDaySchedule(day, backendSchedule);
+                     const availability = dayScheduleData?.availability;
+                     const unavailabilities = dayScheduleData?.unavailability || [];
+                     
+                     return (
+                       <div key={dayIndex} className="col-span-1 relative" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                         {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => (
+                           <div key={hour} className="h-12" style={{ borderBottom: '1px dashed rgba(0, 0, 0, 0.2)' }}></div>
+                         ))}
                         
                         {/* Availability highlight */}
                         {availability && availability.start_time && availability.end_time && (
@@ -839,16 +1037,16 @@ export default function HairstylistDashboard() {
                             const height = minutesToPixels(endMinutes - startMinutes);
                             
                             return (
-                              <div
-                                key={appointment.id}
-                                className={`absolute left-1 right-1 p-1 rounded text-xs border-l-2 shadow-sm ${getStatusColor(appointment.status)}`}
-                                style={{ 
-                                  top: `${top}px`, 
-                                  height: `${height}px`,
-                                  borderLeftColor: appointment.status === 'confirmed' ? '#16a34a' : 
-                                                 appointment.status === 'pending' ? '#ca8a04' : '#dc2626'
-                                }}
-                              >
+                                                             <div
+                                 key={appointment.id}
+                                 className={`absolute left-1 right-1 p-1 rounded text-xs border-l-2 shadow-sm ${getStatusColor(appointment.status)}`}
+                                 style={{ 
+                                   top: `${top}px`, 
+                                   height: `${height}px`,
+                                   borderLeftColor: appointment.status === 'confirmed' ? '#9333ea' : 
+                                                  appointment.status === 'pending' ? '#ca8a04' : '#dc2626'
+                                 }}
+                               >
                                 <div className="flex items-center space-x-1 mb-0.5">
                                   <CheckCircle className="w-2 h-2 flex-shrink-0" />
                                   <span className="font-semibold text-xs leading-none">{appointment.startTime} - {appointment.endTime}</span>
@@ -998,6 +1196,80 @@ export default function HairstylistDashboard() {
             <p className="text-sm text-muted-foreground">
               Reviews content will be implemented here.
             </p>
+          </div>
+        )}
+
+        {activeTab === 'services' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">My Services</h2>
+                <p className="text-muted-foreground">Manage the services you offer</p>
+              </div>
+              <Button onClick={() => setShowServiceModal(true)} className="flex items-center space-x-2">
+                <Plus className="w-4 h-4" />
+                <span>Add Service</span>
+              </Button>
+            </div>
+
+            {servicesLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading services...</p>
+              </div>
+            ) : services.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-lg border">
+                <ScissorsIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No services yet</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Add services that you offer to help customers book with you.
+                </p>
+                <Button onClick={() => setShowServiceModal(true)} className="flex items-center space-x-2">
+                  <Plus className="w-4 h-4" />
+                  <span>Add Your First Service</span>
+                </Button>
+              </div>
+            ) : (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                 {services.map((service) => (
+                   <Card key={service.service_id} className="hover:shadow-lg transition-shadow">
+                     <CardContent className="p-6 pt-5">
+                                             <div className="flex justify-between items-start mb-4">
+                         <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
+                         <div className="flex space-x-2">
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => openEditModal(service)}
+                             className="h-10 w-10 p-0"
+                           >
+                             <Edit className="w-6 h-6" />
+                           </Button>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => openDeleteModal(service)}
+                             className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
+                           >
+                             <Trash2 className="w-6 h-6" />
+                           </Button>
+                         </div>
+                       </div>
+                      <p className="text-sm text-muted-foreground mb-4">{service.description}</p>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <Clock className="w-4 h-4" />
+                          <span>{service.duration_minutes} min</span>
+                        </div>
+                        <div className="text-lg font-semibold text-foreground">
+                          ${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1207,6 +1479,242 @@ export default function HairstylistDashboard() {
                   className="px-6 py-2 border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
                   Close
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* BS-1.01: Create Service Modal */}
+      {showServiceModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md mx-auto shadow-2xl">
+            <CardContent className="pt-8 px-6 pb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3 bg-primary/10 p-3 rounded-lg">
+                  <Plus className="w-6 h-6 text-primary" />
+                  <h3 className="text-lg font-semibold text-gray-900">Add Service</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowServiceModal(false);
+                    setServiceFormData({ name: '', description: '', duration_minutes: '', price: '' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <Label htmlFor="name">Service Name</Label>
+                  <Input
+                    id="name"
+                    value={serviceFormData.name}
+                    onChange={(e) => setServiceFormData({ ...serviceFormData, name: e.target.value })}
+                    placeholder="e.g., Haircut"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <textarea
+                    id="description"
+                    value={serviceFormData.description}
+                    onChange={(e) => setServiceFormData({ ...serviceFormData, description: e.target.value })}
+                    placeholder="Describe your service..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="duration">Duration (minutes)</Label>
+                    <Input
+                      id="duration"
+                      type="number"
+                      value={serviceFormData.duration_minutes}
+                      onChange={(e) => setServiceFormData({ ...serviceFormData, duration_minutes: e.target.value })}
+                      placeholder="30"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="price">Price ($)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      value={serviceFormData.price}
+                      onChange={(e) => setServiceFormData({ ...serviceFormData, price: e.target.value })}
+                      placeholder="35.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowServiceModal(false);
+                    setServiceFormData({ name: '', description: '', duration_minutes: '', price: '' });
+                  }}
+                  disabled={serviceLoading}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateService} disabled={serviceLoading}>
+                  {serviceLoading ? 'Creating...' : 'Create Service'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* BS-1.01: Edit Service Modal */}
+      {showEditServiceModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md mx-auto shadow-2xl">
+            <CardContent className="pt-8 px-6 pb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3 bg-primary/10 p-3 rounded-lg">
+                  <Edit className="w-6 h-6 text-primary" />
+                  <h3 className="text-lg font-semibold text-gray-900">Edit Service</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowEditServiceModal(false);
+                    setEditingService(null);
+                    setServiceFormData({ name: '', description: '', duration_minutes: '', price: '' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <Label htmlFor="edit-name">Service Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={serviceFormData.name}
+                    onChange={(e) => setServiceFormData({ ...serviceFormData, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-description">Description</Label>
+                  <textarea
+                    id="edit-description"
+                    value={serviceFormData.description}
+                    onChange={(e) => setServiceFormData({ ...serviceFormData, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-duration">Duration (minutes)</Label>
+                    <Input
+                      id="edit-duration"
+                      type="number"
+                      value={serviceFormData.duration_minutes}
+                      onChange={(e) => setServiceFormData({ ...serviceFormData, duration_minutes: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-price">Price ($)</Label>
+                    <Input
+                      id="edit-price"
+                      type="number"
+                      step="0.01"
+                      value={serviceFormData.price}
+                      onChange={(e) => setServiceFormData({ ...serviceFormData, price: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowEditServiceModal(false);
+                    setEditingService(null);
+                    setServiceFormData({ name: '', description: '', duration_minutes: '', price: '' });
+                  }}
+                  disabled={serviceLoading}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateService} disabled={serviceLoading}>
+                  {serviceLoading ? 'Updating...' : 'Update Service'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* BS-1.01: Delete Service Confirmation Modal */}
+      {showDeleteServiceModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md mx-auto shadow-2xl">
+            <CardContent className="pt-8 px-6 pb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3 bg-red-50 p-3 rounded-lg">
+                  <Trash2 className="w-6 h-6 text-red-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Delete Service</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowDeleteServiceModal(false);
+                    setDeletingService(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-gray-700 mb-4">
+                  Are you sure you want to delete the service <span className="font-semibold">"{deletingService?.name}"</span>? This action cannot be undone.
+                </p>
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <p className="text-sm text-red-800">
+                    <AlertCircle className="w-4 h-4 inline mr-1" />
+                    This will permanently remove the service from your list.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteServiceModal(false);
+                    setDeletingService(null);
+                  }}
+                  disabled={serviceLoading}
+                  className="px-6 py-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDeleteService}
+                  disabled={serviceLoading}
+                  className="px-6 py-2 text-white font-medium bg-red-600 hover:bg-red-700"
+                >
+                  {serviceLoading ? 'Deleting...' : 'Delete Service'}
                 </Button>
               </div>
             </CardContent>
