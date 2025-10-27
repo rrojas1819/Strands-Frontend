@@ -1,0 +1,79 @@
+name: CI/CD to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  REMOTE_DIR: '~/Strands-Frontend'
+  PM2_APP: 'frontend'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Package dist
+        run: |
+          mkdir -p release
+          tar -czf release/${GITHUB_SHA}.tar.gz dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: release/${GITHUB_SHA}.tar.gz
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: .
+      - name: Upload to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: ./*.tar.gz
+          target: ${{ env.REMOTE_DIR }}/releases/
+      - name: Activate release on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            BASE=${{ env.REMOTE_DIR }}
+            REL="${BASE}/releases"
+            CUR="${BASE}/current"
+            FILE=$(ls -1 ${REL}/*.tar.gz | tail -n1)
+            NAME=$(basename "$FILE" .tar.gz)
+            NEW="${REL}/${NAME}"
+
+            mkdir -p "$NEW"
+            tar -xzf "$FILE" -C "$NEW"
+            ln -sfn "${NEW}/dist" "$CUR"
+
+            if ! command -v pm2 >/dev/null; then
+              sudo npm i -g pm2 serve
+            fi
+
+            pm2 reload ${{ env.PM2_APP }} || pm2 start "serve" --name ${{ env.PM2_APP }} -- -s "$CUR" -l 4173
+            pm2 save || true
+
+            cd "$REL" && ls -1dt */ | tail -n +6 | xargs -r rm -rf
