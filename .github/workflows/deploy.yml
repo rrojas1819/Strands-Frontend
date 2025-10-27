@@ -11,9 +11,9 @@ concurrency:
 
 env:
   NODE_VERSION: '20'
-  REMOTE_DIR: '/home/ubuntu/Strands-Frontend'   # 👈 absolute path
+  REMOTE_DIR: '/home/ubuntu/Strands-Frontend'
   PM2_APP: 'frontend'
-  FRONTEND_DIR: '.'  # change if your Vite app is in a subfolder
+  FRONTEND_DIR: '.'
 
 jobs:
   build:
@@ -27,11 +27,11 @@ jobs:
           cache: npm
           cache-dependency-path: ${{ env.FRONTEND_DIR }}/package-lock.json
 
-      - name: Install deps
+      - name: Install dependencies
         working-directory: ${{ env.FRONTEND_DIR }}
         run: npm ci
 
-      - name: Build
+      - name: Build frontend
         working-directory: ${{ env.FRONTEND_DIR }}
         run: npm run build
 
@@ -66,23 +66,22 @@ jobs:
         with:
           name: dist
           path: .
-  
+
       - name: List downloaded files
         run: |
           set -eux
           ls -lah
           tar -tzf dist.tar.gz | head -n 20
-  
+
       - name: Write SSH key
-        id: write-key
         run: |
           set -euo pipefail
           echo "Writing EC2 PEM key to file..."
           echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > $GITHUB_WORKSPACE/StrandsKey.pem
-          chmod 600 $GITHUB_WORKSPACE/StrandsKey.pem
+          chmod 644 $GITHUB_WORKSPACE/StrandsKey.pem
           ls -lah $GITHUB_WORKSPACE
           head -n 2 $GITHUB_WORKSPACE/StrandsKey.pem
-  
+
       - name: Prep remote dirs
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -94,7 +93,7 @@ jobs:
             BASE=${{ env.REMOTE_DIR }}
             mkdir -p "$BASE/releases" "$BASE/current"
             chown -R ubuntu:ubuntu "$BASE"
-  
+
       - name: Upload to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -103,13 +102,13 @@ jobs:
           key_path: ${{ github.workspace }}/StrandsKey.pem
           source: ./dist.tar.gz
           target: ${{ env.REMOTE_DIR }}/releases/
-  
+
       - name: Activate release on EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ec2-3-134-137-100.us-east-2.compute.amazonaws.com
           username: ubuntu
-          key_path: ${{ github.workspace }}/StrandsKey.pem   # 👈 consistent path
+          key_path: ${{ github.workspace }}/StrandsKey.pem
           script: |
             set -euo pipefail
             BASE=${{ env.REMOTE_DIR }}
@@ -117,13 +116,16 @@ jobs:
             CUR="${BASE}/current"
             TS="$(date +%Y%m%d%H%M%S)"
             NEW="${REL}/${TS}"
-  
+
             mkdir -p "$NEW"
             tar -xzf "${REL}/dist.tar.gz" -C "$NEW"
             ln -sfn "${NEW}/dist" "$CUR"
-  
-            if ! command -v pm2 >/dev/null; then sudo npm i -g pm2 serve; fi
+
+            if ! command -v pm2 >/dev/null; then
+              sudo npm i -g pm2 serve
+            fi
+
             pm2 reload ${{ env.PM2_APP }} || pm2 start serve --name ${{ env.PM2_APP }} -- -s "$CUR" -l 4173
             pm2 save || true
-  
+
             cd "$REL" && ls -1dt */ | tail -n +6 | xargs -r rm -rf
