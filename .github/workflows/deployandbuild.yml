@@ -43,74 +43,79 @@ jobs:
           retention-days: 7
 
   deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: .
+  runs-on: ubuntu-latest
+  needs: build
+  steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: .
 
-      - name: List downloaded files
-        run: |
-          set -eux
-          ls -lah
-          tar -tzf dist.tar.gz | head -n 20
+    - name: List downloaded files
+      run: |
+        set -eux
+        ls -lah
+        tar -tzf dist.tar.gz | head -n 20
 
-      - name: Prep remote dirs
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -euxo pipefail
-            BASE=${{ env.REMOTE_DIR }}
-            mkdir -p "$BASE/releases" "$BASE/current"
+    # ✅ Write RSA key from secret to a file (handle CRLF, perms, sanity checks)
+    - name: Prepare SSH key
+      run: |
+        set -euo pipefail
+        if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+          echo "EC2_SSH_KEY is empty (check repo Settings > Secrets)" >&2
+          exit 1
+        fi
+        umask 077
+        # Preserve newlines and strip CR from Windows line endings
+        printf "%s" "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > key.pem
+        # Basic sanity checks without leaking the key
+        head -n1 key.pem | grep -q "BEGIN RSA PRIVATE KEY" || (echo "Not an RSA PEM" >&2; exit 1)
+        tail -n1 key.pem | grep -q "END RSA PRIVATE KEY" || (echo "PEM footer missing" >&2; exit 1)
+        chmod 600 key.pem
+        # Optional: fingerprint for debugging (safe hash, no contents)
+        echo "PEM md5: $(md5sum key.pem | cut -d' ' -f1)"
 
-      - name: Upload to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: ./dist.tar.gz
-          target: ${{ env.REMOTE_DIR }}/releases/
+    - name: Prep remote dirs
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}   # should be 'ubuntu'
+        key_path: key.pem
+        script: |
+          set -euxo pipefail
+          BASE=${{ env.REMOTE_DIR }}
+          mkdir -p "$BASE/releases" "$BASE/current"
+          chown -R $USER:$USER "$BASE"
 
-      - name: Activate release on EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -euo pipefail
-            BASE=${{ env.REMOTE_DIR }}
-            REL="${BASE}/releases"
-            CUR="${BASE}/current"
-            TS="$(date +%Y%m%d%H%M%S)"
-            NEW="${REL}/${TS}"
+    - name: Upload to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key_path: key.pem
+        source: ./dist.tar.gz
+        target: ${{ env.REMOTE_DIR }}/releases/
 
-            mkdir -p "$NEW"
-            tar -xzf "${REL}/dist.tar.gz" -C "$NEW"
-            ln -sfn "${NEW}/dist" "$CUR"
+    - name: Activate release on EC2
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key_path: key.pem
+        script: |
+          set -euo pipefail
+          BASE=${{ env.REMOTE_DIR }}
+          REL="${BASE}/releases"
+          CUR="${BASE}/current"
+          TS="$(date +%Y%m%d%H%M%S)"
+          NEW="${REL}/${TS}"
 
-            if ! command -v pm2 >/dev/null; then
-              sudo npm i -g pm2 serve
-            fi
+          mkdir -p "$NEW"
+          tar -xzf "${REL}/dist.tar.gz" -C "$NEW"
+          ln -sfn "${NEW}/dist" "$CUR"
 
-            pm2 reload ${{ env.PM2_APP }} || pm2 start "serve" --name ${{ env.PM2_APP }} -- -s "$CUR" -l 4173
-            pm2 save || true
-            
-            cd "$REL" && ls -1dt */ | tail -n +6 | xargs -r rm -rf
+          if ! command -v pm2 >/dev/null; then sudo npm i -g pm2 serve; fi
+          pm2 reload ${{ env.PM2_APP }} || pm2 start serve --name ${{ env.PM2_APP }} -- -s "$CUR" -l 4173
+          pm2 save || true
 
-      - name: Verify on EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -euxo pipefail
-            ls -lah ${{ env.REMOTE_DIR }}/current
-            pm2 ls
+          cd "$REL" && ls -1dt */ | tail -n +6 | xargs -r rm -rf
