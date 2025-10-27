@@ -6,16 +6,68 @@ import { Toaster } from 'sonner';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
+import SalonOwnerDashboard from './pages/SalonOwnerDashboard';
+import SalonVerification from './pages/SalonVerification';
+import SalonBrowser from './pages/SalonBrowser';
+import SalonDetail from './pages/SalonDetail';
+import LoyaltyPoints from './pages/LoyaltyPoints';
+import LoyaltyMonitoring from './pages/LoyaltyMonitoring';
 import HairstylistDashboard from './pages/HairstylistDashboard';
 
 // Context
-import { AuthContext } from './context/AuthContext';
+import { AuthContext, RewardsContext } from './context/AuthContext';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [rewardsCount, setRewardsCount] = useState(0);
 
-  // Initialize auth state on app load
+  // Fetch rewards count for user
+  const fetchRewardsCount = async (userId) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Get all approved salons first
+      const salonsResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!salonsResponse.ok) return;
+
+      const salonsData = await salonsResponse.json();
+      const salons = salonsData.data || [];
+      
+      let totalRewards = 0;
+      
+      // Check loyalty data for each salon
+      for (const salon of salons) {
+        try {
+          const loyaltyResponse = await fetch(`${apiUrl}/user/loyalty/view?salon_id=${salon.salon_id}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+
+          if (loyaltyResponse.ok) {
+            const loyaltyData = await loyaltyResponse.json();
+            const userRewards = loyaltyData.userRewards || [];
+            const activeRewards = userRewards.filter(reward => reward.active === 1);
+            totalRewards += activeRewards.length;
+          }
+        } catch (err) {
+          // Skip this salon if there's an error
+          continue;
+        }
+      }
+
+      setRewardsCount(totalRewards);
+    } catch (error) {
+      console.error('Error fetching rewards count:', error);
+    }
+  };
+
+  // Check auth on load
   useEffect(() => {
     const initializeAuth = () => {
       const savedUser = localStorage.getItem('user_data');
@@ -28,7 +80,10 @@ export default function App() {
         ?.split('=')[1];
       
       if (savedUser && (savedToken || cookieToken)) {
-        setUser(JSON.parse(savedUser));
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+        // Fetch rewards count for existing user
+        fetchRewardsCount(userData.user_id);
       }
       setLoading(false);
     };
@@ -81,7 +136,8 @@ export default function App() {
           const userInfo = {
             user_id: loginData.data.user_id,
             full_name: loginData.data.full_name,
-            role: loginData.data.role
+            role: loginData.data.role,
+            email: userData.email
           };
           
           // Store token in both localStorage and cookie
@@ -92,6 +148,9 @@ export default function App() {
           document.cookie = `auth_token=${loginData.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
           
           setUser(userInfo);
+          
+          // Fetch rewards count for the newly registered user
+          fetchRewardsCount(userInfo.user_id);
           
           // Redirect to dashboard after successful registration and login
           setTimeout(() => {
@@ -132,27 +191,31 @@ export default function App() {
       console.log('Backend response data:', data);
 
       if (response.ok && data.message === "Login successful") {
-        const userData = {
+        const userInfo = {
           user_id: data.data.user_id,
           full_name: data.data.full_name,
-          role: data.data.role
+          role: data.data.role,
+          email: userData.email
         };
         
         // Store token in both localStorage and cookie
         localStorage.setItem('auth_token', data.data.token);
-        localStorage.setItem('user_data', JSON.stringify(userData));
+        localStorage.setItem('user_data', JSON.stringify(userInfo));
         
         // Set HTTP-only cookie for token (more secure)
         document.cookie = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
         
-        setUser(userData);
+        setUser(userInfo);
+        
+        // Fetch rewards count for the logged-in user
+        fetchRewardsCount(userInfo.user_id);
         
         // Redirect to dashboard after successful login
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 100);
         
-        return { success: true, user: userData };
+        return { success: true, user: userInfo };
       }
       return { success: false, error: data.message || 'Login failed' };
     } catch (error) {
@@ -231,31 +294,21 @@ export default function App() {
       return <AdminDashboard />;
     }
     
+    if (user.role === 'OWNER') {
+      return <SalonOwnerDashboard />;
+    }
+    
     // UAR-1.8: Route EMPLOYEE role to HairstylistDashboard
     if (user.role === 'EMPLOYEE') {
       return <HairstylistDashboard />;
     }
     
-    // Default dashboard for other roles (CUSTOMER, OWNER)
-  return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Welcome, {user.full_name}!</h1>
-          <p className="text-gray-600 mb-4">You have successfully signed up!</p>
-          <p className="text-gray-600 mb-4">Role: {user.role}</p>
-          <button 
-            onClick={logout}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-    );
+    // Default dashboard for other roles (CUSTOMER, OWNER) - Show salon browser directly
+    return <SalonBrowser />;
   };
 
   if (loading) {
-    return (
+  return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
@@ -264,7 +317,8 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={authValue}>
-      <Router>
+      <RewardsContext.Provider value={{ rewardsCount, setRewardsCount }}>
+        <Router>
         <div className="min-h-screen bg-background">
           <Routes>
             <Route 
@@ -287,11 +341,28 @@ export default function App() {
               path="/dashboard" 
               element={getDashboardComponent()} 
             />
+            <Route 
+              path="/admin/salon-verification" 
+              element={user && user.role === 'ADMIN' ? <SalonVerification /> : <Navigate to="/" replace />} 
+            />
+            <Route 
+              path="/admin/loyalty-monitoring" 
+              element={user && user.role === 'ADMIN' ? <LoyaltyMonitoring /> : <Navigate to="/" replace />} 
+            />
+            <Route 
+              path="/loyalty-points" 
+              element={user ? <LoyaltyPoints /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/salon/:salonId" 
+              element={user ? <SalonDetail /> : <Navigate to="/login" replace />} 
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <Toaster position="top-right" />
-        </div>
+      </div>
       </Router>
+      </RewardsContext.Provider>
     </AuthContext.Provider>
   );
 }
