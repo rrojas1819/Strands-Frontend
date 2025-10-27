@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import SalonRegistrationForm from '../components/SalonRegistrationForm';
 import LoyaltyConfiguration from '../components/LoyaltyConfiguration';
 import OperatingHours from '../components/OperatingHours';
+import EmployeeHoursModal from '../components/EmployeeHoursModal';
 import { Button } from '../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
@@ -55,6 +56,8 @@ export default function SalonOwnerDashboard() {
   const [modalConfig, setModalConfig] = useState({});
   const [showFireModal, setShowFireModal] = useState(false);
   const [employeeToFire, setEmployeeToFire] = useState(null);
+  const [showEmployeeHoursModal, setShowEmployeeHoursModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
 
   useEffect(() => {
     const checkSalonStatus = async () => {
@@ -208,6 +211,11 @@ export default function SalonOwnerDashboard() {
   const handleFireEmployee = (employee) => {
     setEmployeeToFire(employee);
     setShowFireModal(true);
+  };
+
+  const handleSetEmployeeHours = (employee) => {
+    setSelectedEmployee(employee);
+    setShowEmployeeHoursModal(true);
   };
 
   const confirmFireEmployee = async () => {
@@ -385,6 +393,12 @@ export default function SalonOwnerDashboard() {
                   Loyalty
                 </button>
                 <button 
+                  onClick={() => toast.info('Promotions coming soon!')}
+                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                >
+                  Promotions
+                </button>
+                <button 
                   onClick={() => setActiveTab('settings')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'settings' 
@@ -393,12 +407,6 @@ export default function SalonOwnerDashboard() {
                   }`}
                 >
                   Settings
-                </button>
-                <button 
-                  onClick={() => toast.info('Promotions coming soon!')}
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
-                >
-                  Promotions
                 </button>
               </>
             )}
@@ -504,6 +512,14 @@ export default function SalonOwnerDashboard() {
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleSetEmployeeHours(employee)}
+                              className="hover:bg-blue-50 hover:border-blue-300"
+                            >
+                              Set Hours
+                            </Button>
                             <Button 
                               variant="destructive" 
                               size="sm" 
@@ -695,6 +711,33 @@ export default function SalonOwnerDashboard() {
           confirmText="Remove"
           showCancel={true}
           cancelText="Cancel"
+        />
+
+        <EmployeeHoursModal
+          isOpen={showEmployeeHoursModal}
+          onClose={() => {
+            setShowEmployeeHoursModal(false);
+            setSelectedEmployee(null);
+          }}
+          employee={selectedEmployee}
+          onSuccess={(message) => {
+            setModalConfig({
+              title: 'Success',
+              message: message,
+              type: 'success',
+              onConfirm: () => setShowModal(false)
+            });
+            setShowModal(true);
+          }}
+          onError={(error) => {
+            setModalConfig({
+              title: 'Error',
+              message: error,
+              type: 'error',
+              onConfirm: () => setShowModal(false)
+            });
+            setShowModal(true);
+          }}
         />
       </main>
     </div>
