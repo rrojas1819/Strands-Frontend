@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { ArrowLeft, LogOut, Star, Clock, Users, Check, X } from 'lucide-react';
+import { ArrowLeft, LogOut, Star, Clock, Users, Check, X, RefreshCw } from 'lucide-react';
 import { notifySuccess, notifyError, notifyInfo, Notifications } from '../utils/notifications';
 import { trackSalonView, trackBooking } from '../utils/analytics';
 import StrandsModal from '../components/StrandsModal';
@@ -126,8 +126,23 @@ export default function BookingPage() {
       if (servicesResponse.status === 'fulfilled' && servicesResponse.value.ok) {
         const servicesData = await servicesResponse.value.json();
         const fetchedServices = servicesData.data?.services || [];
-        setAllServices(fetchedServices);
-        setServices(fetchedServices); // Initially show all services
+        
+        // Deduplicate services by name, description, duration, and price to avoid duplicates
+        const uniqueServices = fetchedServices.reduce((acc, service) => {
+          const existingService = acc.find(s => 
+            s.name === service.name && 
+            s.description === service.description && 
+            s.duration_minutes === service.duration_minutes && 
+            s.price === service.price
+          );
+          if (!existingService) {
+            acc.push(service);
+          }
+          return acc;
+        }, []);
+        
+        setAllServices(uniqueServices);
+        setServices(uniqueServices); // Initially show all unique services
       }
 
       setLoading(false);
@@ -444,6 +459,10 @@ export default function BookingPage() {
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back</span>
               </Button>
+              <Button onClick={() => fetchSalonData()} variant="outline" className="flex items-center space-x-2">
+                <RefreshCw className="w-4 h-4" />
+                <span>Refresh</span>
+              </Button>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -557,10 +576,13 @@ export default function BookingPage() {
             <CardContent>
               <div className="space-y-2">
                 {services.map((service) => {
-                  const isSelected = selectedServices.some(s => s.service_id === service.service_id);
+                  const isSelected = selectedServices.some(s => 
+                    s.service_id === service.service_id || 
+                    (s.name === service.name && s.description === service.description && s.duration_minutes === service.duration_minutes && s.price === service.price)
+                  );
                   return (
                     <div
-                      key={service.service_id}
+                      key={`${service.service_id}-${service.name}`}
                       className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                         isSelected ? 'border-primary bg-primary/10' : 'border-muted hover:border-primary/50'
                       }`}
@@ -568,7 +590,10 @@ export default function BookingPage() {
                         if (isReschedule) return; // Disable service selection during reschedule
                         let newSelectedServices;
                         if (isSelected) {
-                          newSelectedServices = selectedServices.filter(s => s.service_id !== service.service_id);
+                          newSelectedServices = selectedServices.filter(s => 
+                            s.service_id !== service.service_id && 
+                            !(s.name === service.name && s.description === service.description && s.duration_minutes === service.duration_minutes && s.price === service.price)
+                          );
                         } else {
                           newSelectedServices = [...selectedServices, service];
                         }
@@ -580,9 +605,38 @@ export default function BookingPage() {
                         if (newSelectedServices.length > 0) {
                           const serviceIds = newSelectedServices.map(s => s.service_id);
                           await fetchStylistsForServices(serviceIds);
+                          
+                          // If a stylist is selected, check if they can still offer all services
+                          if (selectedStylist) {
+                            const token = localStorage.getItem('auth_token');
+                            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+                            
+                            try {
+                              const servicesResponse = await fetch(
+                                `${apiUrl}/salons/${salonId}/stylists/${selectedStylist.employee_id}/services`,
+                                {
+                                  headers: { 'Authorization': `Bearer ${token}` },
+                                }
+                              );
+                              
+                              if (servicesResponse.ok) {
+                                const servicesData = await servicesResponse.json();
+                                const stylistServiceIds = (servicesData.data?.services || []).map(s => s.service_id);
+                                const canOfferAll = serviceIds.every(id => stylistServiceIds.includes(id));
+                                
+                                if (!canOfferAll) {
+                                  // Stylist can't offer all services, deselect them
+                                  setSelectedStylist(null);
+                                }
+                              }
+                            } catch (err) {
+                              console.error('Error validating stylist services:', err);
+                            }
+                          }
                         } else {
-                          // If no services selected, show all stylists
+                          // If no services selected, show all stylists and all services
                           setStylists(allStylists);
+                          setServices(allServices);
                         }
                       }}
                     >

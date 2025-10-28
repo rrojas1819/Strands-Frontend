@@ -505,7 +505,12 @@ export default function HairstylistDashboard() {
     setServiceLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/stylist/removeService/${deletingService.service_id}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      console.log('Deleting service:', deletingService);
+      console.log('Endpoint:', `${apiUrl}/salons/stylist/removeService/${deletingService.service_id}`);
+      
+      const response = await fetch(`${apiUrl}/salons/stylist/removeService/${deletingService.service_id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -513,18 +518,23 @@ export default function HairstylistDashboard() {
         }
       });
 
+      console.log('Delete response status:', response.status);
       const data = await response.json();
+      console.log('Delete response data:', data);
+      
       if (response.ok) {
         toast.success('Service removed successfully');
         setShowDeleteServiceModal(false);
         setDeletingService(null);
-        fetchServices();
+        // Refresh services list to reflect changes
+        await fetchServices();
       } else {
+        console.error('Delete service failed:', data);
         toast.error(data.message || 'Failed to remove service');
       }
     } catch (err) {
       console.error('Failed to remove service:', err);
-      toast.error('Failed to remove service');
+      toast.error('Failed to remove service. Please try again.');
     } finally {
       setServiceLoading(false);
     }
@@ -685,7 +695,7 @@ export default function HairstylistDashboard() {
 
   // Loading state
   if (loading) {
-    return (
+  return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
@@ -696,30 +706,30 @@ export default function HairstylistDashboard() {
   if (error) {
     return (
       <div className="min-h-screen bg-muted/30">
-        {/* Header */}
+      {/* Header */}
         <header className="bg-background border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div className="flex items-center space-x-4">
-                <img 
-                  src={strandsLogo} 
-                  alt="Strands" 
+            <img 
+              src={strandsLogo} 
+              alt="Strands" 
                   className="w-8 h-8 cursor-pointer hover:opacity-80 transition-opacity" 
-                  onClick={() => navigate('/')}
-                />
+              onClick={() => navigate('/')}
+            />
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">Hairstylist Dashboard</h1>
                   <p className="text-sm text-muted-foreground">Employee Portal</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
                 <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                   Hairstylist
                 </Badge>
                 <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
                   <LogOut className="w-4 h-4" />
                   <span>Logout</span>
-                </Button>
+                  </Button>
               </div>
             </div>
           </div>
@@ -739,7 +749,7 @@ export default function HairstylistDashboard() {
                 {error}
               </AlertDescription>
             </Alert>
-          </div>
+                    </div>
         </main>
       </div>
     );
@@ -924,7 +934,7 @@ export default function HairstylistDashboard() {
 
             {/* Schedule Content */}
             {scheduleLoading ? (
-              <div className="text-center py-12">
+                  <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading your schedule...</p>
               </div>
@@ -1063,13 +1073,13 @@ export default function HairstylistDashboard() {
               </div>
             ) : scheduleData.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-lg border">
-                <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-foreground mb-2">No appointments scheduled</h3>
-                <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                   You have no appointments for {formatDate(selectedDate)}.
-                </p>
-              </div>
-            ) : (
+                    </p>
+                  </div>
+                ) : (
               <div className="space-y-4">
                 {/* Schedule Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1077,8 +1087,8 @@ export default function HairstylistDashboard() {
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                         <Calendar className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div>
+                        </div>
+                        <div>
                         <p className="text-sm font-medium text-foreground">Total Appointments</p>
                         <p className="text-2xl font-bold text-foreground">{scheduleData.length}</p>
                       </div>
@@ -1095,9 +1105,9 @@ export default function HairstylistDashboard() {
                         <p className="text-2xl font-bold text-foreground">
                           {scheduleData.filter(apt => apt.status === 'confirmed').length}
                         </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
                   
                   <div className="bg-white rounded-lg border p-4">
                     <div className="flex items-center space-x-3">
@@ -1139,7 +1149,7 @@ export default function HairstylistDashboard() {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
-                              <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2">
                                 <Clock className="w-4 h-4 text-muted-foreground" />
                                 <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
                               </div>
@@ -1237,22 +1247,22 @@ export default function HairstylistDashboard() {
                                              <div className="flex justify-between items-start mb-4">
                          <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
                          <div className="flex space-x-2">
-                           <Button
+                            <Button 
                              variant="ghost"
-                             size="sm"
+                              size="sm"
                              onClick={() => openEditModal(service)}
                              className="h-10 w-10 p-0"
-                           >
+                            >
                              <Edit className="w-6 h-6" />
-                           </Button>
-                           <Button
+                            </Button>
+                            <Button 
                              variant="ghost"
-                             size="sm"
+                              size="sm"
                              onClick={() => openDeleteModal(service)}
                              className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
-                           >
+                            >
                              <Trash2 className="w-6 h-6" />
-                           </Button>
+                            </Button>
                          </div>
                        </div>
                       <p className="text-sm text-muted-foreground mb-4">{service.description}</p>
@@ -1295,9 +1305,9 @@ export default function HairstylistDashboard() {
                   <Ban className="w-6 h-6 text-orange-500" />
                   <h3 className="text-lg font-semibold text-gray-900">Block Time Slot</h3>
                 </div>
-                <Button
+                        <Button 
                   variant="ghost"
-                  size="sm"
+                          size="sm"
                   onClick={() => {
                     setShowBlockModal(false);
                     setBlockFormData({ weekday: '', start_time: '', end_time: '' });
@@ -1305,8 +1315,8 @@ export default function HairstylistDashboard() {
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" />
-                </Button>
-              </div>
+                        </Button>
+                      </div>
 
               {/* Form */}
               <div className="space-y-4 mb-6">
@@ -1328,7 +1338,7 @@ export default function HairstylistDashboard() {
                     <option value="5">Friday</option>
                     <option value="6">Saturday</option>
                   </select>
-                </div>
+                    </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1340,9 +1350,9 @@ export default function HairstylistDashboard() {
                     onChange={(e) => setBlockFormData({ ...blockFormData, start_time: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
-                </div>
+                  </div>
 
-                <div>
+                        <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     End Time
                   </label>
@@ -1359,13 +1369,13 @@ export default function HairstylistDashboard() {
                     <Clock className="w-4 h-4 inline mr-1" />
                     This will block the selected time slot every week on the chosen day.
                   </p>
-                </div>
-              </div>
+                          </div>
+                        </div>
 
               {/* Actions */}
               <div className="flex space-x-3 justify-end">
-                <Button
-                  variant="outline"
+                        <Button 
+                          variant="outline" 
                   onClick={() => {
                     setShowBlockModal(false);
                     setBlockFormData({ weekday: '', start_time: '', end_time: '' });
@@ -1374,17 +1384,17 @@ export default function HairstylistDashboard() {
                   disabled={blockLoading}
                 >
                   Cancel
-                </Button>
-                <Button
+                        </Button>
+                        <Button 
                   onClick={handleBlockTimeSlot}
                   disabled={blockLoading}
                   className="px-6 py-2 text-white font-medium bg-orange-600 hover:bg-orange-700"
                 >
                   {blockLoading ? 'Blocking...' : 'Block Time'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                        </Button>
+                      </div>
+              </CardContent>
+            </Card>
         </div>
       )}
 
@@ -1440,18 +1450,18 @@ export default function HairstylistDashboard() {
                             <div className="bg-orange-100 p-2 rounded-lg">
                               <Clock className="w-4 h-4 text-orange-600" />
                             </div>
-                            <div>
+                        <div>
                               <p className="font-medium text-foreground text-sm">
                                 {dayNames[slot.weekday]}
-                              </p>
+                          </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
-                              </p>
-                            </div>
-                          </div>
-                          <Button
+                            </p>
+                        </div>
+                      </div>
+                        <Button 
                             variant="ghost"
-                            size="sm"
+                          size="sm"
                             onClick={() => {
                               handleDeleteBlockedSlot(slot);
                               // Close modal if no more slots after deletion
@@ -1463,11 +1473,11 @@ export default function HairstylistDashboard() {
                           >
                             <X className="w-4 h-4 mr-1" />
                             <span className="text-xs">Remove</span>
-                          </Button>
-                        </div>
+                        </Button>
+                      </div>
                       );
                     })}
-                  </div>
+                    </div>
                 )}
               </div>
 
@@ -1481,8 +1491,8 @@ export default function HairstylistDashboard() {
                   Close
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
         </div>
       )}
 
@@ -1495,7 +1505,7 @@ export default function HairstylistDashboard() {
                 <div className="flex items-center space-x-3 bg-primary/10 p-3 rounded-lg">
                   <Plus className="w-6 h-6 text-primary" />
                   <h3 className="text-lg font-semibold text-gray-900">Add Service</h3>
-                </div>
+                  </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1510,7 +1520,7 @@ export default function HairstylistDashboard() {
               </div>
 
               <div className="space-y-4 mb-6">
-                <div>
+                        <div>
                   <Label htmlFor="name">Service Name</Label>
                   <Input
                     id="name"
@@ -1518,7 +1528,7 @@ export default function HairstylistDashboard() {
                     onChange={(e) => setServiceFormData({ ...serviceFormData, name: e.target.value })}
                     placeholder="e.g., Haircut"
                   />
-                </div>
+                          </div>
                 <div>
                   <Label htmlFor="description">Description</Label>
                   <textarea
@@ -1529,7 +1539,7 @@ export default function HairstylistDashboard() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                     rows={3}
                   />
-                </div>
+                        </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="duration">Duration (minutes)</Label>
@@ -1540,7 +1550,7 @@ export default function HairstylistDashboard() {
                       onChange={(e) => setServiceFormData({ ...serviceFormData, duration_minutes: e.target.value })}
                       placeholder="30"
                     />
-                  </div>
+                      </div>
                   <div>
                     <Label htmlFor="price">Price ($)</Label>
                     <Input
@@ -1551,7 +1561,7 @@ export default function HairstylistDashboard() {
                       onChange={(e) => setServiceFormData({ ...serviceFormData, price: e.target.value })}
                       placeholder="35.00"
                     />
-                  </div>
+                    </div>
                 </div>
               </div>
 
@@ -1570,8 +1580,8 @@ export default function HairstylistDashboard() {
                   {serviceLoading ? 'Creating...' : 'Create Service'}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
         </div>
       )}
 
@@ -1584,7 +1594,7 @@ export default function HairstylistDashboard() {
                 <div className="flex items-center space-x-3 bg-primary/10 p-3 rounded-lg">
                   <Edit className="w-6 h-6 text-primary" />
                   <h3 className="text-lg font-semibold text-gray-900">Edit Service</h3>
-                </div>
+                    </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1597,18 +1607,18 @@ export default function HairstylistDashboard() {
                 >
                   <X className="w-5 h-5" />
                 </Button>
-              </div>
+                    </div>
 
               <div className="space-y-4 mb-6">
-                <div>
+                    <div>
                   <Label htmlFor="edit-name">Service Name</Label>
                   <Input
                     id="edit-name"
                     value={serviceFormData.name}
                     onChange={(e) => setServiceFormData({ ...serviceFormData, name: e.target.value })}
                   />
-                </div>
-                <div>
+                    </div>
+                    <div>
                   <Label htmlFor="edit-description">Description</Label>
                   <textarea
                     id="edit-description"
@@ -1617,9 +1627,9 @@ export default function HairstylistDashboard() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                     rows={3}
                   />
-                </div>
+                    </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                    <div>
                     <Label htmlFor="edit-duration">Duration (minutes)</Label>
                     <Input
                       id="edit-duration"
@@ -1627,8 +1637,8 @@ export default function HairstylistDashboard() {
                       value={serviceFormData.duration_minutes}
                       onChange={(e) => setServiceFormData({ ...serviceFormData, duration_minutes: e.target.value })}
                     />
-                  </div>
-                  <div>
+                    </div>
+                    <div>
                     <Label htmlFor="edit-price">Price ($)</Label>
                     <Input
                       id="edit-price"
@@ -1637,9 +1647,9 @@ export default function HairstylistDashboard() {
                       value={serviceFormData.price}
                       onChange={(e) => setServiceFormData({ ...serviceFormData, price: e.target.value })}
                     />
+                    </div>
                   </div>
                 </div>
-              </div>
 
               <div className="flex space-x-3 justify-end">
                 <Button
@@ -1657,8 +1667,8 @@ export default function HairstylistDashboard() {
                   {serviceLoading ? 'Updating...' : 'Update Service'}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
         </div>
       )}
 
@@ -1671,7 +1681,7 @@ export default function HairstylistDashboard() {
                 <div className="flex items-center space-x-3 bg-red-50 p-3 rounded-lg">
                   <Trash2 className="w-6 h-6 text-red-500" />
                   <h3 className="text-lg font-semibold text-gray-900">Delete Service</h3>
-                </div>
+                  </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1683,7 +1693,7 @@ export default function HairstylistDashboard() {
                 >
                   <X className="w-5 h-5" />
                 </Button>
-              </div>
+                    </div>
 
               <div className="mb-6">
                 <p className="text-gray-700 mb-4">
@@ -1694,8 +1704,8 @@ export default function HairstylistDashboard() {
                     <AlertCircle className="w-4 h-4 inline mr-1" />
                     This will permanently remove the service from your list.
                   </p>
-                </div>
-              </div>
+                  </div>
+                    </div>
 
               <div className="flex space-x-3 justify-end">
                 <Button
@@ -1716,9 +1726,9 @@ export default function HairstylistDashboard() {
                 >
                   {serviceLoading ? 'Deleting...' : 'Delete Service'}
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
         </div>
       )}
     </div>
