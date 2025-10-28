@@ -352,7 +352,7 @@ export default function SalonBrowser() {
         {/* Salon Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredSalons.map((salon) => (
-            <Card key={salon.salon_id} className="hover:shadow-lg transition-shadow">
+            <Card key={salon.salon_id} className="hover:shadow-lg transition-shadow h-full flex flex-col">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
@@ -367,8 +367,8 @@ export default function SalonBrowser() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
+              <CardContent className="flex flex-col h-full">
+                <div className="space-y-2 flex-grow">
                   <div className="flex items-center text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4 mr-2" />
                     <span>{salon.address || [salon.city, salon.state].filter(Boolean).join(', ')}</span>
@@ -391,27 +391,31 @@ export default function SalonBrowser() {
                   </div>
                 </div>
                 
-                <div className="pt-2 border-t">
+                <div className="pt-2 border-t mt-4">
                   <p className="text-sm text-muted-foreground">{salon.description}</p>
                 </div>
 
-                <div className="flex items-center justify-between pt-4">
-                  <div className={`flex items-center text-sm ${
+                {/* Bottom section with status and buttons - perfectly aligned */}
+                <div className="flex items-center justify-between pt-4 mt-auto border-t">
+                  <div className={`flex items-center text-sm font-medium ${
                     isSalonOpen(salon) === null ? 'text-gray-500' : 
                     isSalonOpen(salon) ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    <Clock className="w-4 h-4 mr-1" />
-                    <span>{isSalonOpen(salon) === null ? 'N/A' : isSalonOpen(salon) ? 'Open now' : 'Closed'}</span>
+                    <Clock className="w-4 h-4 mr-1 flex-shrink-0" />
+                    <span className="whitespace-nowrap">{isSalonOpen(salon) === null ? 'N/A' : isSalonOpen(salon) ? 'Open now' : 'Closed'}</span>
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex items-center space-x-2 ml-4">
                     <Button 
                       variant="outline" 
+                      size="sm"
                       onClick={() => navigate(`/salon/${salon.salon_id}`)}
+                      className="flex-shrink-0"
                     >
                       View Details
                     </Button>
                     <Button 
-                      className="bg-primary hover:bg-primary/90"
+                      size="sm"
+                      className="bg-primary hover:bg-primary/90 flex-shrink-0"
                       onClick={() => navigate(`/salon/${salon.salon_id}/book`)}
                     >
                       Book Now

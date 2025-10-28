@@ -330,10 +330,6 @@ export default function SalonDetail() {
                   <Calendar className="w-4 h-4 mr-2" />
                   View My Appointments
                 </Button>
-                <Button variant="outline" className="w-full" onClick={() => navigate(`/salon/${salonId}/book`)}>
-                  <Users className="w-4 h-4 mr-2" />
-                  View Stylists
-                </Button>
               </CardContent>
             </Card>
 

@@ -20,8 +20,7 @@ export default function BookingPage() {
   const [salon, setSalon] = useState(null);
   const [stylists, setStylists] = useState([]);
   const [allStylists, setAllStylists] = useState([]); // All stylists from backend
-  const [allServices, setAllServices] = useState([]); // All services from backend
-  const [services, setServices] = useState([]); // Filtered services to display
+  const [services, setServices] = useState([]); // Services for selected stylist
   const [selectedStylist, setSelectedStylist] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
@@ -47,7 +46,7 @@ export default function BookingPage() {
 
   // Pre-fill reschedule data when location.state changes
   useEffect(() => {
-    if (location.state?.reschedule && location.state?.appointment && allServices.length > 0 && stylists.length > 0) {
+    if (location.state?.reschedule && location.state?.appointment && stylists.length > 0) {
       const appointment = location.state.appointment;
       setIsReschedule(true);
       
@@ -57,20 +56,25 @@ export default function BookingPage() {
         const foundStylist = stylists.find(s => s.employee_id === stylistId);
         if (foundStylist) {
           setSelectedStylist(foundStylist);
+          // Fetch services for the stylist
+          fetchStylistServices(foundStylist.employee_id);
         }
       }
       
       // Find and select the services from the appointment
       if (appointment.services && appointment.services.length > 0) {
-        const servicesToSelect = allServices.filter(s => 
-          appointment.services.some(apptService => 
-            apptService.service_id === s.service_id || apptService.service_name === s.name
-          )
-        );
-        setSelectedServices(servicesToSelect);
+        // We'll set the services after they're loaded
+        setTimeout(() => {
+          const servicesToSelect = services.filter(s => 
+            appointment.services.some(apptService => 
+              apptService.service_id === s.service_id || apptService.service_name === s.name
+            )
+          );
+          setSelectedServices(servicesToSelect);
+        }, 1000); // Wait for services to load
       }
     }
-  }, [location.state, allServices, stylists]);
+  }, [location.state, stylists, services]);
 
   // Fetch time slots when stylist and services are selected
   useEffect(() => {
@@ -87,15 +91,13 @@ export default function BookingPage() {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Fetch salon, stylists, and services in parallel
-      const [salonResponse, stylistsResponse, servicesResponse] = await Promise.allSettled([
-        fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+      // Fetch salon and stylists only
+      const timestamp = Date.now();
+      const [salonResponse, stylistsResponse] = await Promise.allSettled([
+        fetch(`${apiUrl}/salons/browse?status=APPROVED&_t=${timestamp}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         }),
-        fetch(`${apiUrl}/salons/${salonId}/stylists`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }),
-        fetch(`${apiUrl}/salons/${salonId}/services`, {
+        fetch(`${apiUrl}/salons/${salonId}/stylists?_t=${timestamp}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         })
       ]);
@@ -122,13 +124,8 @@ export default function BookingPage() {
         setStylists(fetchedStylists); // Initially show all stylists
       }
 
-      // Handle services data
-      if (servicesResponse.status === 'fulfilled' && servicesResponse.value.ok) {
-        const servicesData = await servicesResponse.value.json();
-        const fetchedServices = servicesData.data?.services || [];
-        setAllServices(fetchedServices);
-        setServices(fetchedServices); // Initially show all services
-      }
+      // Services will be loaded when a stylist is selected
+      setServices([]); // Start with empty services
 
       setLoading(false);
     } catch (err) {
@@ -144,8 +141,9 @@ export default function BookingPage() {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
+      const timestamp = Date.now();
       const response = await fetch(
-        `${apiUrl}/salons/${salonId}/stylists/${stylistId}/services`,
+        `${apiUrl}/salons/${salonId}/stylists/${stylistId}/services?_t=${timestamp}`,
         {
           headers: { 'Authorization': `Bearer ${token}` },
         }
@@ -153,64 +151,19 @@ export default function BookingPage() {
 
       if (response.ok) {
         const data = await response.json();
-        const stylistServiceIds = (data.data?.services || []).map(s => s.service_id);
-        // Only show services that this stylist offers
-        const filteredServices = allServices.filter(service => 
-          stylistServiceIds.includes(service.service_id)
-        );
-        setServices(filteredServices);
+        const stylistServices = data.data?.services || [];
+        console.log('Fetched services for stylist:', stylistServices.length, 'services');
+        setServices(stylistServices);
+      } else {
+        console.error('Failed to fetch stylist services');
+        setServices([]);
       }
     } catch (err) {
       console.error('Error fetching stylist services:', err);
-      setServices(allServices); // Fallback to all services
+      setServices([]);
     }
   };
 
-  // Fetch stylists who offer selected services
-  const fetchStylistsForServices = async (serviceIds) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      
-      // Fetch all stylists and check which ones offer these services
-      const stylistsResponse = await fetch(
-        `${apiUrl}/salons/${salonId}/stylists`,
-        {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }
-      );
-
-      if (stylistsResponse.ok) {
-        const stylistsData = await stylistsResponse.json();
-        const allStylists = stylistsData.data?.stylists || [];
-        
-        // Check each stylist to see if they offer the selected services
-        const filteredStylists = await Promise.all(
-          allStylists.map(async (stylist) => {
-            const servicesResponse = await fetch(
-              `${apiUrl}/salons/${salonId}/stylists/${stylist.employee_id}/services`,
-              {
-                headers: { 'Authorization': `Bearer ${token}` },
-              }
-            );
-            
-            if (servicesResponse.ok) {
-              const servicesData = await servicesResponse.json();
-              const stylistServiceIds = (servicesData.data?.services || []).map(s => s.service_id);
-              // Check if all selected services are available from this stylist
-              const canOfferAll = serviceIds.every(id => stylistServiceIds.includes(id));
-              return canOfferAll ? stylist : null;
-            }
-            return null;
-          })
-        );
-        
-        setStylists(filteredStylists.filter(s => s !== null));
-      }
-    } catch (err) {
-      console.error('Error fetching stylists for services:', err);
-    }
-  };
 
   const fetchTimeSlots = async (stylist, services = []) => {
     if (!stylist || !stylist.employee_id) return;
@@ -343,9 +296,69 @@ export default function BookingPage() {
           selectedServices.map(s => s.service_id),
           user.user_id
         );
+      } else if (response.status === 409 && isReschedule) {
+        // Handle 409 Conflict for reschedule - this might mean the time slot is taken
+        // But we should still try to cancel the old appointment
+        if (location.state?.bookingId) {
+          try {
+            const cancelResponse = await fetch(`${apiUrl}/bookings/cancel`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                booking_id: location.state.bookingId
+              })
+            });
+            
+            if (cancelResponse.ok) {
+              notifyError('The selected time slot is no longer available. Your old appointment has been canceled. Please select a different time.');
+            } else {
+              notifyError('The selected time slot is no longer available. Please select a different time.');
+            }
+          } catch (cancelErr) {
+            console.error('Error canceling old appointment:', cancelErr);
+            notifyError('The selected time slot is no longer available. Please select a different time.');
+          }
+        } else {
+          notifyError('The selected time slot is no longer available. Please select a different time.');
+        }
       } else {
-        const errorMessage = data.message || 'Booking failed';
-        throw new Error(errorMessage);
+        // Handle specific error cases for reschedule
+        if (isReschedule) {
+          // For reschedule, if the booking fails, it might be because the time slot is taken
+          // But we should still try to cancel the old appointment and show a helpful message
+          if (location.state?.bookingId) {
+            try {
+              const cancelResponse = await fetch(`${apiUrl}/bookings/cancel`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  booking_id: location.state.bookingId
+                })
+              });
+              
+              if (cancelResponse.ok) {
+                notifyError('The selected time slot is no longer available. Your old appointment has been canceled. Please select a different time.');
+              } else {
+                notifyError('The selected time slot is no longer available. Please select a different time.');
+              }
+            } catch (cancelErr) {
+              console.error('Error canceling old appointment:', cancelErr);
+              notifyError('The selected time slot is no longer available. Please select a different time.');
+            }
+          } else {
+            notifyError('The selected time slot is no longer available. Please select a different time.');
+          }
+        } else {
+          // For new bookings, show the backend error message
+          const errorMessage = data.message || 'Booking failed';
+          notifyError(errorMessage);
+        }
       }
     } catch (err) {
       console.error('Error booking appointment:', err);
@@ -525,16 +538,17 @@ export default function BookingPage() {
                         // If clicking the same stylist, deselect them
                         if (selectedStylist?.employee_id === stylist.employee_id) {
                           setSelectedStylist(null);
-                          setServices(allServices); // Show all services
+                          setServices([]); // Clear services
                           setSelectedServices([]); // Clear selected services
-                          setStylists(allStylists); // Show all stylists
                           setSelectedDate(null);
                           setSelectedTimeSlot(null);
                           setTimeSlots({});
                         } else {
                           setSelectedStylist(stylist);
+                          setSelectedServices([]); // Clear selected services when switching stylists
                           setSelectedDate(null);
                           setSelectedTimeSlot(null);
+                          setTimeSlots({});
                           fetchStylistServices(stylist.employee_id);
                         }
                       }
@@ -556,19 +570,37 @@ export default function BookingPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {services.map((service) => {
-                  const isSelected = selectedServices.some(s => s.service_id === service.service_id);
+                {!selectedStylist ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">Select a Stylist First</p>
+                    <p className="text-sm">Choose a stylist to see their available services</p>
+                  </div>
+                ) : services.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">No Services Available</p>
+                    <p className="text-sm">This stylist doesn't have any services configured yet</p>
+                  </div>
+                ) : (
+                  services.map((service) => {
+                  const isSelected = selectedServices.some(s => 
+                    s.service_id === service.service_id || 
+                    (s.name === service.name && s.description === service.description && s.duration_minutes === service.duration_minutes && s.price === service.price)
+                  );
                   return (
                     <div
-                      key={service.service_id}
+                      key={`${service.service_id}-${service.name}`}
                       className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                         isSelected ? 'border-primary bg-primary/10' : 'border-muted hover:border-primary/50'
                       }`}
-                      onClick={async () => {
+                      onClick={() => {
                         if (isReschedule) return; // Disable service selection during reschedule
                         let newSelectedServices;
                         if (isSelected) {
-                          newSelectedServices = selectedServices.filter(s => s.service_id !== service.service_id);
+                          newSelectedServices = selectedServices.filter(s => 
+                            s.service_id !== service.service_id
+                          );
                         } else {
                           newSelectedServices = [...selectedServices, service];
                         }
@@ -576,20 +608,12 @@ export default function BookingPage() {
                         // Clear time and date when services change since availability changes
                         setSelectedTimeSlot(null);
                         setSelectedDate(null);
-                        // Filter stylists based on selected services
-                        if (newSelectedServices.length > 0) {
-                          const serviceIds = newSelectedServices.map(s => s.service_id);
-                          await fetchStylistsForServices(serviceIds);
-                        } else {
-                          // If no services selected, show all stylists
-                          setStylists(allStylists);
-                        }
                       }}
                     >
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="font-medium">{service.name}</p>
-                          <p className="text-sm text-muted-foreground">{service.description} - {(service.duration_minutes || 30)} min</p>
+                          <p className="text-sm text-muted-foreground">{service.description} - <span className="text-purple-600 font-medium">{(service.duration_minutes || 30)} min</span></p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="font-semibold">${typeof service.price === 'number' ? service.price.toFixed(2) : (service.price || 0)}</span>
@@ -598,7 +622,8 @@ export default function BookingPage() {
                       </div>
                     </div>
                   );
-                })}
+                })
+                )}
               </div>
             </CardContent>
           </Card>
@@ -737,9 +762,9 @@ export default function BookingPage() {
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleConfirmBooking}
-        title="Confirm Booking"
-        message={`Are you sure you want to book this appointment?\n\nStylist: ${selectedStylist?.full_name}\nServices: ${selectedServices.map(s => s.name).join(', ')}\nDate: ${selectedDate ? new Date(selectedDate).toLocaleDateString() : 'TBD'}\nTime: ${selectedTimeSlot?.start_time && selectedTimeSlot?.end_time ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}` : 'TBD'}`}
-        confirmText="Confirm"
+        title={isReschedule ? "Confirm Reschedule" : "Confirm Booking"}
+        message={`Are you sure you want to ${isReschedule ? 'reschedule' : 'book'} this appointment?\n\nStylist: ${selectedStylist?.full_name}\nServices: ${selectedServices.map(s => s.name).join(', ')}\nDate: ${selectedDate ? new Date(selectedDate).toLocaleDateString() : 'TBD'}\nTime: ${selectedTimeSlot?.start_time && selectedTimeSlot?.end_time ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}` : 'TBD'}`}
+        confirmText={isReschedule ? "Reschedule" : "Confirm"}
         cancelText="Cancel"
         type="success"
       />
