@@ -44,9 +44,9 @@ const StrandsModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md bg-white shadow-2xl border-0">
-        <CardContent className="p-6">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <Card className="w-full max-w-md bg-white shadow-2xl border-0 my-auto">
+        <CardContent className="p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className={`flex items-center space-x-3 ${getIconBg()} p-3 rounded-lg`}>

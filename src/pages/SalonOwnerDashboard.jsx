@@ -11,7 +11,7 @@ import { Badge } from '../components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { 
   Building2,
-  Users,
+  Users, 
   ShoppingBag,
   Gift,
   History,
@@ -359,7 +359,7 @@ export default function SalonOwnerDashboard() {
               <img 
                 src={strandsLogo} 
                 alt="Strands" 
-                className="w-8 h-8 cursor-pointer hover:opacity-80 transition-opacity" 
+                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
                 onClick={() => navigate('/')}
               />
               <div>
@@ -367,14 +367,14 @@ export default function SalonOwnerDashboard() {
                 <p className="text-sm text-muted-foreground">Manage your salon business</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4">
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Owner
               </Badge>
               <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
-              </Button>
+                  </Button>
             </div>
           </div>
         </div>
@@ -516,24 +516,24 @@ export default function SalonOwnerDashboard() {
                   <div>
                     <h3 className="text-xl font-semibold mb-4">Salon Information</h3>
                     <div className="space-y-3">
-                      <div>
+                    <div>
                         <p className="text-sm text-muted-foreground">Name</p>
                         <p className="font-medium">{salonInfo.name}</p>
-                      </div>
-                      <div>
+                    </div>
+                    <div>
                         <p className="text-sm text-muted-foreground">Category</p>
                         <p className="font-medium">{salonInfo.category}</p>
-                      </div>
-                      <div>
+                    </div>
+                    <div>
                         <p className="text-sm text-muted-foreground">Description</p>
                         <p className="font-medium">{salonInfo.description || 'No description'}</p>
-                      </div>
-                      <div>
+                    </div>
+                    <div>
                         <p className="text-sm text-muted-foreground">Status</p>
                         <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${salonInfo.status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' : salonInfo.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100' : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100'}`}>
                           {salonInfo.status}
                         </span>
-                      </div>
+                    </div>
                     </div>
                   </div>
 
@@ -587,16 +587,16 @@ export default function SalonOwnerDashboard() {
           <div className="space-y-8">
             <div className="bg-background border rounded-lg p-6">
               <div className="flex items-center justify-between mb-6">
-                <div>
+                  <div>
                   <h3 className="text-xl font-semibold">Staff Management</h3>
                   <p className="text-muted-foreground">
                     Manage your salon employees ({pagination.total_employees} total)
                   </p>
-                </div>
+                  </div>
                 <Button onClick={() => setShowAddEmployeeModal(true)}>
                   <Users className="w-4 h-4 mr-2" />
                   Add Employee
-                </Button>
+                  </Button>
               </div>
               
               {employeesLoading ? (
@@ -622,36 +622,36 @@ export default function SalonOwnerDashboard() {
                                 {employee.full_name.split(' ').map(n => n[0]).join('')}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
+                      <div>
                               <h4 className="font-medium">{employee.full_name}</h4>
                               <p className="text-sm text-muted-foreground">{employee.email}</p>
                               <div className="flex items-center space-x-2 mt-1">
                                 <Badge variant="outline">{employee.title}</Badge>
                                 <Badge variant="outline" className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${employee.active ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100'}`}>
                                   {employee.active ? 'Active' : 'Inactive'}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
                               onClick={() => handleSetEmployeeHours(employee)}
                               className="hover:bg-blue-50 hover:border-blue-300"
-                            >
+                      >
                               Set Hours
-                            </Button>
-                            <Button 
-                              variant="destructive" 
-                              size="sm" 
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
                               onClick={() => handleFireEmployee(employee)}
                               className="bg-red-600 hover:bg-red-700 text-white"
-                            >
+                      >
                               Fire
-                            </Button>
-                          </div>
-                        </div>
+                      </Button>
+                    </div>
+                  </div>
                       ))
                     )}
                   </div>
@@ -660,11 +660,11 @@ export default function SalonOwnerDashboard() {
                     <div className="flex items-center justify-between mt-6 pt-4 border-t">
                       <div className="text-sm text-muted-foreground">
                         Showing {employees.length} of {pagination.total_employees} employees
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
                           onClick={() => fetchEmployees(pagination.current_page - 1)}
                           disabled={!pagination.has_prev_page}
                         >
@@ -683,19 +683,19 @@ export default function SalonOwnerDashboard() {
                                 className="w-8 h-8 p-0"
                               >
                                 {pageNum}
-                              </Button>
+                      </Button>
                             );
                           })}
                         </div>
                         
-                        <Button
+                      <Button 
                           variant="outline"
-                          size="sm"
+                        size="sm"
                           onClick={() => fetchEmployees(pagination.current_page + 1)}
                           disabled={!pagination.has_next_page}
-                        >
+                      >
                           Next
-                        </Button>
+                      </Button>
                       </div>
                     </div>
                   )}
@@ -804,8 +804,8 @@ export default function SalonOwnerDashboard() {
                   </Button>
                 </div>
               </form>
-            </div>
-          </div>
+                    </div>
+                  </div>
         )}
 
         <StrandsModal

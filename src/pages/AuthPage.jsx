@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { ArrowLeft, User, Store, Scissors, Shield } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { ArrowLeft, User, Store, Scissors } from 'lucide-react';
 import { toast } from 'sonner';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
@@ -117,44 +118,32 @@ export default function AuthPage() {
     }
   };
 
-  // Role options aligned with SQL ENUM: 'ADMIN','OWNER','CUSTOMER','EMPLOYEE'
+  // Role options aligned with SQL ENUM: 'OWNER','CUSTOMER','EMPLOYEE'
+  // Note: ADMIN role removed for security - admin accounts should be created through controlled backend processes only
   const roleOptions = [
     {
       value: 'CUSTOMER',
       label: 'Customer',
       icon: User,
       description: 'Book appointments and shop salon products',
-      badge: null,
-      primary: true
+      badge: null
     },
     {
       value: 'OWNER',
       label: 'Salon Owner',
       icon: Store,
       description: 'Manage your salon, staff, and customer bookings',
-      badge: 'Business',
-      primary: true
+      badge: 'Business'
     },
     {
       value: 'EMPLOYEE',
       label: 'Hairstylist / Employee',
       icon: Scissors,
       description: 'Manage your appointments and customers',
-      badge: 'Staff',
-      primary: false
-    },
-    {
-      value: 'ADMIN',
-      label: 'Administrator',
-      icon: Shield,
-      description: 'Platform administration and oversight',
-      badge: 'Admin',
-      primary: false
+      badge: 'Staff'
     }
   ];
 
-  const primaryRoles = roleOptions.filter(role => role.primary);
-  const otherRoles = roleOptions.filter(role => !role.primary);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
@@ -162,7 +151,7 @@ export default function AuthPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <img src={strandsLogo} alt="Strands" className="w-12 h-12" />
+            <img src={strandsLogo} alt="Strands" className="w-20 h-20" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Join Strands and start your journey</h1>
         </div>
@@ -283,54 +272,51 @@ export default function AuthPage() {
                     />
                   </div>
 
-                  <div className="space-y-4">
-                    <Label className="text-base font-medium">I am a...</Label>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      {primaryRoles.map((role) => {
-                        const Icon = role.icon;
-                        return (
-                          <Button
-                            key={role.value}
-                            type="button"
-                            variant={registerForm.role === role.value ? 'default' : 'outline'}
-                            onClick={() => setRegisterForm(prev => ({ ...prev, role: role.value }))}
-                            className="h-auto p-4 flex flex-col items-center space-y-2"
-                          >
-                            <Icon className="w-5 h-5" />
-                            <span className="font-medium">{role.label}</span>
-                            {role.badge && (
-                              <Badge variant="secondary" className="text-xs">
-                                {role.badge}
-                              </Badge>
-                            )}
-                          </Button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      {otherRoles.map((role) => {
-                        const Icon = role.icon;
-                        return (
-                          <Button
-                            key={role.value}
-                            type="button"
-                            variant={registerForm.role === role.value ? 'default' : 'outline'}
-                            onClick={() => setRegisterForm(prev => ({ ...prev, role: role.value }))}
-                            className="h-auto p-4 flex flex-col items-center space-y-2"
-                          >
-                            <Icon className="w-5 h-5" />
-                            <span className="font-medium">{role.label}</span>
-                            {role.badge && (
-                              <Badge variant="secondary" className="text-xs">
-                                {role.badge}
-                              </Badge>
-                            )}
-                          </Button>
-                        );
-                      })}
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role" className="text-base font-medium">I am a...</Label>
+                    <Select
+                      value={registerForm.role}
+                      onValueChange={(value) => setRegisterForm(prev => ({ ...prev, role: value }))}
+                    >
+                      <SelectTrigger id="role" className="w-full">
+                        <SelectValue placeholder="Select your role">
+                          {registerForm.role 
+                            ? (() => {
+                                const selectedRole = roleOptions.find(r => r.value === registerForm.role);
+                                if (selectedRole) {
+                                  const Icon = selectedRole.icon;
+                                  return (
+                                    <div className="flex items-center space-x-2">
+                                      <Icon className="w-4 h-4" />
+                                      <span>{selectedRole.label}</span>
+                                    </div>
+                                  );
+                                }
+                                return registerForm.role;
+                              })()
+                            : null
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((role) => {
+                          const Icon = role.icon;
+                          return (
+                            <SelectItem key={role.value} value={role.value}>
+                              <div className="flex items-center space-x-2">
+                                <Icon className="w-4 h-4" />
+                                <span>{role.label}</span>
+                                {role.badge && (
+                                  <Badge variant="secondary" className="text-xs ml-auto">
+                                    {role.badge}
+                                  </Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <Button 

@@ -194,7 +194,7 @@ export default function SalonVerification() {
               <img 
                 src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
                 alt="Strands Logo" 
-                className="w-8 h-8"
+                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20"
               />
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
