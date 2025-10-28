@@ -457,7 +457,7 @@ export default function LoyaltyPoints() {
                                 navigate(`/salon/${reward.salonId}`);
                               }}
                             >
-                              Redeem {reward.discount}
+                              Redeem
                             </Button>
                           </div>
                         </div>

@@ -51,6 +51,12 @@ export default function HairstylistDashboard() {
   });
   const [serviceLoading, setServiceLoading] = useState(false);
   
+  // New state for cancelled appointments and popup
+  const [showCancelledTab, setShowCancelledTab] = useState(false);
+  const [cancelledDate, setCancelledDate] = useState(new Date());
+  const [showAppointmentPopup, setShowAppointmentPopup] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  
   useEffect(() => {
     fetchStylistSalon();
   }, []);
@@ -143,6 +149,7 @@ export default function HairstylistDashboard() {
       console.log('Schedule response status:', response.status);
       const data = await response.json();
       console.log('Schedule response data:', data);
+      console.log('Raw schedule data:', data.data?.schedule);
 
       if (response.ok) {
         // Transform backend data to frontend format
@@ -220,23 +227,56 @@ export default function HairstylistDashboard() {
             dayDate: dayDate.toDateString()
           });
           
-          // Get customer info (we'll need to fetch this separately or add to backend)
-          const customerName = `Customer ${booking.customer_user_id}`; // Placeholder
-          const phone = '(555) 000-0000'; // Placeholder
+          console.log('Processing booking:', booking.booking_id, {
+            customer: booking.customer,
+            customer_name: booking.customer?.name,
+            all_booking_keys: Object.keys(booking)
+          });
           
-          // Determine service name (we'll need to fetch this separately or add to backend)
-          const serviceName = 'Hair Service'; // Placeholder
+          // Get customer info from booking data - use the actual structure from backend
+          const customerName = booking.customer?.name || 'Customer Name Not Available';
+          const phone = booking.customer?.phone || null; // Don't show fake number
           
-          // Calculate duration
-          const startTime = new Date(`2000-01-01T${booking.scheduled_start}`);
-          const endTime = new Date(`2000-01-01T${booking.scheduled_end}`);
-          const duration = Math.round((endTime - startTime) / (1000 * 60)); // minutes
+          // Get service information - handle multiple services using actual backend structure
+          let serviceInfo = 'Service Name Not Available';
+          let totalPrice = 0;
+          let totalDuration = 0;
           
-          // Map backend status to frontend status
+          if (booking.services && Array.isArray(booking.services) && booking.services.length > 0) {
+            // Multiple services - use actual backend structure
+            const serviceNames = booking.services.map(s => s.service_name || 'Unknown Service');
+            const servicePrices = booking.services.map(s => parseFloat(s.price || 0));
+            const serviceDurations = booking.services.map(s => parseInt(s.duration_minutes || 0));
+            
+            serviceInfo = serviceNames.join(', ');
+            totalPrice = servicePrices.reduce((sum, price) => sum + price, 0);
+            totalDuration = serviceDurations.reduce((sum, duration) => sum + duration, 0);
+          } else {
+            // Fallback to total values from backend
+            totalPrice = parseFloat(booking.total_price || 0);
+            totalDuration = parseInt(booking.total_duration_minutes || 0);
+            serviceInfo = 'Service Name Not Available';
+          }
+          
+          // Map backend status to frontend status - handle various possible status values
           let status = 'pending';
-          if (booking.status === 'CONFIRMED') status = 'confirmed';
-          else if (booking.status === 'CANCELED') status = 'canceled';
-          else if (booking.status === 'COMPLETED') status = 'confirmed';
+          const backendStatus = booking.status?.toUpperCase();
+          
+          if (backendStatus === 'CONFIRMED' || backendStatus === 'COMPLETED') {
+            status = 'confirmed';
+          } else if (backendStatus === 'CANCELED' || backendStatus === 'CANCELLED') {
+            status = 'canceled';
+          } else if (backendStatus === 'PENDING' || backendStatus === 'SCHEDULED') {
+            status = 'pending';
+          }
+          
+          console.log(`Booking ${booking.booking_id} status:`, {
+            backendStatus: booking.status,
+            normalizedStatus: backendStatus,
+            frontendStatus: status,
+            dayName: dayName,
+            dayDate: dayDate.toDateString()
+          });
           
           appointments.push({
             id: booking.booking_id,
@@ -244,8 +284,9 @@ export default function HairstylistDashboard() {
             startTime: formatTime(booking.scheduled_start),
             endTime: formatTime(booking.scheduled_end),
             customer: customerName,
-            service: serviceName,
-            duration: duration,
+            service: serviceInfo,
+            duration: totalDuration,
+            totalPrice: totalPrice,
             status: status,
             phone: phone
           });
@@ -397,7 +438,12 @@ export default function HairstylistDashboard() {
     try {
       setServicesLoading(true);
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/stylist/myServices`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      console.log('Fetching services...');
+      console.log('API URL:', `${apiUrl}/salons/stylist/myServices`);
+      
+      const response = await fetch(`${apiUrl}/salons/stylist/myServices`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -406,8 +452,13 @@ export default function HairstylistDashboard() {
       });
 
       const data = await response.json();
+      console.log('Services response status:', response.status);
+      console.log('Services response data:', data);
+      
       if (response.ok) {
-        setServices(data.data.services || []);
+        const servicesList = data.data?.services || data.services || [];
+        console.log('Services list:', servicesList);
+        setServices(servicesList);
       } else {
         console.error('Failed to fetch services:', data.message);
         setServices([]);
@@ -508,7 +559,8 @@ export default function HairstylistDashboard() {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
       console.log('Deleting service:', deletingService);
-      console.log('Endpoint:', `${apiUrl}/salons/stylist/removeService/${deletingService.service_id}`);
+      console.log('Service ID:', deletingService.service_id);
+      console.log('API URL:', `${apiUrl}/salons/stylist/removeService/${deletingService.service_id}`);
       
       const response = await fetch(`${apiUrl}/salons/stylist/removeService/${deletingService.service_id}`, {
         method: 'DELETE',
@@ -518,18 +570,20 @@ export default function HairstylistDashboard() {
         }
       });
 
-      console.log('Delete response status:', response.status);
       const data = await response.json();
+      console.log('Delete response status:', response.status);
       console.log('Delete response data:', data);
       
       if (response.ok) {
         toast.success('Service removed successfully');
         setShowDeleteServiceModal(false);
         setDeletingService(null);
-        // Refresh services list to reflect changes
+        // Refresh services list
+        console.log('Refreshing services list...');
         await fetchServices();
+        console.log('Service deleted successfully, services refreshed');
       } else {
-        console.error('Delete service failed:', data);
+        console.error('Delete failed:', data);
         toast.error(data.message || 'Failed to remove service');
       }
     } catch (err) {
@@ -605,6 +659,37 @@ export default function HairstylistDashboard() {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     return selectedDate.getTime() < weekEnd.getTime();
+  };
+
+  // Cancelled appointments date navigation
+  const navigateCancelledDate = (direction) => {
+    const newDate = new Date(cancelledDate);
+    newDate.setDate(cancelledDate.getDate() + direction);
+    setCancelledDate(newDate);
+  };
+
+  const formatCancelledDate = (date) => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  const getCancelledAppointmentsForDate = (date) => {
+    console.log('Getting cancelled appointments for date:', date.toDateString());
+    console.log('All schedule data:', scheduleData);
+    console.log('All cancelled appointments:', scheduleData.filter(apt => apt.status === 'canceled'));
+    
+    const cancelledForDate = scheduleData.filter(apt => 
+      apt.status === 'canceled' && 
+      apt.date && 
+      apt.date.toDateString() === date.toDateString()
+    );
+    
+    console.log('Cancelled appointments for this date:', cancelledForDate);
+    return cancelledForDate;
   };
 
   // getCurrentWeekDays function removed - no longer needed
@@ -967,10 +1052,6 @@ export default function HairstylistDashboard() {
                         <div className="w-6 h-6 bg-yellow-200 border-l-4 border-yellow-500 rounded"></div>
                         <span className="text-sm text-foreground">Scheduled</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-red-200 border-l-4 border-red-500 rounded"></div>
-                        <span className="text-sm text-foreground">Cancelled</span>
-                      </div>
                     </div>
                 </div>
 
@@ -1037,9 +1118,9 @@ export default function HairstylistDashboard() {
                           )
                         ))}
                         
-                        {/* Appointments for this day */}
+                        {/* Appointments for this day (excluding cancelled) */}
                         {scheduleData
-                          .filter(apt => apt.date && apt.date.toDateString() === day.toDateString())
+                          .filter(apt => apt.date && apt.date.toDateString() === day.toDateString() && apt.status !== 'canceled')
                           .map((appointment) => {
                             const startMinutes = timeToMinutes(appointment.startTime);
                             const endMinutes = timeToMinutes(appointment.endTime);
@@ -1047,22 +1128,35 @@ export default function HairstylistDashboard() {
                             const height = minutesToPixels(endMinutes - startMinutes);
                             
                             return (
-                                                             <div
-                                 key={appointment.id}
-                                 className={`absolute left-1 right-1 p-1 rounded text-xs border-l-2 shadow-sm ${getStatusColor(appointment.status)}`}
-                                 style={{ 
-                                   top: `${top}px`, 
-                                   height: `${height}px`,
-                                   borderLeftColor: appointment.status === 'confirmed' ? '#9333ea' : 
-                                                  appointment.status === 'pending' ? '#ca8a04' : '#dc2626'
-                                 }}
-                               >
-                                <div className="flex items-center space-x-1 mb-0.5">
-                                  <CheckCircle className="w-2 h-2 flex-shrink-0" />
-                                  <span className="font-semibold text-xs leading-none">{appointment.startTime} - {appointment.endTime}</span>
+                              <div
+                                key={appointment.id}
+                                className={`absolute left-1 right-1 p-2 rounded-lg text-xs border-2 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 ${getStatusColor(appointment.status)}`}
+                                style={{ 
+                                  top: `${top}px`, 
+                                  height: `${height}px`,
+                                  borderColor: appointment.status === 'confirmed' ? '#9333ea' : 
+                                             appointment.status === 'pending' ? '#ca8a04' : '#dc2626',
+                                  backgroundColor: appointment.status === 'confirmed' ? '#f3e8ff' : 
+                                                 appointment.status === 'pending' ? '#fef3c7' : '#fef2f2'
+                                }}
+                                onClick={() => {
+                                  setSelectedAppointment(appointment);
+                                  setShowAppointmentPopup(true);
+                                }}
+                              >
+                                <div className="flex flex-col justify-center h-full">
+                                  <div className="text-center">
+                                    <span className="font-bold text-xs leading-tight block">{appointment.startTime} - {appointment.endTime}</span>
+                                    {height > 40 && (
+                                      <div className="mt-1">
+                                        <div className="text-xs font-medium truncate">{appointment.customer}</div>
+                                        {height > 60 && (
+                                          <div className="text-xs opacity-75 truncate">{appointment.service}</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="font-medium text-xs leading-none truncate">{appointment.customer}</div>
-                                <div className="text-xs opacity-75 leading-none truncate">{appointment.service}</div>
                               </div>
                             );
                           })}
@@ -1163,19 +1257,35 @@ export default function HairstylistDashboard() {
                             </h4>
                             
                             <p className="text-sm text-muted-foreground mb-2">
-                              {appointment.service} • {appointment.duration} minutes
+                              {appointment.service}
                             </p>
                             
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                              <span>Duration: <span className="text-purple-600 font-medium">{appointment.duration} minutes</span></span>
+                              {appointment.totalPrice > 0 && (
+                                <span>Total: ${appointment.totalPrice.toFixed(2)}</span>
+                              )}
+                            </div>
+                            
                             <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                              <div className="flex items-center space-x-1">
-                                <Phone className="w-4 h-4" />
-                                <span>{appointment.phone}</span>
-                              </div>
+                              {appointment.phone && (
+                                <div className="flex items-center space-x-1">
+                                  <Phone className="w-4 h-4" />
+                                  <span>{appointment.phone}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                           
                           <div className="ml-4">
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedAppointment(appointment);
+                                setShowAppointmentPopup(true);
+                              }}
+                            >
                               View Details
                             </Button>
                           </div>
@@ -1255,42 +1365,42 @@ export default function HairstylistDashboard() {
                             >
                              <Edit className="w-6 h-6" />
                             </Button>
-                            <Button 
+                        <Button 
                              variant="ghost"
-                              size="sm"
+                          size="sm"
                              onClick={() => openDeleteModal(service)}
                              className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
-                            >
+                        >
                              <Trash2 className="w-6 h-6" />
-                            </Button>
-                         </div>
-                       </div>
+                        </Button>
+                      </div>
+                    </div>
                       <p className="text-sm text-muted-foreground mb-4">{service.description}</p>
                       <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4" />
-                          <span>{service.duration_minutes} min</span>
+                          <span className="text-purple-600 font-medium">{service.duration_minutes} min</span>
                         </div>
                         <div className="text-lg font-semibold text-foreground">
                           ${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+              </CardContent>
+            </Card>
                 ))}
-              </div>
+                  </div>
             )}
-          </div>
+                        </div>
         )}
 
         {activeTab === 'profile' && (
           <div className="text-center py-12">
             <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg mb-2">Profile Tab</h3>
-            <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-muted-foreground">
               Profile content will be implemented here.
             </p>
-          </div>
+                          </div>
         )}
       </main>
 
@@ -1304,7 +1414,7 @@ export default function HairstylistDashboard() {
                 <div className="flex items-center space-x-3 bg-orange-50 p-3 rounded-lg">
                   <Ban className="w-6 h-6 text-orange-500" />
                   <h3 className="text-lg font-semibold text-gray-900">Block Time Slot</h3>
-                </div>
+                        </div>
                         <Button 
                   variant="ghost"
                           size="sm"
@@ -1666,7 +1776,7 @@ export default function HairstylistDashboard() {
                 <Button onClick={handleUpdateService} disabled={serviceLoading}>
                   {serviceLoading ? 'Updating...' : 'Update Service'}
                 </Button>
-              </div>
+                </div>
               </CardContent>
             </Card>
         </div>
@@ -1725,6 +1835,262 @@ export default function HairstylistDashboard() {
                   className="px-6 py-2 text-white font-medium bg-red-600 hover:bg-red-700"
                 >
                   {serviceLoading ? 'Deleting...' : 'Delete Service'}
+                </Button>
+                  </div>
+              </CardContent>
+            </Card>
+        </div>
+      )}
+
+      {/* Appointment Details Popup Modal */}
+      {showAppointmentPopup && selectedAppointment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md mx-auto shadow-2xl">
+            <CardContent className="pt-8 px-6 pb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3 bg-blue-50 p-3 rounded-lg">
+                  <Calendar className="w-6 h-6 text-blue-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Appointment Details</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowAppointmentPopup(false);
+                    setSelectedAppointment(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground">
+                    {selectedAppointment.startTime} - {selectedAppointment.endTime}
+                  </span>
+                  <Badge className={getStatusColor(selectedAppointment.status)}>
+                    {selectedAppointment.status}
+                      </Badge>
+                    </div>
+                
+                    <div>
+                  <h4 className="font-semibold text-foreground mb-1">
+                    {selectedAppointment.customer}
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {selectedAppointment.service}
+                  </p>
+                  <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                    <span>Duration: <span className="text-purple-600 font-medium">{selectedAppointment.duration} minutes</span></span>
+                    {selectedAppointment.totalPrice > 0 && (
+                      <span>Total: ${selectedAppointment.totalPrice.toFixed(2)}</span>
+                    )}
+                    </div>
+                  <p className="text-sm text-muted-foreground">
+                    Date: {selectedAppointment.date ? selectedAppointment.date.toLocaleDateString() : 'No date'}
+                  </p>
+                  </div>
+                
+                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                  {selectedAppointment.phone && (
+                    <div className="flex items-center space-x-1">
+                      <Phone className="w-4 h-4" />
+                      <span>{selectedAppointment.phone}</span>
+                  </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <Button 
+                  onClick={() => {
+                    setShowAppointmentPopup(false);
+                    setSelectedAppointment(null);
+                  }}
+                  variant="outline"
+                >
+                  Close
+                </Button>
+                </div>
+              </CardContent>
+            </Card>
+        </div>
+      )}
+
+      {/* Cancelled Appointments Modal */}
+      {showCancelledTab && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-6 border-b">
+                <div className="flex items-center space-x-3">
+                  <Calendar className="w-6 h-6 text-red-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Cancelled Appointments</h3>
+                  </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCancelledTab(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              {/* Date Navigation */}
+              <div className="px-6 py-4 border-b bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateCancelledDate(-1)}
+                    className="flex items-center space-x-2"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous Day</span>
+                  </Button>
+
+                  <div className="text-center">
+                    <h4 className="text-lg font-semibold text-foreground">
+                      {formatCancelledDate(cancelledDate)}
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      Cancelled appointments for this day
+                    </p>
+                    </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateCancelledDate(1)}
+                    className="flex items-center space-x-2"
+                  >
+                    <span>Next Day</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                  </div>
+                    </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                {(() => {
+                  const cancelledForDate = getCancelledAppointmentsForDate(cancelledDate);
+                  const allAppointmentsForDate = scheduleData.filter(apt => 
+                    apt.date && apt.date.toDateString() === cancelledDate.toDateString()
+                  );
+                  const allCancelledAppointments = scheduleData.filter(apt => apt.status === 'canceled');
+                  
+                  console.log('Debug info:', {
+                    selectedDate: cancelledDate.toDateString(),
+                    totalScheduleData: scheduleData.length,
+                    allCancelledAppointments: allCancelledAppointments.length,
+                    allAppointmentsForDate: allAppointmentsForDate.length,
+                    cancelledForDate: cancelledForDate.length,
+                    allStatuses: scheduleData.map(apt => ({ id: apt.id, status: apt.status, date: apt.date?.toDateString() }))
+                  });
+                  
+                  return cancelledForDate.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-foreground mb-2">No cancelled appointments</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        No cancelled appointments for {formatCancelledDate(cancelledDate)}.
+                      </p>
+                      
+                      {/* Debug Information */}
+                      <div className="text-left bg-gray-50 p-4 rounded-lg max-w-2xl mx-auto">
+                        <h4 className="font-medium mb-2">Debug Information:</h4>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <div>Total appointments in schedule: {scheduleData.length}</div>
+                          <div>Total cancelled appointments: {allCancelledAppointments.length}</div>
+                          <div>Appointments for this date: {allAppointmentsForDate.length}</div>
+                          <div>Selected date: {cancelledDate.toDateString()}</div>
+                  </div>
+                        
+                        {allCancelledAppointments.length > 0 && (
+                          <div className="mt-3">
+                            <h5 className="font-medium mb-2">All cancelled appointments:</h5>
+                            {allCancelledAppointments.map(apt => (
+                              <div key={apt.id} className="text-sm text-gray-600">
+                                {apt.startTime} - {apt.endTime} | Date: {apt.date?.toDateString()} | Customer: {apt.customer}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {allAppointmentsForDate.length > 0 && (
+                          <div className="mt-3">
+                            <h5 className="font-medium mb-2">All appointments for this date:</h5>
+                            {allAppointmentsForDate.map(apt => (
+                              <div key={apt.id} className="text-sm text-gray-600">
+                                {apt.startTime} - {apt.endTime} | Status: {apt.status} | Customer: {apt.customer}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {cancelledForDate
+                        .sort((a, b) => new Date(a.date) - new Date(b.date))
+                        .map((appointment) => (
+                          <div key={appointment.id} className="border rounded-lg p-4 bg-red-50 border-red-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3 mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Clock className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
+                                  </div>
+                                  <Badge className="bg-red-200 text-red-800 border-red-200">
+                                    Cancelled
+                                  </Badge>
+                                  <span className="text-sm text-muted-foreground">
+                                    {appointment.date ? appointment.date.toLocaleDateString() : 'No date'}
+                                  </span>
+                                </div>
+                                
+                                <h4 className="font-semibold text-foreground mb-1">
+                                  {appointment.customer}
+                                </h4>
+                                
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  {appointment.service}
+                                </p>
+                                
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                                  <span>Duration: <span className="text-purple-600 font-medium">{appointment.duration} minutes</span></span>
+                                  {appointment.totalPrice > 0 && (
+                                    <span>Total: ${appointment.totalPrice.toFixed(2)}</span>
+                                  )}
+                                </div>
+                                
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                  {appointment.phone && (
+                                    <div className="flex items-center space-x-1">
+                                      <Phone className="w-4 h-4" />
+                                      <span>{appointment.phone}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="flex justify-end p-6 border-t">
+                <Button 
+                  onClick={() => setShowCancelledTab(false)}
+                  variant="outline"
+                >
+                  Close
                 </Button>
                 </div>
               </CardContent>
