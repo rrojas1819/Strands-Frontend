@@ -187,6 +187,8 @@ export default function HairstylistDashboard() {
     };
 
     // Helper function to get date from day name for the current week
+    // Backend returns schedule data organized by day names (MONDAY, TUESDAY, etc.)
+    // We calculate the actual date based on the selected date's week
     const getDateFromDayName = (dayName, selectedDate) => {
       const dayMap = {
         'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4,
@@ -194,14 +196,20 @@ export default function HairstylistDashboard() {
       };
       
       const targetDay = dayMap[dayName];
+      if (targetDay === undefined) {
+        console.warn(`Unknown day name: ${dayName}, defaulting to selected date`);
+        return new Date(selectedDate);
+      }
       
-      // Get the start of the week containing selectedDate
+      // Get the start of the week containing selectedDate (Sunday = 0)
       const startOfWeek = new Date(selectedDate);
       startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
+      startOfWeek.setHours(0, 0, 0, 0); // Normalize to midnight
       
       // Calculate the date for the target day in this week
       const targetDate = new Date(startOfWeek);
       targetDate.setDate(startOfWeek.getDate() + targetDay);
+      targetDate.setHours(0, 0, 0, 0); // Normalize to midnight
       
       return targetDate;
     };
@@ -262,12 +270,65 @@ export default function HairstylistDashboard() {
           let status = 'pending';
           const backendStatus = booking.status?.toUpperCase();
           
+          // CONFIRMED in backend means past/completed visits
           if (backendStatus === 'CONFIRMED' || backendStatus === 'COMPLETED') {
-            status = 'confirmed';
+            status = 'completed';
           } else if (backendStatus === 'CANCELED' || backendStatus === 'CANCELLED') {
             status = 'canceled';
           } else if (backendStatus === 'PENDING' || backendStatus === 'SCHEDULED') {
             status = 'pending';
+          }
+          
+          // Auto-update status: if appointment end time has passed and not cancelled, mark as completed (past visit)
+          if (status !== 'canceled' && status !== 'completed' && booking.scheduled_end && booking.scheduled_start) {
+            try {
+              // Parse the end time (format: "HH:MM:SS" from backend)
+              const endTimeParts = booking.scheduled_end.split(':');
+              if (endTimeParts.length >= 2) {
+                const hours = parseInt(endTimeParts[0], 10);
+                const minutes = parseInt(endTimeParts[1], 10);
+                const seconds = endTimeParts[2] ? parseInt(endTimeParts[2], 10) : 0;
+                
+                // Parse the start time (format: "HH:MM:SS" from backend)
+                const startTimeParts = booking.scheduled_start.split(':');
+                if (startTimeParts.length >= 2) {
+                  const startHours = parseInt(startTimeParts[0], 10);
+                  const startMinutes = parseInt(startTimeParts[1], 10);
+                  
+                  // Create full datetime for appointment end (use the day date from the booking)
+                  // Create new date objects to avoid mutation issues
+                  const appointmentEndDate = new Date(dayDate);
+                  appointmentEndDate.setHours(hours, minutes, seconds, 0);
+                  
+                  const appointmentStartDate = new Date(dayDate);
+                  appointmentStartDate.setHours(startHours, startMinutes, 0, 0);
+                  
+                  const now = new Date();
+                  
+                  // If appointment end time has passed, mark as completed (past visit)
+                  // Verify both dates are valid and appointment is in the past
+                  if (
+                    !isNaN(appointmentEndDate.getTime()) && 
+                    !isNaN(appointmentStartDate.getTime()) &&
+                    appointmentEndDate < now
+                  ) {
+                    status = 'completed';
+                    console.log(`Auto-updated booking ${booking.booking_id} to completed:`, {
+                      appointmentEndDate: appointmentEndDate.toISOString(),
+                      now: now.toISOString(),
+                      dayName,
+                      dayDate: dayDate.toDateString()
+                    });
+                  }
+                }
+              }
+            } catch (err) {
+              console.error('Error parsing appointment time for status update:', err, {
+                booking_id: booking.booking_id,
+                scheduled_start: booking.scheduled_start,
+                scheduled_end: booking.scheduled_end
+              });
+            }
           }
           
           console.log(`Booking ${booking.booking_id} status:`, {
@@ -721,7 +782,7 @@ export default function HairstylistDashboard() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed': return '!bg-purple-200 !text-purple-800 border-purple-200';
+      case 'completed': return '!bg-purple-200 !text-purple-800 border-purple-200';
       case 'pending': return '!bg-yellow-200 !text-yellow-800 border-yellow-200';
       case 'canceled': return '!bg-red-200 !text-red-800 border-red-200';
       default: return '!bg-gray-200 !text-gray-800 border-gray-200';
@@ -930,6 +991,18 @@ export default function HairstylistDashboard() {
                   <X className="w-4 h-4" />
                   <span>Unblock Time</span>
                 </Button>
+                <Button 
+                  onClick={() => {
+                    setShowCancelledTab(true);
+                    setCancelledDate(new Date());
+                  }} 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>View Cancelled</span>
+                </Button>
               </div>
               
               {/* View Settings */}
@@ -1034,8 +1107,12 @@ export default function HairstylistDashboard() {
                       <span className="text-sm text-foreground">Available</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-red-300 opacity-40 rounded"></div>
+                      <div className="w-6 h-6 bg-gray-500 opacity-60 rounded"></div>
                       <span className="text-sm text-foreground">Unavailable</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 bg-red-400 opacity-40 rounded"></div>
+                      <span className="text-sm text-foreground">Booked</span>
                     </div>
                   </div>
                   
@@ -1106,12 +1183,12 @@ export default function HairstylistDashboard() {
                           />
                         )}
                         
-                        {/* Unavailability highlights */}
+                        {/* Unavailability highlights - Gray background */}
                         {unavailabilities && unavailabilities.length > 0 && unavailabilities.map((unavail, unavailIndex) => (
                           unavail && unavail.start_time && unavail.end_time && (
                             <div
                               key={unavailIndex}
-                              className="absolute left-0 right-0 bg-red-300 opacity-40 rounded-sm"
+                              className="absolute left-0 right-0 bg-gray-500 opacity-60 rounded-sm"
                               style={{
                                 top: `${minutesToPixels(convertTimeToMinutes(unavail.start_time) - 8 * 60)}px`,
                                 height: `${minutesToPixels(convertTimeToMinutes(unavail.end_time) - convertTimeToMinutes(unavail.start_time))}px`
@@ -1119,6 +1196,28 @@ export default function HairstylistDashboard() {
                             />
                           )
                         ))}
+                        
+                        {/* Booked appointment backgrounds - Red background behind appointments */}
+                        {scheduleData
+                          .filter(apt => apt.date && apt.date.toDateString() === day.toDateString() && apt.status !== 'canceled')
+                          .map((appointment) => {
+                            const startMinutes = timeToMinutes(appointment.startTime);
+                            const endMinutes = timeToMinutes(appointment.endTime);
+                            const top = minutesToPixels(startMinutes - 8 * 60);
+                            const height = minutesToPixels(endMinutes - startMinutes);
+                            
+                            return (
+                              <div
+                                key={`bg-${appointment.id}`}
+                                className="absolute left-0 right-0 bg-red-400 opacity-40 rounded-sm"
+                                style={{
+                                  top: `${top}px`,
+                                  height: `${height}px`,
+                                  zIndex: 1
+                                }}
+                              />
+                            );
+                          })}
                         
                         {/* Appointments for this day (excluding cancelled) */}
                         {scheduleData
@@ -1136,9 +1235,10 @@ export default function HairstylistDashboard() {
                                 style={{ 
                                   top: `${top}px`, 
                                   height: `${height}px`,
-                                  borderColor: appointment.status === 'confirmed' ? '#9333ea' : 
+                                  zIndex: 2,
+                                  borderColor: appointment.status === 'completed' ? '#9333ea' : 
                                              appointment.status === 'pending' ? '#ca8a04' : '#dc2626',
-                                  backgroundColor: appointment.status === 'confirmed' ? '#f3e8ff' : 
+                                  backgroundColor: appointment.status === 'completed' ? '#f3e8ff' : 
                                                  appointment.status === 'pending' ? '#fef3c7' : '#fef2f2'
                                 }}
                                 onClick={() => {
@@ -1195,13 +1295,13 @@ export default function HairstylistDashboard() {
                   
                   <div className="bg-white rounded-lg border p-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-green-600" />
+                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                        <Calendar className="w-5 h-5 text-purple-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-foreground">Confirmed</p>
+                        <p className="text-sm font-medium text-foreground">Completed</p>
                         <p className="text-2xl font-bold text-foreground">
-                          {scheduleData.filter(apt => apt.status === 'confirmed').length}
+                          {scheduleData.filter(apt => apt.status === 'completed').length}
                         </p>
                           </div>
                         </div>
@@ -1242,60 +1342,62 @@ export default function HairstylistDashboard() {
                     <h3 className="text-lg font-semibold text-foreground">Appointments</h3>
                   </div>
                   <div className="divide-y">
-                    {scheduleData.map((appointment) => (
-                      <div key={appointment.id} className="p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
+                    {scheduleData
+                      .filter(appointment => appointment.status !== 'canceled')
+                      .map((appointment) => (
+                        <div key={appointment.id} className="p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
                       <div className="flex items-center space-x-2">
-                                <Clock className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
-                              </div>
-                              <Badge className={getStatusColor(appointment.status)}>
-                                {appointment.status}
-                              </Badge>
-                            </div>
-                            
-                            <h4 className="font-semibold text-foreground mb-1">
-                              {appointment.customer}
-                            </h4>
-                            
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {appointment.service}
-                            </p>
-                            
-                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
-                              <span>Duration: <span className="text-purple-600 font-medium">{appointment.duration} minutes</span></span>
-                              {appointment.totalPrice > 0 && (
-                                <span>Total: ${appointment.totalPrice.toFixed(2)}</span>
-                              )}
-                            </div>
-                            
-                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                              {appointment.phone && (
-                                <div className="flex items-center space-x-1">
-                                  <Phone className="w-4 h-4" />
-                                  <span>{appointment.phone}</span>
+                                  <Clock className="w-4 h-4 text-muted-foreground" />
+                                  <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
                                 </div>
-                              )}
+                                <Badge className={getStatusColor(appointment.status)}>
+                                  {appointment.status}
+                                </Badge>
+                              </div>
+                              
+                              <h4 className="font-semibold text-foreground mb-1">
+                                {appointment.customer}
+                              </h4>
+                              
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {appointment.service}
+                              </p>
+                              
+                              <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                                <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
+                                {appointment.totalPrice > 0 && (
+                                  <span>Total: <span className="text-green-800 font-medium">${appointment.totalPrice.toFixed(2)}</span></span>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                {appointment.phone && (
+                                  <div className="flex items-center space-x-1">
+                                    <Phone className="w-4 h-4" />
+                                    <span>{appointment.phone}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          
-                          <div className="ml-4">
+                            
+                            <div className="ml-4">
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => {
-                                setSelectedAppointment(appointment);
-                                setShowAppointmentPopup(true);
-                              }}
+                                onClick={() => {
+                                  setSelectedAppointment(appointment);
+                                  setShowAppointmentPopup(true);
+                                }}
                             >
-                              View Details
+                                View Details
                             </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
               </div>
@@ -1383,9 +1485,9 @@ export default function HairstylistDashboard() {
                       <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4" />
-                          <span className="text-purple-600 font-medium">{service.duration_minutes} min</span>
+                          <span className="text-blue-600 font-medium">{service.duration_minutes} min</span>
                         </div>
-                        <div className="text-lg font-semibold text-foreground">
+                        <div className="text-lg font-semibold text-green-800">
                           ${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}
                         </div>
                       </div>
@@ -1888,9 +1990,9 @@ export default function HairstylistDashboard() {
                     {selectedAppointment.service}
                   </p>
                   <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
-                    <span>Duration: <span className="text-purple-600 font-medium">{selectedAppointment.duration} minutes</span></span>
+                    <span>Duration: <span className="text-blue-600 font-medium">{selectedAppointment.duration} minutes</span></span>
                     {selectedAppointment.totalPrice > 0 && (
-                      <span>Total: ${selectedAppointment.totalPrice.toFixed(2)}</span>
+                      <span>Total: <span className="text-green-800 font-medium">${selectedAppointment.totalPrice.toFixed(2)}</span></span>
                     )}
                     </div>
                   <p className="text-sm text-muted-foreground">
@@ -1924,7 +2026,7 @@ export default function HairstylistDashboard() {
         </div>
       )}
 
-      {/* Cancelled Appointments Modal */}
+      {/* Cancelled Appointments Modal - Show All Cancelled */}
       {showCancelledTab && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
@@ -1932,8 +2034,13 @@ export default function HairstylistDashboard() {
               <div className="flex items-center justify-between p-6 border-b">
                 <div className="flex items-center space-x-3">
                   <Calendar className="w-6 h-6 text-red-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">Cancelled Appointments</h3>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">All Cancelled Appointments</h3>
+                    <p className="text-sm text-gray-600">
+                      {scheduleData.filter(apt => apt.status === 'canceled').length} cancelled appointment(s)
+                    </p>
                   </div>
+                    </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1942,104 +2049,34 @@ export default function HairstylistDashboard() {
                 >
                   <X className="w-5 h-5" />
                 </Button>
-              </div>
-
-              {/* Date Navigation */}
-              <div className="px-6 py-4 border-b bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateCancelledDate(-1)}
-                    className="flex items-center space-x-2"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>Previous Day</span>
-                  </Button>
-
-                  <div className="text-center">
-                    <h4 className="text-lg font-semibold text-foreground">
-                      {formatCancelledDate(cancelledDate)}
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      Cancelled appointments for this day
-                    </p>
-                    </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateCancelledDate(1)}
-                    className="flex items-center space-x-2"
-                  >
-                    <span>Next Day</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
                   </div>
-                    </div>
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
                 {(() => {
-                  const cancelledForDate = getCancelledAppointmentsForDate(cancelledDate);
-                  const allAppointmentsForDate = scheduleData.filter(apt => 
-                    apt.date && apt.date.toDateString() === cancelledDate.toDateString()
-                  );
                   const allCancelledAppointments = scheduleData.filter(apt => apt.status === 'canceled');
                   
-                  console.log('Debug info:', {
-                    selectedDate: cancelledDate.toDateString(),
-                    totalScheduleData: scheduleData.length,
-                    allCancelledAppointments: allCancelledAppointments.length,
-                    allAppointmentsForDate: allAppointmentsForDate.length,
-                    cancelledForDate: cancelledForDate.length,
-                    allStatuses: scheduleData.map(apt => ({ id: apt.id, status: apt.status, date: apt.date?.toDateString() }))
-                  });
-                  
-                  return cancelledForDate.length === 0 ? (
+                  return allCancelledAppointments.length === 0 ? (
                     <div className="text-center py-12">
                       <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-foreground mb-2">No cancelled appointments</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        No cancelled appointments for {formatCancelledDate(cancelledDate)}.
+                      <p className="text-sm text-muted-foreground">
+                        You have no cancelled appointments.
                       </p>
-                      
-                      {/* Debug Information */}
-                      <div className="text-left bg-gray-50 p-4 rounded-lg max-w-2xl mx-auto">
-                        <h4 className="font-medium mb-2">Debug Information:</h4>
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <div>Total appointments in schedule: {scheduleData.length}</div>
-                          <div>Total cancelled appointments: {allCancelledAppointments.length}</div>
-                          <div>Appointments for this date: {allAppointmentsForDate.length}</div>
-                          <div>Selected date: {cancelledDate.toDateString()}</div>
-                  </div>
-                        
-                        {allCancelledAppointments.length > 0 && (
-                          <div className="mt-3">
-                            <h5 className="font-medium mb-2">All cancelled appointments:</h5>
-                            {allCancelledAppointments.map(apt => (
-                              <div key={apt.id} className="text-sm text-gray-600">
-                                {apt.startTime} - {apt.endTime} | Date: {apt.date?.toDateString()} | Customer: {apt.customer}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {allAppointmentsForDate.length > 0 && (
-                          <div className="mt-3">
-                            <h5 className="font-medium mb-2">All appointments for this date:</h5>
-                            {allAppointmentsForDate.map(apt => (
-                              <div key={apt.id} className="text-sm text-gray-600">
-                                {apt.startTime} - {apt.endTime} | Status: {apt.status} | Customer: {apt.customer}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {cancelledForDate
-                        .sort((a, b) => new Date(a.date) - new Date(b.date))
+                      {allCancelledAppointments
+                        .sort((a, b) => {
+                          const dateA = a.date ? new Date(a.date) : new Date(0);
+                          const dateB = b.date ? new Date(b.date) : new Date(0);
+                          if (dateA.getTime() === dateB.getTime()) {
+                            // Sort by time if same date
+                            const timeA = timeToMinutes(a.startTime);
+                            const timeB = timeToMinutes(b.startTime);
+                            return timeA - timeB;
+                          }
+                          return dateB - dateA; // Most recent first
+                        })
                         .map((appointment) => (
                           <div key={appointment.id} className="border rounded-lg p-4 bg-red-50 border-red-200">
                             <div className="flex items-center justify-between">
@@ -2048,7 +2085,7 @@ export default function HairstylistDashboard() {
                                   <div className="flex items-center space-x-2">
                                     <Clock className="w-4 h-4 text-muted-foreground" />
                                     <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
-                                  </div>
+                  </div>
                                   <Badge className="bg-red-200 text-red-800 border-red-200">
                                     Cancelled
                                   </Badge>
@@ -2066,9 +2103,9 @@ export default function HairstylistDashboard() {
                                 </p>
                                 
                                 <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
-                                  <span>Duration: <span className="text-purple-600 font-medium">{appointment.duration} minutes</span></span>
+                                  <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
                                   {appointment.totalPrice > 0 && (
-                                    <span>Total: ${appointment.totalPrice.toFixed(2)}</span>
+                                    <span>Total: <span className="text-green-800 font-medium">${appointment.totalPrice.toFixed(2)}</span></span>
                                   )}
                                 </div>
                                 

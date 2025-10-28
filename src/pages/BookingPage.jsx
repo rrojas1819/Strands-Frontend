@@ -690,10 +690,10 @@ export default function BookingPage() {
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="font-medium">{service.name}</p>
-                          <p className="text-sm text-muted-foreground">{service.description} - <span className="text-purple-600 font-medium">{(service.duration_minutes || 30)} min</span></p>
+                          <p className="text-sm text-muted-foreground">{service.description} - <span className="text-blue-600 font-medium">{(service.duration_minutes || 30)} min</span></p>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="font-semibold">${typeof service.price === 'number' ? service.price.toFixed(2) : (service.price || 0)}</span>
+                          <span className="font-semibold text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : (service.price || 0)}</span>
                           {isSelected && <Check className="w-5 h-5 text-primary" />}
                         </div>
                       </div>
@@ -819,7 +819,7 @@ export default function BookingPage() {
                 )}
                 <div className="flex justify-between text-lg font-bold pt-3 border-t">
                   <span>Total:</span>
-                  <span>${selectedServices.reduce((sum, s) => sum + (typeof s.price === 'number' ? s.price : 0), 0).toFixed(2)}</span>
+                  <span className="text-green-800">${selectedServices.reduce((sum, s) => sum + (typeof s.price === 'number' ? s.price : 0), 0).toFixed(2)}</span>
                 </div>
                 <Button 
                   className="w-full mt-4" 

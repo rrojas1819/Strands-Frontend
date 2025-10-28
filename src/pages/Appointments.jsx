@@ -434,7 +434,7 @@ export default function Appointments() {
                       </div>
                     )}
                     <div className="flex items-center justify-between pt-3 border-t">
-                      <span className="text-lg font-semibold">
+                      <span className="text-lg font-semibold text-green-800">
                         ${typeof appointment.total_price === 'number' ? appointment.total_price.toFixed(2) : (appointment.total_price || '0.00')}
                       </span>
                       <div className="flex space-x-2">
