@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { MapPin, Phone, Mail, Star, Clock, LogOut, ArrowLeft, Calendar, Users, Award } from 'lucide-react';
 import { Notifications } from '../utils/notifications';
+import { trackSalonView } from '../utils/analytics';
 import StrandsModal from '../components/StrandsModal';
 
 export default function SalonDetail() {
@@ -75,6 +76,11 @@ export default function SalonDetail() {
     };
 
     fetchSalonDetails();
+    
+    // Track salon view analytics (AFDV 1.1)
+    if (user) {
+      trackSalonView(salonId, user.user_id);
+    }
   }, [user, navigate, salonId]);
 
   const handleLogout = () => {
@@ -92,15 +98,30 @@ export default function SalonDetail() {
   };
 
   const isSalonOpen = () => {
-    // Simple hardcoded hours for now
-    // TODO: Replace with actual salon hours from backend when available
-    const now = new Date();
-    const day = now.getDay();
-    const hour = now.getHours();
+    if (!salon || !salon.weekly_hours) return false;
     
-    if (day === 0) return false; // Sunday closed
-    if (day === 6) return hour >= 9 && hour < 17; // Saturday 9AM-5PM
-    return hour >= 9 && hour < 19; // Mon-Fri 9AM-7PM
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTime = currentHour * 60 + currentMinutes; // Convert to minutes
+    
+    const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const today = days[dayOfWeek];
+    const todayHours = salon.weekly_hours[today];
+    
+    if (!todayHours || !todayHours.is_open || !todayHours.start_time || !todayHours.end_time) {
+      return false;
+    }
+    
+    // Parse start and end times
+    const [startHours, startMinutes] = todayHours.start_time.split(':').map(Number);
+    const startTime = startHours * 60 + startMinutes;
+    
+    const [endHours, endMinutes] = todayHours.end_time.split(':').map(Number);
+    const endTime = endHours * 60 + endMinutes;
+    
+    return currentTime >= startTime && currentTime < endTime;
   };
 
   if (loading) {
@@ -266,18 +287,25 @@ export default function SalonDetail() {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Hours</h3>
                   <div className="space-y-2">
-                    <div className="flex items-center">
-                      <Clock className="w-4 h-4 text-muted-foreground mr-3" />
-                      <span>Mon-Fri: 9:00 AM - 7:00 PM</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="w-4 h-4 text-muted-foreground mr-3" />
-                      <span>Saturday: 9:00 AM - 5:00 PM</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="w-4 h-4 text-muted-foreground mr-3" />
-                      <span>Sunday: Closed</span>
-                    </div>
+                    {salon.weekly_hours ? Object.entries(salon.weekly_hours).map(([day, hours]) => {
+                      const dayName = day.charAt(0) + day.slice(1).toLowerCase();
+                      const isOpen = hours.is_open && hours.start_time && hours.end_time;
+                      return (
+                        <div key={day} className="flex items-center">
+                          <Clock className="w-4 h-4 text-muted-foreground mr-3" />
+                          <span>
+                            {dayName}: {isOpen 
+                              ? `${hours.start_time} - ${hours.end_time}` 
+                              : 'Closed'}
+                          </span>
+                        </div>
+                      );
+                    }) : (
+                      <div className="flex items-center">
+                        <Clock className="w-4 h-4 text-muted-foreground mr-3" />
+                        <span>N/A</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -292,14 +320,17 @@ export default function SalonDetail() {
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button className="w-full bg-primary hover:bg-primary/90">
+                <Button 
+                  className="w-full bg-primary hover:bg-primary/90"
+                  onClick={() => navigate(`/salon/${salonId}/book`)}
+                >
                   Book Appointment
                 </Button>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full" onClick={() => navigate('/appointments')}>
                   <Calendar className="w-4 h-4 mr-2" />
-                  View Calendar
+                  View My Appointments
                 </Button>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full" onClick={() => navigate(`/salon/${salonId}/book`)}>
                   <Users className="w-4 h-4 mr-2" />
                   View Stylists
                 </Button>

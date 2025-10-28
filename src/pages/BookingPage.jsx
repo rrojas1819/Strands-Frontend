@@ -1,0 +1,748 @@
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext, RewardsContext } from '../context/AuthContext';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { ArrowLeft, LogOut, Star, Clock, Users, Check, X } from 'lucide-react';
+import { notifySuccess, notifyError, notifyInfo, Notifications } from '../utils/notifications';
+import { trackSalonView, trackBooking } from '../utils/analytics';
+import StrandsModal from '../components/StrandsModal';
+
+export default function BookingPage() {
+  const { user, logout } = useContext(AuthContext);
+  const { rewardsCount } = useContext(RewardsContext);
+  const navigate = useNavigate();
+  const { salonId } = useParams();
+  const location = useLocation();
+  
+  const [salon, setSalon] = useState(null);
+  const [stylists, setStylists] = useState([]);
+  const [allStylists, setAllStylists] = useState([]); // All stylists from backend
+  const [allServices, setAllServices] = useState([]); // All services from backend
+  const [services, setServices] = useState([]); // Filtered services to display
+  const [selectedStylist, setSelectedStylist] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [selectedServices, setSelectedServices] = useState([]);
+  const [timeSlots, setTimeSlots] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isReschedule, setIsReschedule] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    fetchSalonData();
+    
+    // Track salon view analytics (AFDV 1.1)
+    trackSalonView(salonId, user.user_id);
+  }, [user, navigate, salonId]);
+
+  // Pre-fill reschedule data when location.state changes
+  useEffect(() => {
+    if (location.state?.reschedule && location.state?.appointment && allServices.length > 0 && stylists.length > 0) {
+      const appointment = location.state.appointment;
+      setIsReschedule(true);
+      
+      // Find and set the stylist from the appointment
+      if (appointment.stylists && appointment.stylists.length > 0) {
+        const stylistId = appointment.stylists[0].employee_id;
+        const foundStylist = stylists.find(s => s.employee_id === stylistId);
+        if (foundStylist) {
+          setSelectedStylist(foundStylist);
+        }
+      }
+      
+      // Find and select the services from the appointment
+      if (appointment.services && appointment.services.length > 0) {
+        const servicesToSelect = allServices.filter(s => 
+          appointment.services.some(apptService => 
+            apptService.service_id === s.service_id || apptService.service_name === s.name
+          )
+        );
+        setSelectedServices(servicesToSelect);
+      }
+    }
+  }, [location.state, allServices, stylists]);
+
+  // Fetch time slots when stylist and services are selected
+  useEffect(() => {
+    if (selectedStylist && selectedServices.length > 0) {
+      fetchTimeSlots(selectedStylist, selectedServices);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStylist, selectedServices]);
+
+  const fetchSalonData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Fetch salon, stylists, and services in parallel
+      const [salonResponse, stylistsResponse, servicesResponse] = await Promise.allSettled([
+        fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+        fetch(`${apiUrl}/salons/${salonId}/stylists`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+        fetch(`${apiUrl}/salons/${salonId}/services`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
+      ]);
+
+      // Handle salon data
+      if (salonResponse.status === 'fulfilled' && salonResponse.value.ok) {
+        const salonData = await salonResponse.value.json();
+        const salons = salonData.data || [];
+        const foundSalon = salons.find(s => s.salon_id == salonId);
+        if (foundSalon) {
+          setSalon(foundSalon);
+        } else {
+          throw new Error(`Salon with ID ${salonId} not found. Please ensure you're booking from an approved salon.`);
+        }
+      } else {
+        throw new Error('Failed to fetch salon data from backend');
+      }
+
+      // Handle stylists data
+      if (stylistsResponse.status === 'fulfilled' && stylistsResponse.value.ok) {
+        const stylistsData = await stylistsResponse.value.json();
+        const fetchedStylists = stylistsData.data?.stylists || [];
+        setAllStylists(fetchedStylists);
+        setStylists(fetchedStylists); // Initially show all stylists
+      }
+
+      // Handle services data
+      if (servicesResponse.status === 'fulfilled' && servicesResponse.value.ok) {
+        const servicesData = await servicesResponse.value.json();
+        const fetchedServices = servicesData.data?.services || [];
+        setAllServices(fetchedServices);
+        setServices(fetchedServices); // Initially show all services
+      }
+
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching salon data:', err);
+      setError(err.message || 'Failed to load booking information.');
+      setLoading(false);
+    }
+  };
+
+  // Fetch stylist services
+  const fetchStylistServices = async (stylistId) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      const response = await fetch(
+        `${apiUrl}/salons/${salonId}/stylists/${stylistId}/services`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const stylistServiceIds = (data.data?.services || []).map(s => s.service_id);
+        // Only show services that this stylist offers
+        const filteredServices = allServices.filter(service => 
+          stylistServiceIds.includes(service.service_id)
+        );
+        setServices(filteredServices);
+      }
+    } catch (err) {
+      console.error('Error fetching stylist services:', err);
+      setServices(allServices); // Fallback to all services
+    }
+  };
+
+  // Fetch stylists who offer selected services
+  const fetchStylistsForServices = async (serviceIds) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Fetch all stylists and check which ones offer these services
+      const stylistsResponse = await fetch(
+        `${apiUrl}/salons/${salonId}/stylists`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }
+      );
+
+      if (stylistsResponse.ok) {
+        const stylistsData = await stylistsResponse.json();
+        const allStylists = stylistsData.data?.stylists || [];
+        
+        // Check each stylist to see if they offer the selected services
+        const filteredStylists = await Promise.all(
+          allStylists.map(async (stylist) => {
+            const servicesResponse = await fetch(
+              `${apiUrl}/salons/${salonId}/stylists/${stylist.employee_id}/services`,
+              {
+                headers: { 'Authorization': `Bearer ${token}` },
+              }
+            );
+            
+            if (servicesResponse.ok) {
+              const servicesData = await servicesResponse.json();
+              const stylistServiceIds = (servicesData.data?.services || []).map(s => s.service_id);
+              // Check if all selected services are available from this stylist
+              const canOfferAll = serviceIds.every(id => stylistServiceIds.includes(id));
+              return canOfferAll ? stylist : null;
+            }
+            return null;
+          })
+        );
+        
+        setStylists(filteredStylists.filter(s => s !== null));
+      }
+    } catch (err) {
+      console.error('Error fetching stylists for services:', err);
+    }
+  };
+
+  const fetchTimeSlots = async (stylist, services = []) => {
+    if (!stylist || !stylist.employee_id) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Calculate total duration needed for selected services
+      const totalDuration = services.reduce((sum, service) => sum + (service.duration_minutes || 30), 0);
+      
+      // Calculate start and end dates (today + 7 days)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 7);
+      
+      const startDateStr = today.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
+      const response = await fetch(
+        `${apiUrl}/salons/${salonId}/stylists/${stylist.employee_id}/timeslots?start_date=${startDateStr}&end_date=${endDateStr}&service_duration=${totalDuration}`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setTimeSlots(data.data?.daily_slots || {});
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to fetch time slots:', errorText);
+        setTimeSlots({});
+      }
+    } catch (err) {
+      console.error('Error fetching time slots:', err);
+      setTimeSlots({});
+    }
+  };
+
+  const handleLogout = () => {
+    Notifications.logoutSuccess();
+    logout();
+  };
+
+  const handleBookClick = () => {
+    if (!selectedStylist || !selectedDate || !selectedTimeSlot || selectedServices.length === 0) {
+      notifyError('Please select a stylist, date, time, and at least one service');
+      return;
+    }
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    setBookingLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Validate selectedTimeSlot is an object with start_time and end_time
+      if (!selectedTimeSlot || typeof selectedTimeSlot !== 'object' || !selectedTimeSlot.start_time || !selectedTimeSlot.end_time) {
+        notifyError('Please select a valid time slot');
+        setBookingLoading(false);
+        return;
+      }
+
+      // Create the booking dates from selectedDate and slot times
+      const startDateTime = new Date(`${selectedDate}T${selectedTimeSlot.start_time}:00`);
+      const endDateTime = new Date(`${selectedDate}T${selectedTimeSlot.end_time}:00`);
+      
+      // Validate dates are valid
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        notifyError('Invalid date or time selected');
+        setBookingLoading(false);
+        return;
+      }
+      
+      // Create the new booking
+      const response = await fetch(`${apiUrl}/salons/${salonId}/stylists/${selectedStylist.employee_id}/book`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          scheduled_start: startDateTime.toISOString(),
+          scheduled_end: endDateTime.toISOString(),
+          services: selectedServices.map(s => ({ service_id: s.service_id })),
+          notes: ''
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // If rescheduling, cancel the old appointment
+        if (isReschedule && location.state?.bookingId) {
+          try {
+            const cancelResponse = await fetch(`${apiUrl}/bookings/cancel`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                booking_id: location.state.bookingId
+              })
+            });
+            
+            if (cancelResponse.ok) {
+              notifySuccess('Appointment rescheduled successfully!');
+            } else {
+              notifySuccess('New appointment created. Please cancel your old appointment manually.');
+            }
+          } catch (cancelErr) {
+            console.error('Error canceling old appointment:', cancelErr);
+            notifySuccess('New appointment created. Please cancel your old appointment.');
+          }
+        } else {
+          notifySuccess('Appointment booked successfully!');
+        }
+        
+        navigate('/appointments');
+        
+        // Track booking analytics
+        await trackBooking(
+          salonId,
+          selectedStylist.employee_id,
+          selectedServices.map(s => s.service_id),
+          user.user_id
+        );
+      } else {
+        const errorMessage = data.message || 'Booking failed';
+        throw new Error(errorMessage);
+      }
+    } catch (err) {
+      console.error('Error booking appointment:', err);
+      notifyError(err.message || 'Failed to book appointment. Please try again.');
+    } finally {
+      setBookingLoading(false);
+      setShowConfirmModal(false);
+    }
+  };
+
+  // Helper function to format time to 12-hour AM/PM format
+  const formatTo12Hour = (time24) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':').map(Number);
+    const hours12 = hours % 12 || 12;
+    const ampm = hours < 12 ? 'AM' : 'PM';
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  };
+
+  const getAvailableDates = () => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 0; i < 14; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  };
+
+  // Group dates by month for calendar display
+  const getGroupedDates = () => {
+    const dates = getAvailableDates();
+    const grouped = {};
+    dates.forEach(date => {
+      const key = `${date.getMonth() + 1}/${date.getFullYear()}`;
+      if (!grouped[key]) {
+        grouped[key] = { month: date.toLocaleString('default', { month: 'long' }), year: date.getFullYear(), dates: [] };
+      }
+      grouped[key].dates.push(date);
+    });
+    return grouped;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="text-center">
+          <Alert className="max-w-md">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button onClick={() => navigate('/dashboard')} className="mt-4">
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!salon) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="text-center">
+          <Alert className="max-w-md">
+            <AlertDescription>Salon not found</AlertDescription>
+          </Alert>
+          <Button onClick={() => navigate('/dashboard')} className="mt-4">
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-muted/30">
+      {/* Header */}
+      <header className="bg-background border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <img 
+                src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
+                alt="Strands Logo" 
+                className="w-8 h-8"
+              />
+              <Button onClick={() => navigate(-1)} className="flex items-center space-x-2">
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back</span>
+              </Button>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <Star className="w-4 h-4 text-yellow-600" />
+                <span className="text-sm font-medium text-yellow-800">{rewardsCount} rewards ready</span>
+              </div>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                {user?.role || 'User'}
+              </Badge>
+              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Navigation Bar - Condensed and logical */}
+        <nav className="bg-muted/50 border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex space-x-8">
+              {/* Current: Browse Salons */}
+              <button 
+                onClick={() => navigate('/dashboard')}
+                className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+              >
+                Browse Salons
+              </button>
+              
+              {/* Booking & Appointments */}
+              <button 
+                onClick={() => navigate('/appointments')}
+                className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+              >
+                My Appointments
+              </button>
+              
+              {/* Loyalty & Rewards */}
+              <button 
+                onClick={() => navigate('/loyalty-points')}
+                className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+              >
+                Loyalty Program
+              </button>
+              
+              {/* Profile & History */}
+              <button onClick={() => navigate('/profile')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
+                My Profile
+              </button>
+              
+              {/* Reviews & Feedback */}
+              <button onClick={() => navigate('/reviews')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
+                Reviews
+              </button>
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold mb-8">{isReschedule ? 'Reschedule Appointment' : 'Book Appointment'} at {salon?.name}</h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Step 1: Select Stylist */}
+          <Card>
+            <CardHeader>
+              <CardTitle>1. Select Stylist {isReschedule && <span className="text-xs text-muted-foreground font-normal">(Locked for Reschedule)</span>}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {stylists.map((stylist) => (
+                  <Button
+                    key={stylist.employee_id}
+                    variant={selectedStylist?.employee_id === stylist.employee_id ? 'default' : 'outline'}
+                    className="w-full justify-start"
+                    onClick={() => {
+                      if (!isReschedule) {
+                        // If clicking the same stylist, deselect them
+                        if (selectedStylist?.employee_id === stylist.employee_id) {
+                          setSelectedStylist(null);
+                          setServices(allServices); // Show all services
+                          setSelectedServices([]); // Clear selected services
+                          setStylists(allStylists); // Show all stylists
+                          setSelectedDate(null);
+                          setSelectedTimeSlot(null);
+                          setTimeSlots({});
+                        } else {
+                          setSelectedStylist(stylist);
+                          setSelectedDate(null);
+                          setSelectedTimeSlot(null);
+                          fetchStylistServices(stylist.employee_id);
+                        }
+                      }
+                    }}
+                    disabled={isReschedule}
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    {stylist.full_name} - {stylist.title}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Step 2: Select Services */}
+          <Card>
+            <CardHeader>
+              <CardTitle>2. Select Services {isReschedule && <span className="text-xs text-muted-foreground font-normal">(Locked for Reschedule)</span>}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {services.map((service) => {
+                  const isSelected = selectedServices.some(s => s.service_id === service.service_id);
+                  return (
+                    <div
+                      key={service.service_id}
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        isSelected ? 'border-primary bg-primary/10' : 'border-muted hover:border-primary/50'
+                      }`}
+                      onClick={async () => {
+                        if (isReschedule) return; // Disable service selection during reschedule
+                        let newSelectedServices;
+                        if (isSelected) {
+                          newSelectedServices = selectedServices.filter(s => s.service_id !== service.service_id);
+                        } else {
+                          newSelectedServices = [...selectedServices, service];
+                        }
+                        setSelectedServices(newSelectedServices);
+                        // Clear time and date when services change since availability changes
+                        setSelectedTimeSlot(null);
+                        setSelectedDate(null);
+                        // Filter stylists based on selected services
+                        if (newSelectedServices.length > 0) {
+                          const serviceIds = newSelectedServices.map(s => s.service_id);
+                          await fetchStylistsForServices(serviceIds);
+                        } else {
+                          // If no services selected, show all stylists
+                          setStylists(allStylists);
+                        }
+                      }}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">{service.name}</p>
+                          <p className="text-sm text-muted-foreground">{service.description} - {(service.duration_minutes || 30)} min</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-semibold">${typeof service.price === 'number' ? service.price.toFixed(2) : (service.price || 0)}</span>
+                          {isSelected && <Check className="w-5 h-5 text-primary" />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Step 3: Select Date */}
+          <Card>
+            <CardHeader>
+              <CardTitle>3. Select Date</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {Object.values(getGroupedDates()).map((group, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <h4 className="text-sm font-semibold text-muted-foreground">{group.month} {group.year}</h4>
+                    <div className="grid grid-cols-7 gap-2">
+                      {group.dates.map((date) => {
+                        const dateStr = date.toISOString().split('T')[0];
+                        const isSelected = selectedDate === dateStr;
+                        const isToday = dateStr === new Date().toISOString().split('T')[0];
+                        
+                        return (
+                          <Button
+                            key={dateStr}
+                            variant={isSelected ? 'default' : 'outline'}
+                            className={isToday ? 'ring-2 ring-primary' : ''}
+                            onClick={() => {
+                              setSelectedDate(dateStr);
+                              setSelectedTimeSlot(null);
+                            }}
+                          >
+                            {date.getDate()}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Step 4: Select Time */}
+          <Card>
+            <CardHeader>
+              <CardTitle>4. Select Time</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedDate && timeSlots[selectedDate] ? (
+                <div className="space-y-3">
+                  {timeSlots[selectedDate].available_slots?.length > 0 ? (
+                    timeSlots[selectedDate].available_slots.map((slot) => {
+                      const isSelected = selectedTimeSlot?.start_time === slot.start_time && selectedTimeSlot?.end_time === slot.end_time;
+                      return (
+                        <Button
+                          key={`${slot.start_time}-${slot.end_time}`}
+                          variant={isSelected ? 'default' : 'outline'}
+                          className="w-full"
+                          onClick={() => setSelectedTimeSlot(slot)}
+                        >
+                          {formatTo12Hour(slot.start_time)} - {formatTo12Hour(slot.end_time)}
+                        </Button>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground font-medium">
+                        {new Date(selectedDate + 'T00:00:00').getDay() === 0 || new Date(selectedDate + 'T00:00:00').getDay() === 6 
+                          ? 'Salon closed' 
+                          : 'Stylist unavailable or booked all day'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : selectedStylist && selectedServices.length > 0 ? (
+                <p className="text-muted-foreground">Select a date to see available time slots</p>
+              ) : selectedStylist ? (
+                <p className="text-muted-foreground">Select services first to see available time slots</p>
+              ) : (
+                <p className="text-muted-foreground">Select a stylist, services, and date to see available times</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Booking Summary */}
+        {selectedStylist && selectedServices.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Booking Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span>Stylist:</span>
+                  <span className="font-semibold">{selectedStylist.full_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Services:</span>
+                  <span className="font-semibold">{selectedServices.map(s => s.name).join(', ')}</span>
+                </div>
+                {selectedDate && (
+                  <div className="flex justify-between">
+                    <span>Date:</span>
+                    <span className="font-semibold">{new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                )}
+                {selectedTimeSlot && (
+                  <div className="flex justify-between">
+                    <span>Time:</span>
+                    <span className="font-semibold">
+                      {selectedTimeSlot.start_time && selectedTimeSlot.end_time 
+                        ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}`
+                        : 'N/A'}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-lg font-bold pt-3 border-t">
+                  <span>Total:</span>
+                  <span>${selectedServices.reduce((sum, s) => sum + (typeof s.price === 'number' ? s.price : 0), 0).toFixed(2)}</span>
+                </div>
+                <Button 
+                  className="w-full mt-4" 
+                  onClick={handleBookClick}
+                  disabled={!selectedTimeSlot}
+                >
+                  Book Appointment
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </main>
+
+      {/* Confirmation Modal */}
+      <StrandsModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmBooking}
+        title="Confirm Booking"
+        message={`Are you sure you want to book this appointment?\n\nStylist: ${selectedStylist?.full_name}\nServices: ${selectedServices.map(s => s.name).join(', ')}\nDate: ${selectedDate ? new Date(selectedDate).toLocaleDateString() : 'TBD'}\nTime: ${selectedTimeSlot?.start_time && selectedTimeSlot?.end_time ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}` : 'TBD'}`}
+        confirmText="Confirm"
+        cancelText="Cancel"
+        type="success"
+      />
+    </div>
+  );
+}
