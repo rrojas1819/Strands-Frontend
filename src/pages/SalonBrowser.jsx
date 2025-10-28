@@ -121,21 +121,82 @@ export default function SalonBrowser() {
     );
   };
 
-  // Function to check if salon is currently open
-  const isSalonOpen = () => {
-    const now = currentTime;
-    const day = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    const currentTimeMinutes = hour * 60 + minute;
+  // Helper function to format time to 12-hour AM/PM format
+  const formatTo12Hour = (time24) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':').map(Number);
+    const hours12 = hours % 12 || 12;
+    const ampm = hours < 12 ? 'AM' : 'PM';
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  };
 
-    // Salon hours: Mon-Fri 9AM-7PM, Sat 9AM-5PM, Sun Closed
-    if (day === 0) return false; // Sunday - Closed
-    if (day === 6) { // Saturday
-      return currentTimeMinutes >= 9 * 60 && currentTimeMinutes < 17 * 60; // 9AM-5PM
+  // Helper function to get short day names
+  const getShortDayName = (day) => {
+    const dayMap = {
+      'sunday': 'Sun',
+      'monday': 'Mon',
+      'tuesday': 'Tue',
+      'wednesday': 'Wed',
+      'thursday': 'Thu',
+      'friday': 'Fri',
+      'saturday': 'Sat'
+    };
+    return dayMap[day.toLowerCase()] || day;
+  };
+
+  // Helper function to group and format hours
+  const formatHours = (weeklyHours) => {
+    if (!weeklyHours) return [];
+    
+    // Group days by hours
+    const hoursMap = {};
+    Object.entries(weeklyHours).forEach(([day, hours]) => {
+      const dayName = getShortDayName(day.charAt(0) + day.slice(1).toLowerCase());
+      const isOpen = hours.is_open && hours.start_time && hours.end_time;
+      const key = isOpen ? `${formatTo12Hour(hours.start_time)} - ${formatTo12Hour(hours.end_time)}` : 'closed';
+      
+      if (!hoursMap[key]) {
+        hoursMap[key] = { days: [], hours };
+      }
+      hoursMap[key].days.push(dayName);
+    });
+
+    // Format grouped hours
+    const formatted = [];
+    Object.entries(hoursMap).forEach(([key, data]) => {
+      const daysStr = data.days.join(', ');
+      const hoursStr = key === 'closed' ? 'Closed' : key;
+      formatted.push(`${daysStr}: ${hoursStr}`);
+    });
+
+    return formatted;
+  };
+
+  // Function to check if salon is currently open
+  const isSalonOpen = (salon) => {
+    if (!salon?.weekly_hours) return null; // No data available
+
+    const now = currentTime;
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTimeMinutes = currentHour * 60 + currentMinutes;
+
+    const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const today = days[dayOfWeek];
+    const todayHours = salon.weekly_hours[today];
+
+    if (!todayHours || !todayHours.is_open || !todayHours.start_time || !todayHours.end_time) {
+      return false;
     }
-    // Monday-Friday
-    return currentTimeMinutes >= 9 * 60 && currentTimeMinutes < 19 * 60; // 9AM-7PM
+
+    const [startHours, startMinutes] = todayHours.start_time.split(':').map(Number);
+    const startTime = startHours * 60 + startMinutes;
+
+    const [endHours, endMinutes] = todayHours.end_time.split(':').map(Number);
+    const endTime = endHours * 60 + endMinutes;
+
+    return currentTimeMinutes >= startTime && currentTimeMinutes < endTime;
   };
 
   if (loading) {
@@ -193,7 +254,10 @@ export default function SalonBrowser() {
             </button>
             
             {/* Booking & Appointments */}
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+            <button 
+              onClick={() => navigate('/appointments')}
+              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+            >
               My Appointments
             </button>
             
@@ -206,12 +270,12 @@ export default function SalonBrowser() {
             </Link>
             
             {/* Profile & History */}
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+            <button onClick={() => navigate('/profile')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
               My Profile
             </button>
             
             {/* Reviews & Feedback */}
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+            <button onClick={() => navigate('/reviews')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
               Reviews
             </button>
           </div>
@@ -320,9 +384,9 @@ export default function SalonBrowser() {
                   <div className="flex items-start text-sm text-muted-foreground">
                     <Clock className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                     <div className="space-y-1">
-                      <div>Mon-Fri: 9:00 AM - 7:00 PM</div>
-                      <div>Saturday: 9:00 AM - 5:00 PM</div>
-                      <div>Sunday: Closed</div>
+                      {salon.weekly_hours ? formatHours(salon.weekly_hours).map((hoursText, idx) => (
+                        <div key={idx}>{hoursText}</div>
+                      )) : <div>N/A</div>}
                     </div>
                   </div>
                 </div>
@@ -332,9 +396,12 @@ export default function SalonBrowser() {
                 </div>
 
                 <div className="flex items-center justify-between pt-4">
-                  <div className={`flex items-center text-sm ${isSalonOpen() ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className={`flex items-center text-sm ${
+                    isSalonOpen(salon) === null ? 'text-gray-500' : 
+                    isSalonOpen(salon) ? 'text-green-600' : 'text-red-600'
+                  }`}>
                     <Clock className="w-4 h-4 mr-1" />
-                    <span>{isSalonOpen() ? 'Open now' : 'Closed'}</span>
+                    <span>{isSalonOpen(salon) === null ? 'N/A' : isSalonOpen(salon) ? 'Open now' : 'Closed'}</span>
                   </div>
                   <div className="flex space-x-2">
                     <Button 
@@ -343,7 +410,10 @@ export default function SalonBrowser() {
                     >
                       View Details
                     </Button>
-                    <Button className="bg-primary hover:bg-primary/90">
+                    <Button 
+                      className="bg-primary hover:bg-primary/90"
+                      onClick={() => navigate(`/salon/${salon.salon_id}/book`)}
+                    >
                       Book Now
                     </Button>
                   </div>

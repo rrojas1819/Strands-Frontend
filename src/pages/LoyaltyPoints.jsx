@@ -247,16 +247,16 @@ export default function LoyaltyPoints() {
             >
               Browse Salons
             </Link>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+            <button onClick={() => navigate('/appointments')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
               My Appointments
             </button>
-            <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
+            <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm cursor-pointer">
               Loyalty Program
             </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+            <button onClick={() => navigate('/profile')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
               My Profile
             </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+            <button onClick={() => navigate('/reviews')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
               Reviews
             </button>
           </div>

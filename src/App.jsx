@@ -13,6 +13,8 @@ import SalonDetail from './pages/SalonDetail';
 import LoyaltyPoints from './pages/LoyaltyPoints';
 import LoyaltyMonitoring from './pages/LoyaltyMonitoring';
 import HairstylistDashboard from './pages/HairstylistDashboard';
+import BookingPage from './pages/BookingPage';
+import Appointments from './pages/Appointments';
 
 // Context
 import { AuthContext, RewardsContext } from './context/AuthContext';
@@ -356,6 +358,14 @@ export default function App() {
             <Route 
               path="/salon/:salonId" 
               element={user ? <SalonDetail /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/salon/:salonId/book" 
+              element={user ? <BookingPage /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/appointments" 
+              element={user ? <Appointments /> : <Navigate to="/login" replace />} 
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
