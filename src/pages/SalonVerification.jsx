@@ -164,15 +164,17 @@ export default function SalonVerification() {
   };
 
   const getStatusBadge = (status) => {
+    const baseClasses = "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
+    
     switch (status) {
       case 'PENDING':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+        return <div className={`${baseClasses} bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100`}><Clock className="w-3 h-3 mr-1" />Pending</div>;
       case 'APPROVED':
-        return <Badge variant="secondary" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
+        return <div className={`${baseClasses} bg-green-100 text-green-800 border-green-200 hover:bg-green-100`}><CheckCircle className="w-3 h-3 mr-1" />Approved</div>;
       case 'REJECTED':
-        return <Badge variant="secondary" className="bg-red-100 text-red-800"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
+        return <div className={`${baseClasses} bg-red-100 text-red-800 border-red-200 hover:bg-red-100`}><XCircle className="w-3 h-3 mr-1" />Rejected</div>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <div className={`${baseClasses} bg-gray-100 text-gray-800 border-gray-200`}>{status}</div>;
     }
   };
 
@@ -288,7 +290,7 @@ export default function SalonVerification() {
             {/* Salon Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredSalons.map((salon) => (
-                <Card key={salon.salon_id} className="hover:shadow-lg transition-shadow">
+                <Card key={salon.salon_id} className="hover:shadow-lg transition-shadow flex flex-col h-full">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
@@ -301,8 +303,8 @@ export default function SalonVerification() {
                   {getStatusBadge(salon.status)}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
+              <CardContent className="flex flex-col flex-grow">
+                <div className="space-y-2 flex-grow">
                   <div className="flex items-center text-sm text-muted-foreground">
                     <span className="font-medium">Owner:</span>
                     <span className="ml-2">{salon.owner_name || 'N/A'}</span>
@@ -319,14 +321,14 @@ export default function SalonVerification() {
                     <MapPin className="w-4 h-4 mr-2" />
                     <span>{salon.address || [salon.city, salon.state, salon.postal_code].filter(Boolean).join(', ')}</span>
                   </div>
-                </div>
-                
-                <div className="pt-2 border-t">
-                  <p className="text-sm text-muted-foreground">{salon.description}</p>
+                  
+                  <div className="pt-2 border-t">
+                    <p className="text-sm text-muted-foreground">{salon.description}</p>
+                  </div>
                 </div>
 
                 {salon.status === 'PENDING' && (
-                  <div className="flex space-x-2 pt-4">
+                  <div className="flex space-x-2 pt-4 mt-auto">
                     <Button 
                       onClick={() => handleApprove(salon.salon_id)}
                       className="flex-1 bg-green-600 hover:bg-green-700"
