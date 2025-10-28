@@ -799,7 +799,7 @@ export default function HairstylistDashboard() {
             <img 
               src={strandsLogo} 
               alt="Strands" 
-                  className="w-8 h-8 cursor-pointer hover:opacity-80 transition-opacity" 
+              className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
               onClick={() => navigate('/')}
             />
                 <div>
@@ -851,7 +851,7 @@ export default function HairstylistDashboard() {
               <img 
                 src={strandsLogo} 
                 alt="Strands" 
-                className="w-8 h-8 cursor-pointer hover:opacity-80 transition-opacity" 
+                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
                 onClick={() => navigate('/')}
               />
               <div>
@@ -1055,23 +1055,25 @@ export default function HairstylistDashboard() {
                     </div>
                 </div>
 
-                                 <div className="grid grid-cols-[80px_repeat(7,1fr)]">
-                   {/* Time column header */}
-                   <div className="text-center text-sm font-medium text-muted-foreground py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
-                     Time
-                   </div>
-                   
-                   {/* Day headers */}
-                   {getWeekDays().map((day, index) => (
-                     <div key={index} className="text-center text-sm font-medium text-muted-foreground py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
-                       <div className="font-semibold">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                       <div className="text-lg">{day.getDate()}</div>
-                     </div>
-                   ))}
-                 </div>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <div className="inline-block min-w-full px-4 sm:px-0">
+                    <div className="grid grid-cols-[80px_repeat(7,minmax(120px,1fr))] min-w-[920px]">
+                      {/* Time column header */}
+                      <div className="text-center text-sm font-medium text-muted-foreground py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                        Time
+                      </div>
+                      
+                      {/* Day headers */}
+                      {getWeekDays().map((day, index) => (
+                        <div key={index} className="text-center text-sm font-medium text-muted-foreground py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                          <div className="font-semibold">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                          <div className="text-lg">{day.getDate()}</div>
+                        </div>
+                      ))}
+                    </div>
                  
-                                   {/* Time grid */}
-                  <div className="grid grid-cols-[80px_repeat(7,1fr)] relative" style={{ borderTop: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                    {/* Time grid */}
+                    <div className="grid grid-cols-[80px_repeat(7,minmax(120px,1fr))] relative min-w-[920px]" style={{ borderTop: '2px solid rgba(0, 0, 0, 0.3)' }}>
                    {/* Time labels */}
                    <div className="col-span-1" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
                      {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => (
@@ -1163,6 +1165,8 @@ export default function HairstylistDashboard() {
                       </div>
                     );
                   })}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : scheduleData.length === 0 ? (

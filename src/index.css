@@ -55,5 +55,25 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Prevent horizontal scrolling and ensure smooth scrolling */
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  /* Ensure images and media are responsive */
+  img, video, iframe {
+    max-width: 100%;
+    height: auto;
+  }
+  /* Improve touch targets on mobile */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Better text selection */
+  ::selection {
+    background-color: rgba(59, 130, 246, 0.3);
   }
 }

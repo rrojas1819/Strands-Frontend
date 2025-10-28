@@ -7,6 +7,7 @@ const Select = ({ children, value, onValueChange, ...props }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Don't close if clicking inside the select
       if (selectRef.current && !selectRef.current.contains(event.target)) {
         setIsOpen(false);
       }
@@ -48,7 +49,7 @@ const SelectTrigger = React.forwardRef(({ className = '', children, isOpen, setI
   <button
     ref={ref}
     type="button"
-    className={`flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    className={`flex min-h-[44px] h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation ${className}`}
     onClick={(e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -63,29 +64,46 @@ const SelectTrigger = React.forwardRef(({ className = '', children, isOpen, setI
 ));
 SelectTrigger.displayName = 'SelectTrigger';
 
-const SelectValue = React.forwardRef(({ className = '', placeholder, value, ...props }, ref) => (
-  <span
-    ref={ref}
-    className={`block truncate ${!value ? 'text-gray-500' : 'text-gray-900'} ${className}`}
-    {...props}
-  >
-    {value || placeholder}
-  </span>
-));
+const SelectValue = React.forwardRef(({ className = '', placeholder, value, children, ...props }, ref) => {
+  // If children are provided, render them (for custom display)
+  // Otherwise, show value or placeholder
+  const displayContent = children || value || placeholder;
+  const isEmpty = !value && !children;
+  
+  return (
+    <span
+      ref={ref}
+      className={`block truncate ${isEmpty ? 'text-gray-500' : 'text-gray-900'} ${className}`}
+      {...props}
+    >
+      {displayContent}
+    </span>
+  );
+});
 SelectValue.displayName = 'SelectValue';
 
-const SelectContent = React.forwardRef(({ className = '', children, isOpen, ...props }, ref) => {
+const SelectContent = React.forwardRef(({ className = '', children, isOpen, onValueChange, ...props }, ref) => {
   if (!isOpen) return null;
   
   return (
     <div
       ref={ref}
-      className={`absolute z-[9999] w-full min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg top-full left-0 mt-1 ${className}`}
+      className={`absolute z-[9999] w-full min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg top-full left-0 right-0 mt-1 max-h-[50vh] overflow-y-auto ${className}`}
       style={{ position: 'absolute', zIndex: 9999 }}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+      }}
       {...props}
     >
       <div className="py-1">
-        {children}
+        {React.Children.map(children, child => {
+          if (React.isValidElement(child)) {
+            return React.cloneElement(child, {
+              onValueChange
+            });
+          }
+          return child;
+        })}
       </div>
     </div>
   );
@@ -99,11 +117,17 @@ const SelectItem = React.forwardRef(({ className = '', children, value, onValueC
     onClick={(e) => {
       e.preventDefault();
       e.stopPropagation();
-      console.log('SelectItem clicked:', value);
-      onValueChange?.(value);
+      console.log('SelectItem clicked:', value, 'onValueChange exists:', !!onValueChange);
+      if (onValueChange && value) {
+        console.log('Calling onValueChange with:', value);
+        onValueChange(value);
+      } else {
+        console.warn('onValueChange not available or value is missing');
+      }
     }}
     onMouseDown={(e) => {
-      e.preventDefault();
+      // Stop propagation but don't prevent default to allow click event to fire
+      e.stopPropagation();
     }}
     role="option"
     tabIndex={0}
