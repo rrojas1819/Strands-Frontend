@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon } from 'lucide-react';
+import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -66,6 +66,27 @@ export default function HairstylistDashboard() {
   const [showAppointmentPopup, setShowAppointmentPopup] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   
+  // UPH-1.21: Customer visit history state
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [customerPagination, setCustomerPagination] = useState({
+    limit: 20,
+    offset: 0,
+    total_records: 0,
+    has_more: false
+  });
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
+  const [showCustomerVisitModal, setShowCustomerVisitModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerVisits, setCustomerVisits] = useState([]);
+  const [visitsLoading, setVisitsLoading] = useState(false);
+  const [visitsPagination, setVisitsPagination] = useState({
+    limit: 20,
+    offset: 0,
+    total_records: 0,
+    has_more: false
+  });
+  
   useEffect(() => {
     fetchStylistSalon();
   }, []);
@@ -89,6 +110,13 @@ export default function HairstylistDashboard() {
       fetchServices();
     }
   }, [activeTab]);
+  
+  // UPH-1.21: Fetch customers when customers tab is active
+  useEffect(() => {
+    if (activeTab === 'customers') {
+      fetchCustomers();
+    }
+  }, [activeTab, sortOrder]);
 
   const fetchStylistSalon = async () => {
     try {
@@ -740,6 +768,194 @@ export default function HairstylistDashboard() {
       price: service.price.toString()
     });
     setShowEditServiceModal(true);
+  };
+
+  // UPH-1.21: Fetch customers list
+  const fetchCustomers = async () => {
+    try {
+      setCustomersLoading(true);
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.error('No authentication token found');
+        setCustomers([]);
+        return;
+      }
+
+      // Reset offset to 0 when changing sort order
+      const offset = 0;
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/bookings/visits/customers?limit=${customerPagination.limit}&offset=${offset}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+      
+      if (response.ok && data.data) {
+        let customersList = data.data.customers || [];
+        
+        // Sort by total_visits in frontend since backend doesn't support sort parameter
+        if (sortOrder === 'asc') {
+          customersList.sort((a, b) => a.total_visits - b.total_visits);
+        } else {
+          customersList.sort((a, b) => b.total_visits - a.total_visits);
+        }
+        
+        setCustomers(customersList);
+        setCustomerPagination({
+          limit: data.data.limit || 20,
+          offset: data.data.offset || 0,
+          total_records: data.data.summary?.total_records || 0,
+          has_more: data.data.has_more || false
+        });
+      } else {
+        console.error('Failed to fetch customers:', data.message);
+        setCustomers([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch customers:', err);
+      setCustomers([]);
+    } finally {
+      setCustomersLoading(false);
+    }
+  };
+
+  // UPH-1.21: Fetch next page of customers
+  const handleCustomersPagination = async (direction) => {
+    const newOffset = direction === 'next' 
+      ? customerPagination.offset + customerPagination.limit
+      : Math.max(0, customerPagination.offset - customerPagination.limit);
+    
+    if (newOffset < 0) return;
+    
+    try {
+      setCustomersLoading(true);
+      const token = localStorage.getItem('auth_token');
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/bookings/visits/customers?limit=${customerPagination.limit}&offset=${newOffset}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+      
+      if (response.ok && data.data) {
+        let customersList = data.data.customers || [];
+        
+        // Sort by total_visits
+        if (sortOrder === 'asc') {
+          customersList.sort((a, b) => a.total_visits - b.total_visits);
+        } else {
+          customersList.sort((a, b) => b.total_visits - a.total_visits);
+        }
+        
+        setCustomers(customersList);
+        setCustomerPagination({
+          limit: data.data.limit || 20,
+          offset: data.data.offset || 0,
+          total_records: data.data.summary?.total_records || 0,
+          has_more: data.data.has_more || false
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch customers page:', err);
+      toast.error('Failed to load customers');
+    } finally {
+      setCustomersLoading(false);
+    }
+  };
+
+  // UPH-1.21: Toggle sort order and refetch
+  const toggleSortOrder = () => {
+    const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+    setSortOrder(newOrder);
+    // The useEffect will trigger fetchCustomers when sortOrder changes
+  };
+
+  // UPH-1.21: Open customer visit history modal
+  const openCustomerVisitModal = async (customer) => {
+    setSelectedCustomer(customer);
+    setShowCustomerVisitModal(true);
+    
+    // Reset pagination for visits
+    setVisitsPagination({
+      limit: 20,
+      offset: 0,
+      total_records: 0,
+      has_more: false
+    });
+    
+    // Fetch visits immediately
+    await fetchCustomerVisitHistory(customer.user_id, 0);
+  };
+
+  // UPH-1.21: Fetch individual customer visit history
+  const fetchCustomerVisitHistory = async (customerId, offset = 0) => {
+    try {
+      setVisitsLoading(true);
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/bookings/visits/customers/${customerId}?limit=20&offset=${offset}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await response.json();
+      
+      if (response.ok && data.data) {
+        setCustomerVisits(data.data.visits || []);
+        setVisitsPagination({
+          limit: data.data.limit || 20,
+          offset: data.data.offset || 0,
+          total_records: data.data.summary?.total_records || 0,
+          has_more: data.data.has_more || false
+        });
+      } else {
+        console.error('Failed to fetch customer visits:', data.message);
+        setCustomerVisits([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch customer visits:', err);
+      setCustomerVisits([]);
+      toast.error('Failed to load visit history');
+    } finally {
+      setVisitsLoading(false);
+    }
+  };
+
+  // UPH-1.21: Handle visit history pagination
+  const handleVisitsPagination = (direction) => {
+    const newOffset = direction === 'next' 
+      ? visitsPagination.offset + visitsPagination.limit
+      : Math.max(0, visitsPagination.offset - visitsPagination.limit);
+    
+    if (selectedCustomer) {
+      fetchCustomerVisitHistory(selectedCustomer.user_id, newOffset);
+    }
   };
 
   const formatDate = (date) => {
@@ -1682,12 +1898,118 @@ export default function HairstylistDashboard() {
         )}
 
         {activeTab === 'customers' && (
-          <div className="text-center py-12">
-            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg mb-2">Customers Tab</h3>
-            <p className="text-sm text-muted-foreground">
-              Customer content will be implemented here.
-            </p>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">Customer Visits</h2>
+                <p className="text-muted-foreground">View your customers' visit history</p>
+              </div>
+              <Button 
+                onClick={toggleSortOrder}
+                variant="outline"
+                className="flex items-center space-x-2"
+              >
+                <ArrowUpDown className="w-4 h-4" />
+                <span>Sort: {sortOrder === 'desc' ? 'Most Frequent' : 'Least Frequent'}</span>
+              </Button>
+            </div>
+
+            {customersLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading customers...</p>
+              </div>
+            ) : customers.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-lg border">
+                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No customers yet</h3>
+                <p className="text-sm text-muted-foreground">
+                  You haven't had any completed appointments yet.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4">
+                  {customers.map((customer) => (
+                    <Card key={customer.user_id} className="hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6 pt-6">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                              {customer.full_name}
+                            </h3>
+                            <div className="space-y-1">
+                              <p className="text-sm text-muted-foreground">
+                                <span className="font-medium">Email:</span> {customer.email}
+                              </p>
+                              {customer.phone && (
+                                <p className="text-sm text-muted-foreground">
+                                  <span className="font-medium">Phone:</span> {customer.phone}
+                                </p>
+                              )}
+                              <div className="flex items-center space-x-2 mt-2">
+                                <div className="flex items-center space-x-1">
+                                  <Clock className="w-4 h-4 text-blue-600" />
+                                  <span className="text-sm font-medium text-blue-600">
+                                    {customer.total_visits} visit{customer.total_visits !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                                {customer.last_visit && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Last visit: {new Date(customer.last_visit).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => openCustomerVisitModal(customer)}
+                            variant="outline"
+                            className="flex items-center space-x-2"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>View History</span>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {customerPagination.total_records > customerPagination.limit && (
+                  <div className="flex justify-between items-center pt-4">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {Math.min(customerPagination.offset + 1, customerPagination.total_records)} -{' '}
+                      {Math.min(customerPagination.offset + customerPagination.limit, customerPagination.total_records)} of{' '}
+                      {customerPagination.total_records} customers
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCustomersPagination('prev')}
+                        disabled={customersLoading || customerPagination.offset === 0}
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCustomersPagination('next')}
+                        disabled={customersLoading || !customerPagination.has_more}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -2412,6 +2734,161 @@ export default function HairstylistDashboard() {
                 </div>
               </CardContent>
             </Card>
+        </div>
+      )}
+
+      {/* UPH-1.21: Customer Visit History Modal */}
+      {showCustomerVisitModal && selectedCustomer && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-6 border-b">
+                <div className="flex items-center space-x-3">
+                  <Users className="w-6 h-6 text-blue-500" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{selectedCustomer.full_name}'s Visit History</h3>
+                    <p className="text-sm text-gray-600">
+                      {visitsPagination.total_records} visit{visitsPagination.total_records !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowCustomerVisitModal(false);
+                    setSelectedCustomer(null);
+                    setCustomerVisits([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                {visitsLoading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading visits...</p>
+                  </div>
+                ) : customerVisits.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No visits found</h3>
+                    <p className="text-sm text-muted-foreground">
+                      This customer has no completed visits yet.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {customerVisits.map((visit) => (
+                      <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4 pt-4">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center space-x-3">
+                              <Clock className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium text-foreground">
+                                {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                            </div>
+                            <Badge className="bg-green-200 text-green-800 border-green-200">
+                              Completed
+                            </Badge>
+                          </div>
+                          
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              <Clock className="w-4 h-4" />
+                              <span>
+                                {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })} - {new Date(visit.scheduled_end).toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
+                              </span>
+                            </div>
+                            {visit.notes && (
+                              <p className="text-sm text-muted-foreground">
+                                <span className="font-medium">Notes:</span> {visit.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          {visit.services && visit.services.length > 0 && (
+                            <div className="mt-3 pt-3 border-t">
+                              <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
+                              <div className="space-y-2">
+                                {visit.services.map((service, idx) => (
+                                  <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                                    <div>
+                                      <span className="font-medium text-foreground">{service.service_name}</span>
+                                      {service.employee && (
+                                        <p className="text-xs text-muted-foreground">
+                                          By: {service.employee.name}
+                                          {service.employee.title && ` (${service.employee.title})`}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
+                                      <div className="text-xs text-muted-foreground">{service.duration_minutes} min</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex justify-end mt-3 pt-3 border-t">
+                                <div className="text-lg font-semibold text-green-800">
+                                  Total: ${typeof visit.total_price === 'number' ? visit.total_price.toFixed(2) : parseFloat(visit.total_price || 0).toFixed(2)}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination Controls for Visits */}
+              {visitsPagination.total_records > visitsPagination.limit && (
+                <div className="flex justify-between items-center p-6 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {Math.min(visitsPagination.offset + 1, visitsPagination.total_records)} -{' '}
+                    {Math.min(visitsPagination.offset + visitsPagination.limit, visitsPagination.total_records)} of{' '}
+                    {visitsPagination.total_records} visits
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleVisitsPagination('prev')}
+                      disabled={visitsLoading || visitsPagination.offset === 0}
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleVisitsPagination('next')}
+                      disabled={visitsLoading || !visitsPagination.has_more}
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
