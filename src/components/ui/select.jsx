@@ -71,13 +71,13 @@ const SelectValue = React.forwardRef(({ className = '', placeholder, value, chil
   const isEmpty = !value && !children;
   
   return (
-    <span
-      ref={ref}
+  <span
+    ref={ref}
       className={`block truncate ${isEmpty ? 'text-gray-500' : 'text-gray-900'} ${className}`}
-      {...props}
-    >
+    {...props}
+  >
       {displayContent}
-    </span>
+  </span>
   );
 });
 SelectValue.displayName = 'SelectValue';

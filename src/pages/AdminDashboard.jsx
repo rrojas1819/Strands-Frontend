@@ -48,7 +48,7 @@ export default function AdminDashboard() {
         setDemographics(data.data);
       } else {
         setError(data.message || 'Failed to fetch demographics data');
-      }
+    }
 
       // Fetch approved salons count
       console.log('Fetching approved salons count...');
@@ -99,7 +99,7 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <img 
+            <img 
                 src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
                 alt="Strands Logo" 
                 className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20"
@@ -243,7 +243,7 @@ export default function AdminDashboard() {
                         </svg>
                       </div>
                     </div>
-                    
+
                     {/* Legend */}
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       {Object.entries(demographics).map(([role, count]) => {

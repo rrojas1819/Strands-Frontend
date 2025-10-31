@@ -170,7 +170,7 @@ export default function AuthPage() {
                 <TabsTrigger value="login">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
-              
+
               {/* Login Tab */}
               <TabsContent value="login" className="space-y-6">
                 <form onSubmit={handleLogin} className="space-y-4">
@@ -310,7 +310,7 @@ export default function AuthPage() {
                                   <Badge variant="secondary" className="text-xs ml-auto">
                                     {role.badge}
                                   </Badge>
-                                )}
+                  )}
                               </div>
                             </SelectItem>
                           );
