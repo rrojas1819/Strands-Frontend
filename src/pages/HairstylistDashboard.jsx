@@ -2796,7 +2796,7 @@ export default function HairstylistDashboard() {
                                 })}
                               </span>
                             </div>
-                            <Badge className="bg-green-200 text-green-800 border-green-200">
+                            <Badge className="bg-purple-200 text-purple-800 border-purple-200">
                               Completed
                             </Badge>
                           </div>
@@ -2840,7 +2840,7 @@ export default function HairstylistDashboard() {
                                     </div>
                                     <div className="text-right">
                                       <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
-                                      <div className="text-xs text-muted-foreground">{service.duration_minutes} min</div>
+                                      <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
                                     </div>
                                   </div>
                                 ))}
