@@ -168,7 +168,7 @@ export default function SalonOwnerDashboard() {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       const data = await response.json();
       
       if (response.ok) {
@@ -216,7 +216,7 @@ export default function SalonOwnerDashboard() {
           title: newEmployee.title
         })
       });
-      
+
       const data = await response.json();
       
       if (response.ok) {
@@ -356,12 +356,12 @@ export default function SalonOwnerDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <img 
-                src={strandsLogo} 
-                alt="Strands" 
+            <img 
+              src={strandsLogo} 
+              alt="Strands" 
                 className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
-                onClick={() => navigate('/')}
-              />
+              onClick={() => navigate('/')}
+            />
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Salon Owner Dashboard</h1>
                 <p className="text-sm text-muted-foreground">Manage your salon business</p>
@@ -471,7 +471,7 @@ export default function SalonOwnerDashboard() {
               ? 'Manage your salon business and grow your customer base.' 
               : 'Register your salon to start accepting bookings and managing your business.'
             }
-          </p>
+                  </p>
         </div>
 
         {!hasSalon && <SalonRegistrationForm />}

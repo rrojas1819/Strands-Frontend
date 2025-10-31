@@ -20,9 +20,18 @@ export default function HairstylistDashboard() {
   const [error, setError] = useState('');
   const [scheduleData, setScheduleData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [weekStartDate, setWeekStartDate] = useState(() => {
+    // Initialize to the start of current week (Sunday)
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    return startOfWeek;
+  });
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [viewType, setViewType] = useState('day'); // 'day', 'week' only
   const [backendSchedule, setBackendSchedule] = useState(null);
+  const [scheduleDateRange, setScheduleDateRange] = useState({ start: null, end: null }); // Track 7-day window
   
   // BS-1.5: Block unavailable time slots
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -65,7 +74,7 @@ export default function HairstylistDashboard() {
     if (salonData && activeTab === 'schedule') {
       fetchScheduleData();
     }
-  }, [salonData, activeTab, viewType, selectedDate]); // Added selectedDate back for day navigation
+  }, [salonData, activeTab, viewType, selectedDate, weekStartDate]); // Use selectedDate for day view, weekStartDate for week view
 
   // BS-1.5: Fetch blocked slots when salon data is loaded
   useEffect(() => {
@@ -137,8 +146,70 @@ export default function HairstylistDashboard() {
         return;
       }
 
-      console.log('Fetching schedule data...');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/user/stylist/weeklySchedule`, {
+      // Helper function to format date as MM-DD-YYYY
+      const formatDateForAPI = (date) => {
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}-${day}-${year}`;
+      };
+
+      // Calculate date range based on view type
+      let startDate, endDate;
+      
+      if (viewType === 'week') {
+        // For week view, use weekStartDate to get the start of the week (Sunday)
+        const weekStart = new Date(weekStartDate);
+        weekStart.setHours(0, 0, 0, 0);
+        startDate = weekStart;
+        
+        // Calculate end of week (Saturday, 6 days after Sunday)
+        // But also fetch next week to check if it has data for navigation
+        const currentWeekEnd = new Date(weekStart);
+        currentWeekEnd.setDate(weekStart.getDate() + 6);
+        
+        // Fetch current week + next week to check availability
+        const nextWeekStart = new Date(weekStart);
+        nextWeekStart.setDate(weekStart.getDate() + 7);
+        const nextWeekEnd = new Date(nextWeekStart);
+        nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+        
+        // Use the later end date (next week end) to fetch both weeks
+        endDate = nextWeekEnd;
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        // For day view, use the 7-day window (today through today + 6 days = 7 days total)
+        // This matches the booking page which fetches 7 days (today + 7 days = 8 total, but we use 7 days including today)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        startDate = today;
+        
+        // Match booking page: endDate is today + 7 days, which gives us 8 days total including today
+        // But for consistency with booking page logic, we'll use today + 6 days (7 days total)
+        // Actually, let's check booking page - it does today + 7, which is 8 days total
+        // So for stylist view, let's also do today + 7 to match
+        endDate = new Date(today);
+        endDate.setDate(today.getDate() + 7); // Changed from +6 to +7 to match booking page
+        endDate.setHours(23, 59, 59, 999);
+        
+        // Update scheduleDateRange for day view navigation
+        setScheduleDateRange({ start: new Date(startDate), end: new Date(endDate) });
+      }
+
+      // Format dates for API
+      const startDateStr = formatDateForAPI(startDate);
+      const endDateStr = formatDateForAPI(endDate);
+
+      console.log('Fetching schedule data...', {
+        startDate: startDateStr,
+        endDate: endDateStr,
+        viewType,
+        selectedDate: selectedDate.toDateString(),
+        weekStartDate: weekStartDate.toDateString()
+      });
+
+      const apiUrl = `${import.meta.env.VITE_API_URL}/user/stylist/weeklySchedule?start_date=${startDateStr}&end_date=${endDateStr}`;
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +224,9 @@ export default function HairstylistDashboard() {
 
       if (response.ok) {
         // Transform backend data to frontend format
-        const transformedData = transformBackendScheduleData(data.data.schedule, selectedDate, viewType);
+        // Use appropriate date based on viewType: weekStartDate for week view, selectedDate for day view
+        const dateForTransform = viewType === 'week' ? weekStartDate : selectedDate;
+        const transformedData = transformBackendScheduleData(data.data.schedule, dateForTransform, viewType, weekStartDate);
         setScheduleData(transformedData);
         setBackendSchedule(data.data.schedule); // Store raw backend schedule for availability/unavailability
       } else {
@@ -173,7 +246,7 @@ export default function HairstylistDashboard() {
     }
   };
 
-  const transformBackendScheduleData = (backendSchedule, selectedDate, viewType) => {
+  const transformBackendScheduleData = (backendSchedule, selectedDate, viewType, weekStartDate) => {
     const appointments = [];
     
     // Helper function to convert time format from HH:MM:SS to 12-hour format
@@ -186,40 +259,34 @@ export default function HairstylistDashboard() {
       return `${displayHour}:${min.toString().padStart(2, '0')} ${period}`;
     };
 
-    // Helper function to get date from day name for the current week
-    // Backend returns schedule data organized by day names (MONDAY, TUESDAY, etc.)
-    // We calculate the actual date based on the selected date's week
-    const getDateFromDayName = (dayName, selectedDate) => {
-      const dayMap = {
-        'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4,
-        'FRIDAY': 5, 'SATURDAY': 6, 'SUNDAY': 0
-      };
-      
-      const targetDay = dayMap[dayName];
-      if (targetDay === undefined) {
-        console.warn(`Unknown day name: ${dayName}, defaulting to selected date`);
-        return new Date(selectedDate);
+    // Helper function to parse date from MM-DD-YYYY format
+    const parseDateFromKey = (dateKey) => {
+      try {
+        const [month, day, year] = dateKey.split('-').map(Number);
+        if (isNaN(month) || isNaN(day) || isNaN(year)) {
+          console.warn(`Invalid date key format: ${dateKey}`);
+          return null;
+        }
+        const date = new Date(year, month - 1, day); // month is 0-indexed in Date
+        date.setHours(0, 0, 0, 0); // Normalize to midnight
+        return date;
+      } catch (err) {
+        console.error(`Error parsing date key: ${dateKey}`, err);
+        return null;
       }
-      
-      // Get the start of the week containing selectedDate (Sunday = 0)
-      const startOfWeek = new Date(selectedDate);
-      startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
-      startOfWeek.setHours(0, 0, 0, 0); // Normalize to midnight
-      
-      // Calculate the date for the target day in this week
-      const targetDate = new Date(startOfWeek);
-      targetDate.setDate(startOfWeek.getDate() + targetDay);
-      targetDate.setHours(0, 0, 0, 0); // Normalize to midnight
-      
-      return targetDate;
     };
 
-    // Process each day in the backend schedule
-    Object.keys(backendSchedule).forEach(dayName => {
-      const dayData = backendSchedule[dayName];
-      const dayDate = getDateFromDayName(dayName, selectedDate);
+    // Process each day in the backend schedule (keys are now date strings like "10-31-2025")
+    Object.keys(backendSchedule).forEach(dateKey => {
+      const dayData = backendSchedule[dateKey];
+      const dayDate = parseDateFromKey(dateKey);
       
-      console.log(`Processing day: ${dayName}`, {
+      if (!dayDate) {
+        console.warn(`Skipping invalid date key: ${dateKey}`);
+        return;
+      }
+      
+      console.log(`Processing day: ${dateKey}`, {
         hasBookings: dayData.bookings && dayData.bookings.length > 0,
         bookingCount: dayData.bookings ? dayData.bookings.length : 0,
         dayDate: dayDate.toDateString()
@@ -231,7 +298,7 @@ export default function HairstylistDashboard() {
           console.log(`Processing booking ${booking.booking_id}:`, {
             scheduled_start: booking.scheduled_start,
             scheduled_end: booking.scheduled_end,
-            dayName: dayName,
+            dateKey: dateKey,
             dayDate: dayDate.toDateString()
           });
           
@@ -316,7 +383,7 @@ export default function HairstylistDashboard() {
                     console.log(`Auto-updated booking ${booking.booking_id} to completed:`, {
                       appointmentEndDate: appointmentEndDate.toISOString(),
                       now: now.toISOString(),
-                      dayName,
+                      dateKey,
                       dayDate: dayDate.toDateString()
                     });
                   }
@@ -335,7 +402,7 @@ export default function HairstylistDashboard() {
             backendStatus: booking.status,
             normalizedStatus: backendStatus,
             frontendStatus: status,
-            dayName: dayName,
+            dateKey: dateKey,
             dayDate: dayDate.toDateString()
           });
           
@@ -361,14 +428,18 @@ export default function HairstylistDashboard() {
         apt.date.toDateString() === selectedDate.toDateString()
       );
     } else if (viewType === 'week') {
-      const startOfWeek = new Date(selectedDate);
-      startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
+      // For week view, use weekStartDate (which should be the start of the week)
+      const startOfWeek = new Date(weekStartDate);
+      startOfWeek.setHours(0, 0, 0, 0);
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
       
-      return appointments.filter(apt => 
-        apt.date >= startOfWeek && apt.date <= endOfWeek
-      );
+      return appointments.filter(apt => {
+        const aptDate = new Date(apt.date);
+        aptDate.setHours(0, 0, 0, 0);
+        return aptDate >= startOfWeek && aptDate <= endOfWeek;
+      });
     }
     
     return appointments;
@@ -693,33 +764,183 @@ export default function HairstylistDashboard() {
   };
 
   const navigateDate = (direction) => {
+    // For week view, navigate by weeks using independent weekStartDate
+    if (viewType === 'week') {
+      // Calculate start of current week (Sunday)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const currentWeekStart = new Date(today);
+      currentWeekStart.setDate(today.getDate() - today.getDay()); // Sunday
+      currentWeekStart.setHours(0, 0, 0, 0);
+      
+      // Calculate next week start
+      const nextWeekStart = new Date(currentWeekStart);
+      nextWeekStart.setDate(currentWeekStart.getDate() + 7);
+      nextWeekStart.setHours(0, 0, 0, 0);
+      
+      const newWeekStart = new Date(weekStartDate);
+      newWeekStart.setDate(weekStartDate.getDate() + (direction * 7));
+      newWeekStart.setHours(0, 0, 0, 0);
+      
+      // Only allow navigation to current week or next week
+      // Can't go before current week
+      if (newWeekStart.getTime() < currentWeekStart.getTime()) {
+        return; // Don't navigate to past weeks
+      }
+      
+      // Can't go beyond next week
+      if (newWeekStart.getTime() > nextWeekStart.getTime()) {
+        return; // Don't navigate beyond next week
+      }
+      
+      // Only allow going to next week if it has data
+      if (newWeekStart.getTime() === nextWeekStart.getTime()) {
+        if (!canNavigateNext()) {
+          return; // Next week doesn't have data, don't navigate
+        }
+      }
+      
+      setWeekStartDate(newWeekStart);
+      return;
+    }
+    
+    // For day view, navigate by single days
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + direction);
+    newDate.setHours(0, 0, 0, 0);
     
-    // Only allow navigation within the week containing the selected date
-    const weekStart = new Date(selectedDate);
-    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
+    // For day view, only allow navigation within the 7-day availability window (today through today + 6 days)
+    const rangeStart = scheduleDateRange.start ? new Date(scheduleDateRange.start) : null;
+    const rangeEnd = scheduleDateRange.end ? new Date(scheduleDateRange.end) : null;
     
-    // Check if the new date is within the current week
-    if (newDate >= weekStart && newDate <= weekEnd) {
+    // Fallback: calculate 7-day window if range not set yet (today + 7 days = 8 days total)
+    if (!rangeStart || !rangeEnd) {
+    const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(today);
+      endDate.setDate(today.getDate() + 7); // Updated to match booking page
+      endDate.setHours(23, 59, 59, 999); // Include end of day
+      
+      // Compare dates using timestamp
+      if (newDate.getTime() >= today.getTime() && newDate.getTime() <= endDate.getTime()) {
+        setSelectedDate(newDate);
+      }
+      return;
+    }
+    
+    // Normalize range dates for comparison
+    const rangeStartNormalized = new Date(rangeStart);
+    rangeStartNormalized.setHours(0, 0, 0, 0);
+    const rangeEndNormalized = new Date(rangeEnd);
+    rangeEndNormalized.setHours(23, 59, 59, 999); // Include end of day
+    
+    // Check if the new date is within the 7-day window
+    if (newDate.getTime() >= rangeStartNormalized.getTime() && newDate.getTime() <= rangeEndNormalized.getTime()) {
       setSelectedDate(newDate);
     }
   };
 
   const canNavigatePrevious = () => {
-    const weekStart = new Date(selectedDate);
-    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
-    return selectedDate.getTime() > weekStart.getTime();
+    // For week view, only allow navigation to current week (can't go to past weeks)
+    if (viewType === 'week') {
+      // Calculate start of current week (Sunday)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const currentWeekStart = new Date(today);
+      currentWeekStart.setDate(today.getDate() - today.getDay()); // Sunday
+      currentWeekStart.setHours(0, 0, 0, 0);
+      
+      // Only allow going back if we're not already on the current week
+      return weekStartDate.getTime() > currentWeekStart.getTime();
+    }
+    
+    // For day view, check against the 7-day window
+    const rangeStart = scheduleDateRange.start ? new Date(scheduleDateRange.start) : null;
+    if (!rangeStart) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selectedDateNormalized = new Date(selectedDate);
+      selectedDateNormalized.setHours(0, 0, 0, 0);
+      return selectedDateNormalized.getTime() > today.getTime();
+    }
+    const selectedDateNormalized = new Date(selectedDate);
+    selectedDateNormalized.setHours(0, 0, 0, 0);
+    const rangeStartNormalized = new Date(rangeStart);
+    rangeStartNormalized.setHours(0, 0, 0, 0);
+    return selectedDateNormalized.getTime() > rangeStartNormalized.getTime();
   };
 
   const canNavigateNext = () => {
-    const weekStart = new Date(selectedDate);
-    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    return selectedDate.getTime() < weekEnd.getTime();
+    // For week view, only allow navigation to next week if it has data AND we're currently on this week
+    if (viewType === 'week') {
+      // Calculate start of current week (Sunday)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const currentWeekStart = new Date(today);
+      currentWeekStart.setDate(today.getDate() - today.getDay()); // Sunday
+      currentWeekStart.setHours(0, 0, 0, 0);
+      
+      // Only allow going forward if we're on the current week (not already on next week)
+      const isCurrentWeek = weekStartDate.getTime() === currentWeekStart.getTime();
+      if (!isCurrentWeek) {
+        // Already on next week, can't go further
+        return false;
+      }
+      
+      // Calculate next week start date
+      const nextWeekStart = new Date(weekStartDate);
+      nextWeekStart.setDate(weekStartDate.getDate() + 7);
+      nextWeekStart.setHours(0, 0, 0, 0);
+      
+      // Check if backend schedule has data for the next week
+      if (backendSchedule) {
+        // Helper function to format date as MM-DD-YYYY
+        const formatDateForCheck = (date) => {
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${month}-${day}-${year}`;
+        };
+        
+        // Check next week (7 days) for any data
+        for (let i = 0; i < 7; i++) {
+          const checkDate = new Date(nextWeekStart);
+          checkDate.setDate(nextWeekStart.getDate() + i);
+          const dateKey = formatDateForCheck(checkDate);
+          
+          if (backendSchedule[dateKey]) {
+            // If date has availability or bookings, allow navigation
+            const dayData = backendSchedule[dateKey];
+            if (dayData.availability || (dayData.bookings && dayData.bookings.length > 0)) {
+              return true;
+            }
+          }
+        }
+      }
+      
+      // If backend schedule doesn't have next week data yet, allow navigation anyway
+      // (The data will be fetched when we navigate, and fetchScheduleData will include both weeks)
+      // This handles the case where we're on current week and next week data hasn't been fetched yet
+      return true;
+    }
+    
+    // For day view, check against the 8-day window (today + 7 days)
+    const rangeEnd = scheduleDateRange.end ? new Date(scheduleDateRange.end) : null;
+    if (!rangeEnd) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(today);
+      endDate.setDate(today.getDate() + 7); // Updated to match booking page
+      endDate.setHours(23, 59, 59, 999);
+      const selectedDateNormalized = new Date(selectedDate);
+      selectedDateNormalized.setHours(0, 0, 0, 0);
+      return selectedDateNormalized.getTime() < endDate.getTime();
+    }
+    const selectedDateNormalized = new Date(selectedDate);
+    selectedDateNormalized.setHours(0, 0, 0, 0);
+    const rangeEndNormalized = new Date(rangeEnd);
+    rangeEndNormalized.setHours(23, 59, 59, 999);
+    return selectedDateNormalized.getTime() < rangeEndNormalized.getTime();
   };
 
   // Cancelled appointments date navigation
@@ -764,20 +985,14 @@ export default function HairstylistDashboard() {
   const getBackendDaySchedule = (day, weeklySchedule) => {
     if (!weeklySchedule || !day) return null; // Return null if data is missing
     
-    const dayName = day.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
-    const dayMap = {
-      'SUNDAY': 'SUNDAY',
-      'MONDAY': 'MONDAY',
-      'TUESDAY': 'TUESDAY',
-      'WEDNESDAY': 'WEDNESDAY',
-      'THURSDAY': 'THURSDAY',
-      'FRIDAY': 'FRIDAY',
-      'SATURDAY': 'SATURDAY'
-    };
-    const backendDayName = dayMap[dayName];
+    // Format date as MM-DD-YYYY to match backend date keys
+    const month = String(day.getMonth() + 1).padStart(2, '0');
+    const dayOfMonth = String(day.getDate()).padStart(2, '0');
+    const year = day.getFullYear();
+    const dateKey = `${month}-${dayOfMonth}-${year}`;
     
-    console.log(`Getting schedule for ${dayName} (${backendDayName}):`, weeklySchedule[backendDayName]);
-    return weeklySchedule ? weeklySchedule[backendDayName] : null;
+    console.log(`Getting schedule for date ${dateKey}:`, weeklySchedule[dateKey]);
+    return weeklySchedule ? weeklySchedule[dateKey] : null;
   };
 
   const getStatusColor = (status) => {
@@ -803,8 +1018,13 @@ export default function HairstylistDashboard() {
   };
 
   const getWeekDays = () => {
-    const startOfWeek = new Date(selectedDate);
-    startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
+    // Use weekStartDate for week view, independent of selectedDate (day view)
+    const startOfWeek = new Date(viewType === 'week' ? weekStartDate : selectedDate);
+    if (viewType === 'day') {
+      // For day view calculations, still calculate from selectedDate
+      startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
+    }
+    startOfWeek.setHours(0, 0, 0, 0);
     const days = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(startOfWeek);
@@ -1012,7 +1232,13 @@ export default function HairstylistDashboard() {
                   <Button
                     variant={viewType === 'day' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setViewType('day')}
+                    onClick={() => {
+                      // Reset to today when switching to day view
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      setSelectedDate(today);
+                      setViewType('day');
+                    }}
                     className="px-3 py-1 text-xs"
                   >
                     Day
@@ -1020,7 +1246,15 @@ export default function HairstylistDashboard() {
                   <Button
                     variant={viewType === 'week' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setViewType('week')}
+                    onClick={() => {
+                      // Reset to current week (start of week = Sunday) when switching to week view
+                      const today = new Date();
+                      const startOfWeek = new Date(today);
+                      startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+                      startOfWeek.setHours(0, 0, 0, 0);
+                      setWeekStartDate(startOfWeek);
+                      setViewType('week');
+                    }}
                     className="px-3 py-1 text-xs"
                   >
                     Week
@@ -1079,13 +1313,45 @@ export default function HairstylistDashboard() {
                   </Button>
                 </div>
               ) : (
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Week of {formatWeekRange()}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Your weekly schedule
-                  </p>
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateDate(-1)}
+                    disabled={!canNavigatePrevious()}
+                    className={`flex items-center space-x-2 ${
+                      !canNavigatePrevious() 
+                        ? 'opacity-50 cursor-not-allowed' 
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous Week</span>
+                  </Button>
+
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Week of {formatWeekRange()}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Your weekly schedule
+                    </p>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateDate(1)}
+                    disabled={!canNavigateNext()}
+                    className={`flex items-center space-x-2 ${
+                      !canNavigateNext() 
+                        ? 'opacity-50 cursor-not-allowed' 
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <span>Next Week</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
                 </div>
               )}
             </div>
@@ -1269,12 +1535,22 @@ export default function HairstylistDashboard() {
                   </div>
                 </div>
               </div>
-            ) : scheduleData.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-lg border">
+            ) : (() => {
+              // Filter appointments for selected date, excluding cancelled ones
+              const dayAppointments = scheduleData.filter(apt => {
+                if (viewType !== 'day') return true;
+                const aptDate = apt.date ? new Date(apt.date) : null;
+                const selected = new Date(selectedDate);
+                if (!aptDate) return false;
+                return aptDate.toDateString() === selected.toDateString() && apt.status !== 'canceled';
+              });
+              
+              return dayAppointments.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-lg border">
                     <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">No appointments scheduled</h3>
+                  <h3 className="text-lg font-medium text-foreground mb-2">No appointments scheduled</h3>
                     <p className="text-sm text-muted-foreground">
-                  You have no appointments for {formatDate(selectedDate)}.
+                    You have no appointments for {formatDate(selectedDate)}.
                     </p>
                   </div>
                 ) : (
@@ -1288,7 +1564,7 @@ export default function HairstylistDashboard() {
                         </div>
                         <div>
                         <p className="text-sm font-medium text-foreground">Total Appointments</p>
-                        <p className="text-2xl font-bold text-foreground">{scheduleData.length}</p>
+                        <p className="text-2xl font-bold text-foreground">{dayAppointments.length}</p>
                       </div>
                     </div>
                   </div>
@@ -1301,7 +1577,7 @@ export default function HairstylistDashboard() {
                       <div>
                         <p className="text-sm font-medium text-foreground">Completed</p>
                         <p className="text-2xl font-bold text-foreground">
-                          {scheduleData.filter(apt => apt.status === 'completed').length}
+                          {dayAppointments.filter(apt => apt.status === 'completed').length}
                         </p>
                           </div>
                         </div>
@@ -1315,7 +1591,7 @@ export default function HairstylistDashboard() {
                       <div>
                         <p className="text-sm font-medium text-foreground">Pending</p>
                         <p className="text-2xl font-bold text-foreground">
-                          {scheduleData.filter(apt => apt.status === 'pending').length}
+                          {dayAppointments.filter(apt => apt.status === 'pending').length}
                         </p>
                       </div>
                     </div>
@@ -1329,7 +1605,7 @@ export default function HairstylistDashboard() {
                       <div>
                         <p className="text-sm font-medium text-foreground">Canceled</p>
                         <p className="text-2xl font-bold text-foreground">
-                          {scheduleData.filter(apt => apt.status === 'canceled').length}
+                          {dayAppointments.filter(apt => apt.status === 'canceled').length}
                         </p>
                       </div>
                     </div>
@@ -1342,8 +1618,7 @@ export default function HairstylistDashboard() {
                     <h3 className="text-lg font-semibold text-foreground">Appointments</h3>
                   </div>
                   <div className="divide-y">
-                    {scheduleData
-                      .filter(appointment => appointment.status !== 'canceled')
+                    {dayAppointments
                       .map((appointment) => (
                         <div key={appointment.id} className="p-4 hover:bg-gray-50 transition-colors">
                           <div className="flex items-start justify-between">
@@ -1398,10 +1673,11 @@ export default function HairstylistDashboard() {
                           </div>
                         </div>
                       ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
@@ -1996,7 +2272,7 @@ export default function HairstylistDashboard() {
                     )}
                     </div>
                   <p className="text-sm text-muted-foreground">
-                    Date: {selectedAppointment.date ? selectedAppointment.date.toLocaleDateString() : 'No date'}
+                    Date: {selectedAppointment.date ? selectedAppointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
                   </p>
                   </div>
                 
@@ -2090,7 +2366,7 @@ export default function HairstylistDashboard() {
                                     Cancelled
                                   </Badge>
                                   <span className="text-sm text-muted-foreground">
-                                    {appointment.date ? appointment.date.toLocaleDateString() : 'No date'}
+                                    {appointment.date ? appointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
                                   </span>
                                 </div>
                                 

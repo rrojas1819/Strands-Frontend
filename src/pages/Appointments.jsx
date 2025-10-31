@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext, RewardsContext } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -13,6 +13,7 @@ export default function Appointments() {
   const { user, logout } = useContext(AuthContext);
   const { rewardsCount } = useContext(RewardsContext);
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +32,8 @@ export default function Appointments() {
     }
 
     fetchAppointments();
-  }, [user, navigate]);
+    // Refetch appointments when navigating back to this page (e.g., after rescheduling)
+  }, [user, navigate, location.pathname]);
 
   const fetchAppointments = async () => {
     setLoading(true);

@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { LogOut, Star, Clock, Users, Check, X, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { notifySuccess, notifyError, notifyInfo, Notifications } from '../utils/notifications';
@@ -33,6 +35,8 @@ export default function BookingPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isReschedule, setIsReschedule] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [useCustomTime, setUseCustomTime] = useState(false);
+  const [customStartTime, setCustomStartTime] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -234,8 +238,14 @@ export default function BookingPage() {
       }
 
       // Create the booking dates from selectedDate and slot times
-      const startDateTime = new Date(`${selectedDate}T${selectedTimeSlot.start_time}:00`);
-      const endDateTime = new Date(`${selectedDate}T${selectedTimeSlot.end_time}:00`);
+      // Parse date components to ensure local time interpretation
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const [startHours, startMinutes] = selectedTimeSlot.start_time.split(':').map(Number);
+      const [endHours, endMinutes] = selectedTimeSlot.end_time.split(':').map(Number);
+      
+      // Create dates in local time explicitly
+      const startDateTime = new Date(year, month - 1, day, startHours, startMinutes, 0);
+      const endDateTime = new Date(year, month - 1, day, endHours, endMinutes, 0);
       
       // Validate dates are valid
       if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
@@ -244,120 +254,93 @@ export default function BookingPage() {
         return;
       }
       
-      // Create the new booking
-      const response = await fetch(`${apiUrl}/salons/${salonId}/stylists/${selectedStylist.employee_id}/book`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          scheduled_start: startDateTime.toISOString(),
-          scheduled_end: endDateTime.toISOString(),
-          services: selectedServices.map(s => ({ service_id: s.service_id })),
-          notes: ''
-        })
-      });
+      // Validate time is not in the past (allow current time, use >= instead of >)
+      const now = new Date();
+      // If booking for today, ensure start time is >= current time (allow booking at current time)
+      const isToday = selectedDate === now.toISOString().split('T')[0];
+      if (isToday && startDateTime < now) {
+        notifyError('Cannot book appointments in the past. Please select a time that is at or after the current time.');
+        setBookingLoading(false);
+        return;
+      }
 
-      const data = await response.json();
+      let response;
+      let data;
 
-      if (response.ok) {
-        // If rescheduling, cancel the old appointment
-        if (isReschedule && location.state?.bookingId) {
-          try {
-            const cancelResponse = await fetch(`${apiUrl}/bookings/cancel`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                booking_id: location.state.bookingId
-              })
-            });
-            
-            if (cancelResponse.ok) {
-              notifySuccess('Appointment rescheduled successfully!');
-            } else {
-              notifySuccess('New appointment created. Please cancel your old appointment manually.');
-            }
-          } catch (cancelErr) {
-            console.error('Error canceling old appointment:', cancelErr);
-            notifySuccess('New appointment created. Please cancel your old appointment.');
-          }
+      // Use the new reschedule endpoint if rescheduling
+      if (isReschedule && location.state?.bookingId) {
+        // Reschedule endpoint: cancel + create in one call
+        response = await fetch(`${apiUrl}/bookings/reschedule`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            booking_id: location.state.bookingId,
+            scheduled_start: startDateTime.toISOString(),
+            notes: location.state?.appointment?.notes || ''
+          })
+        });
+
+        data = await response.json();
+
+        if (response.ok) {
+          notifySuccess('Appointment rescheduled successfully!');
+          navigate('/appointments');
+          
+          // Track reschedule analytics (non-blocking)
+          trackBooking(
+            salonId,
+            selectedStylist.employee_id,
+            selectedServices.map(s => s.service_id),
+            user.user_id
+          ).catch(err => console.error('Analytics tracking failed:', err));
         } else {
-          notifySuccess('Appointment booked successfully!');
-        }
-        
-        navigate('/appointments');
-        
-        // Track booking analytics
-        await trackBooking(
-          salonId,
-          selectedStylist.employee_id,
-          selectedServices.map(s => s.service_id),
-          user.user_id
-        );
-      } else if (response.status === 409 && isReschedule) {
-        // Handle 409 Conflict for reschedule - this might mean the time slot is taken
-        // But we should still try to cancel the old appointment
-        if (location.state?.bookingId) {
-          try {
-            const cancelResponse = await fetch(`${apiUrl}/bookings/cancel`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                booking_id: location.state.bookingId
-              })
-            });
-            
-            if (cancelResponse.ok) {
-              notifyError('The selected time slot is no longer available. Your old appointment has been canceled. Please select a different time.');
-            } else {
-              notifyError('The selected time slot is no longer available. Please select a different time.');
-            }
-          } catch (cancelErr) {
-            console.error('Error canceling old appointment:', cancelErr);
+          // Handle reschedule-specific errors
+          const errorMessage = data.message || 'Failed to reschedule appointment';
+          
+          if (response.status === 409) {
             notifyError('The selected time slot is no longer available. Please select a different time.');
+          } else if (response.status === 404) {
+            notifyError('Appointment not found or cannot be rescheduled.');
+          } else if (response.status === 400) {
+            notifyError(errorMessage);
+          } else {
+            notifyError(errorMessage || 'Failed to reschedule appointment. Please try again.');
           }
-        } else {
-          notifyError('The selected time slot is no longer available. Please select a different time.');
         }
       } else {
-        // Handle specific error cases for reschedule
-        if (isReschedule) {
-          // For reschedule, if the booking fails, it might be because the time slot is taken
-          // But we should still try to cancel the old appointment and show a helpful message
-          if (location.state?.bookingId) {
-            try {
-              const cancelResponse = await fetch(`${apiUrl}/bookings/cancel`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  booking_id: location.state.bookingId
-                })
-              });
-              
-              if (cancelResponse.ok) {
-                notifyError('The selected time slot is no longer available. Your old appointment has been canceled. Please select a different time.');
-              } else {
-                notifyError('The selected time slot is no longer available. Please select a different time.');
-              }
-            } catch (cancelErr) {
-              console.error('Error canceling old appointment:', cancelErr);
-              notifyError('The selected time slot is no longer available. Please select a different time.');
-            }
-          } else {
-            notifyError('The selected time slot is no longer available. Please select a different time.');
-          }
+        // New booking flow
+        response = await fetch(`${apiUrl}/salons/${salonId}/stylists/${selectedStylist.employee_id}/book`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            scheduled_start: startDateTime.toISOString(),
+            scheduled_end: endDateTime.toISOString(),
+            services: selectedServices.map(s => ({ service_id: s.service_id })),
+            notes: ''
+          })
+        });
+
+        data = await response.json();
+
+        if (response.ok) {
+          notifySuccess('Appointment booked successfully!');
+          navigate('/appointments');
+          
+          // Track booking analytics (non-blocking)
+          trackBooking(
+            salonId,
+            selectedStylist.employee_id,
+            selectedServices.map(s => s.service_id),
+            user.user_id
+          ).catch(err => console.error('Analytics tracking failed:', err));
         } else {
-          // For new bookings, show the backend error message
+          // Handle booking errors
           const errorMessage = data.message || 'Booking failed';
           notifyError(errorMessage);
         }
@@ -381,14 +364,20 @@ export default function BookingPage() {
   };
 
   const getAvailableDates = () => {
-    const dates = [];
-    const today = new Date();
-    for (let i = 0; i < 14; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      dates.push(date);
+    // Only show dates that have availability data from backend (7 days including today)
+    // Use the timeSlots keys which represent dates with actual availability data
+    if (Object.keys(timeSlots).length > 0) {
+      return Object.keys(timeSlots)
+        .map(dateStr => {
+          const date = new Date(dateStr + 'T00:00:00');
+          return isNaN(date.getTime()) ? null : date;
+        })
+        .filter(date => date !== null)
+        .sort((a, b) => a - b);
     }
-    return dates;
+    
+    // Fallback: if no timeSlots yet, return empty array (dates will show after selection)
+    return [];
   };
 
   // Group dates by month for calendar display
@@ -620,12 +609,16 @@ export default function BookingPage() {
                           setSelectedDate(null);
                           setSelectedTimeSlot(null);
                           setTimeSlots({});
+                          setUseCustomTime(false);
+                          setCustomStartTime('');
                         } else {
                           setSelectedStylist(stylist);
                           setSelectedServices([]); // Clear selected services when switching stylists
                           setSelectedDate(null);
                           setSelectedTimeSlot(null);
                           setTimeSlots({});
+                          setUseCustomTime(false);
+                          setCustomStartTime('');
                           fetchStylistServices(stylist.employee_id);
                         }
                       }
@@ -685,6 +678,8 @@ export default function BookingPage() {
                         // Clear time and date when services change since availability changes
                         setSelectedTimeSlot(null);
                         setSelectedDate(null);
+                        setUseCustomTime(false);
+                        setCustomStartTime('');
                       }}
                     >
                       <div className="flex justify-between items-center">
@@ -720,15 +715,21 @@ export default function BookingPage() {
                         const dateStr = date.toISOString().split('T')[0];
                         const isSelected = selectedDate === dateStr;
                         const isToday = dateStr === new Date().toISOString().split('T')[0];
+                        const hasAvailability = timeSlots[dateStr] !== undefined;
                         
                         return (
                           <Button
                             key={dateStr}
                             variant={isSelected ? 'default' : 'outline'}
                             className={isToday ? 'ring-2 ring-primary' : ''}
+                            disabled={!hasAvailability}
                             onClick={() => {
-                              setSelectedDate(dateStr);
-                              setSelectedTimeSlot(null);
+                              if (hasAvailability) {
+                                setSelectedDate(dateStr);
+                                setSelectedTimeSlot(null);
+                                setUseCustomTime(false);
+                                setCustomStartTime('');
+                              }
                             }}
                           >
                             {date.getDate()}
@@ -749,28 +750,129 @@ export default function BookingPage() {
             </CardHeader>
             <CardContent>
               {selectedDate && timeSlots[selectedDate] ? (
-                <div className="space-y-3">
-                  {timeSlots[selectedDate].available_slots?.length > 0 ? (
-                    timeSlots[selectedDate].available_slots.map((slot) => {
-                      const isSelected = selectedTimeSlot?.start_time === slot.start_time && selectedTimeSlot?.end_time === slot.end_time;
-                      return (
-                        <Button
-                          key={`${slot.start_time}-${slot.end_time}`}
-                          variant={isSelected ? 'default' : 'outline'}
-                          className="w-full"
-                          onClick={() => setSelectedTimeSlot(slot)}
-                        >
-                          {formatTo12Hour(slot.start_time)} - {formatTo12Hour(slot.end_time)}
-                        </Button>
-                      );
-                    })
+                <div className="space-y-4">
+                  {/* Toggle between predefined slots and custom time */}
+                  <div className="flex items-center space-x-2 pb-2 border-b">
+                    <Button
+                      variant={!useCustomTime ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setUseCustomTime(false);
+                        setCustomStartTime('');
+                        setSelectedTimeSlot(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Predefined Slots
+                    </Button>
+                    <Button
+                      variant={useCustomTime ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setUseCustomTime(true);
+                        setSelectedTimeSlot(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Custom Time
+                    </Button>
+                  </div>
+
+                  {!useCustomTime ? (
+                    // Predefined time slots
+                    timeSlots[selectedDate].available_slots?.length > 0 ? (
+                      timeSlots[selectedDate].available_slots
+                        .filter(slot => {
+                          // Filter out past times for today - allow current time slot (>= instead of >)
+                          const isToday = selectedDate === new Date().toISOString().split('T')[0];
+                          if (isToday) {
+                            const [hours, minutes] = slot.start_time.split(':').map(Number);
+                            const slotTime = new Date();
+                            slotTime.setHours(hours, minutes, 0, 0);
+                            const now = new Date();
+                            return slotTime >= now; // Allow current time
+                          }
+                          return true;
+                        })
+                        .map((slot) => {
+                          const isSelected = selectedTimeSlot?.start_time === slot.start_time && selectedTimeSlot?.end_time === slot.end_time;
+                          return (
+                            <Button
+                              key={`${slot.start_time}-${slot.end_time}`}
+                              variant={isSelected ? 'default' : 'outline'}
+                              className="w-full"
+                              onClick={() => setSelectedTimeSlot(slot)}
+                            >
+                              {formatTo12Hour(slot.start_time)} - {formatTo12Hour(slot.end_time)}
+                            </Button>
+                          );
+                        })
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground font-medium">
+                          {new Date(selectedDate + 'T00:00:00').getDay() === 0 || new Date(selectedDate + 'T00:00:00').getDay() === 6 
+                            ? 'Salon closed' 
+                            : 'Stylist unavailable or booked all day'}
+                        </p>
+                      </div>
+                    )
                   ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground font-medium">
-                        {new Date(selectedDate + 'T00:00:00').getDay() === 0 || new Date(selectedDate + 'T00:00:00').getDay() === 6 
-                          ? 'Salon closed' 
-                          : 'Stylist unavailable or booked all day'}
-                      </p>
+                    // Custom time input
+                    <div className="space-y-3">
+                      {selectedServices.length === 0 ? (
+                        <p className="text-muted-foreground">Please select services first to use custom time</p>
+                      ) : (
+                        <div>
+                          <Label htmlFor="custom-start-time">Start Time</Label>
+                          <Input
+                            id="custom-start-time"
+                            type="time"
+                            value={customStartTime}
+                            onChange={(e) => {
+                              setCustomStartTime(e.target.value);
+                              // Auto-calculate end time based on total duration
+                              if (e.target.value && selectedServices.length > 0) {
+                              const totalDuration = selectedServices.reduce((sum, service) => sum + (service.duration_minutes || 30), 0);
+                              const [hours, minutes] = e.target.value.split(':').map(Number);
+                              const startDateTime = new Date();
+                              startDateTime.setHours(hours, minutes, 0, 0);
+                              const endDateTime = new Date(startDateTime.getTime() + totalDuration * 60000);
+                              const endHours = endDateTime.getHours();
+                              const endMinutes = endDateTime.getMinutes();
+                              const endTimeStr = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+                              
+                              // Validate custom time is not in the past
+                              const isToday = selectedDate === new Date().toISOString().split('T')[0];
+                              const customSlotTime = new Date();
+                              customSlotTime.setHours(hours, minutes, 0, 0);
+                              const now = new Date();
+                              
+                              // Allow current time (>= instead of >)
+                              if (isToday && customSlotTime < now) {
+                                notifyError('Cannot book appointments in the past. Please select a time that is at or after the current time.');
+                                setSelectedTimeSlot(null);
+                                setCustomStartTime('');
+                                return;
+                              }
+                              
+                              setSelectedTimeSlot({
+                                start_time: e.target.value,
+                                end_time: endTimeStr
+                              });
+                            }
+                          }}
+                          className="mt-1"
+                        />
+                          {customStartTime && selectedServices.length > 0 && selectedTimeSlot && (
+                            <p className="text-sm text-muted-foreground mt-2">
+                              End time: {formatTo12Hour(selectedTimeSlot.end_time)} 
+                              <span className="ml-2 text-xs">
+                                (Duration: {selectedServices.reduce((sum, service) => sum + (service.duration_minutes || 30), 0)} minutes)
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -840,7 +942,7 @@ export default function BookingPage() {
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleConfirmBooking}
         title={isReschedule ? "Confirm Reschedule" : "Confirm Booking"}
-        message={`Are you sure you want to ${isReschedule ? 'reschedule' : 'book'} this appointment?\n\nStylist: ${selectedStylist?.full_name}\nServices: ${selectedServices.map(s => s.name).join(', ')}\nDate: ${selectedDate ? new Date(selectedDate).toLocaleDateString() : 'TBD'}\nTime: ${selectedTimeSlot?.start_time && selectedTimeSlot?.end_time ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}` : 'TBD'}`}
+        message={`Are you sure you want to ${isReschedule ? 'reschedule' : 'book'} this appointment?\n\nStylist: ${selectedStylist?.full_name}\nServices: ${selectedServices.map(s => s.name).join(', ')}\nDate: ${selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD'}\nTime: ${selectedTimeSlot?.start_time && selectedTimeSlot?.end_time ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}` : 'TBD'}`}
         confirmText={isReschedule ? "Reschedule" : "Confirm"}
         cancelText="Cancel"
         type="success"

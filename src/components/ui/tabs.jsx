@@ -27,7 +27,7 @@ const Tabs = ({ defaultValue, value, onValueChange, className = '', children, ..
 const TabsList = React.forwardRef(({ className = '', ...props }, ref) => (
   <div
     ref={ref}
-    className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground ${className}`}
+    className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1.5 text-muted-foreground ${className}`}
     {...props}
   />
 ));
@@ -40,10 +40,10 @@ const TabsTrigger = React.forwardRef(({ className = '', value, children, ...prop
   return (
     <button
       ref={ref}
-      className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+      className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
         isSelected 
-          ? 'bg-background text-foreground shadow-sm' 
-          : 'hover:bg-background/50'
+          ? 'bg-background text-foreground px-3 py-1.5 mx-0.5 my-0.5 border border-border shadow-sm border-b-2 border-b-border' 
+          : 'hover:bg-background/50 text-muted-foreground px-3 py-1.5'
       } ${className}`}
       onClick={() => onValueChange(value)}
       {...props}
