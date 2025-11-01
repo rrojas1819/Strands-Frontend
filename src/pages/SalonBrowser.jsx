@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { MapPin, Phone, Mail, Star, Clock, LogOut, Search, Filter, ChevronDown, Check, Menu, X } from 'lucide-react';
 import { Notifications } from '../utils/notifications';
+import { trackSalonView } from '../utils/analytics';
 
 export default function SalonBrowser() {
   const { user, logout } = useContext(AuthContext);
@@ -479,7 +480,12 @@ export default function SalonBrowser() {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => navigate(`/salon/${salon.salon_id}`)}
+                      onClick={() => {
+                        if (user) {
+                          trackSalonView(salon.salon_id, user.user_id);
+                        }
+                        navigate(`/salon/${salon.salon_id}`);
+                      }}
                       className="flex-shrink-0"
                     >
                       View Details
@@ -487,7 +493,12 @@ export default function SalonBrowser() {
                     <Button 
                       size="sm"
                       className="bg-primary hover:bg-primary/90 flex-shrink-0"
-                      onClick={() => navigate(`/salon/${salon.salon_id}/book`)}
+                      onClick={() => {
+                        if (user) {
+                          trackSalonView(salon.salon_id, user.user_id);
+                        }
+                        navigate(`/salon/${salon.salon_id}/book`);
+                      }}
                     >
                       Book Now
                     </Button>
