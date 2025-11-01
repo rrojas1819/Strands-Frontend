@@ -983,7 +983,7 @@ export default function HairstylistDashboard() {
     // For week view, navigate by weeks using independent weekStartDate
     if (viewType === 'week') {
       // Calculate start of current week (Sunday)
-      const today = new Date();
+    const today = new Date();
       today.setHours(0, 0, 0, 0);
       const currentWeekStart = new Date(today);
       currentWeekStart.setDate(today.getDate() - today.getDay()); // Sunday
@@ -1552,7 +1552,7 @@ export default function HairstylistDashboard() {
                     <p className="text-sm text-muted-foreground">
                       Your weekly schedule
                     </p>
-                  </div>
+            </div>
 
                   <Button
                     variant="outline"
@@ -1904,14 +1904,14 @@ export default function HairstylistDashboard() {
                 <h2 className="text-2xl font-bold text-foreground">Customer Visits</h2>
                 <p className="text-muted-foreground">View your customers' visit history</p>
               </div>
-              <Button 
+                            <Button 
                 onClick={toggleSortOrder}
                 variant="outline"
                 className="flex items-center space-x-2"
               >
                 <ArrowUpDown className="w-4 h-4" />
                 <span>Sort: {sortOrder === 'desc' ? 'Most Frequent' : 'Least Frequent'}</span>
-              </Button>
+                            </Button>
             </div>
 
             {customersLoading ? (
@@ -1966,17 +1966,17 @@ export default function HairstylistDashboard() {
                               </div>
                             </div>
                           </div>
-                          <Button
+                        <Button 
                             onClick={() => openCustomerVisitModal(customer)}
-                            variant="outline"
+                          variant="outline" 
                             className="flex items-center space-x-2"
-                          >
+                        >
                             <Eye className="w-4 h-4" />
                             <span>View History</span>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                        </Button>
+                      </div>
+              </CardContent>
+            </Card>
                   ))}
                 </div>
 
@@ -1987,7 +1987,7 @@ export default function HairstylistDashboard() {
                       Showing {Math.min(customerPagination.offset + 1, customerPagination.total_records)} -{' '}
                       {Math.min(customerPagination.offset + customerPagination.limit, customerPagination.total_records)} of{' '}
                       {customerPagination.total_records} customers
-                    </div>
+                  </div>
                     <div className="flex space-x-2">
                       <Button
                         variant="outline"
@@ -2005,7 +2005,7 @@ export default function HairstylistDashboard() {
                         Next
                         <ChevronRight className="w-4 h-4 ml-1" />
                       </Button>
-                    </div>
+                        </div>
                   </div>
                 )}
               </>
@@ -2017,10 +2017,10 @@ export default function HairstylistDashboard() {
           <div className="text-center py-12">
             <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg mb-2">Reviews Tab</h3>
-            <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-muted-foreground">
               Reviews content will be implemented here.
             </p>
-          </div>
+                          </div>
         )}
 
         {activeTab === 'services' && (
@@ -2029,12 +2029,12 @@ export default function HairstylistDashboard() {
               <div>
                 <h2 className="text-2xl font-bold text-foreground">My Services</h2>
                 <p className="text-muted-foreground">Manage the services you offer</p>
-              </div>
+                        </div>
               <Button onClick={() => setShowServiceModal(true)} className="flex items-center space-x-2">
                 <Plus className="w-4 h-4" />
                 <span>Add Service</span>
               </Button>
-            </div>
+                      </div>
 
             {servicesLoading ? (
               <div className="text-center py-12">
@@ -2061,14 +2061,14 @@ export default function HairstylistDashboard() {
                                              <div className="flex justify-between items-start mb-4">
                          <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
                          <div className="flex space-x-2">
-                            <Button 
+                        <Button 
                              variant="ghost"
-                              size="sm"
+                          size="sm"
                              onClick={() => openEditModal(service)}
                              className="h-10 w-10 p-0"
-                            >
+                        >
                              <Edit className="w-6 h-6" />
-                            </Button>
+                        </Button>
                         <Button 
                              variant="ghost"
                           size="sm"
@@ -2098,10 +2098,10 @@ export default function HairstylistDashboard() {
         )}
 
         {activeTab === 'profile' && (
-          <div className="text-center py-12">
+                  <div className="text-center py-12">
             <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg mb-2">Profile Tab</h3>
-                          <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
               Profile content will be implemented here.
             </p>
                           </div>
@@ -2292,8 +2292,8 @@ export default function HairstylistDashboard() {
                       );
                     })}
                     </div>
-                )}
-              </div>
+                          )}
+                        </div>
 
               {/* Actions */}
               <div className="flex justify-end">
@@ -2304,7 +2304,7 @@ export default function HairstylistDashboard() {
                 >
                   Close
                 </Button>
-              </div>
+                      </div>
               </CardContent>
             </Card>
         </div>
@@ -2380,8 +2380,8 @@ export default function HairstylistDashboard() {
               </div>
 
               <div className="flex space-x-3 justify-end">
-                <Button
-                  variant="outline"
+                        <Button 
+                          variant="outline" 
                   onClick={() => {
                     setShowServiceModal(false);
                     setServiceFormData({ name: '', description: '', duration_minutes: '', price: '' });
@@ -2411,7 +2411,7 @@ export default function HairstylistDashboard() {
                     </div>
                 <Button
                   variant="ghost"
-                  size="sm"
+                          size="sm"
                   onClick={() => {
                     setShowEditServiceModal(false);
                     setEditingService(null);
@@ -2420,8 +2420,8 @@ export default function HairstylistDashboard() {
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" />
-                </Button>
-                    </div>
+                        </Button>
+                      </div>
 
               <div className="space-y-4 mb-6">
                     <div>
@@ -2593,9 +2593,9 @@ export default function HairstylistDashboard() {
                       <span>Total: <span className="text-green-800 font-medium">${selectedAppointment.totalPrice.toFixed(2)}</span></span>
                     )}
                     </div>
-                  <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                     Date: {selectedAppointment.date ? selectedAppointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
-                  </p>
+                    </p>
                   </div>
                 
                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
@@ -2632,13 +2632,13 @@ export default function HairstylistDashboard() {
               <div className="flex items-center justify-between p-6 border-b">
                 <div className="flex items-center space-x-3">
                   <Calendar className="w-6 h-6 text-red-500" />
-                  <div>
+                        <div>
                     <h3 className="text-lg font-semibold text-gray-900">All Cancelled Appointments</h3>
                     <p className="text-sm text-gray-600">
                       {scheduleData.filter(apt => apt.status === 'canceled').length} cancelled appointment(s)
                     </p>
-                  </div>
-                    </div>
+                          </div>
+                        </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -2687,10 +2687,10 @@ export default function HairstylistDashboard() {
                                   <Badge className="bg-red-200 text-red-800 border-red-200">
                                     Cancelled
                                   </Badge>
-                                  <span className="text-sm text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                                     {appointment.date ? appointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
-                                  </span>
-                                </div>
+                        </span>
+                      </div>
                                 
                                 <h4 className="font-semibold text-foreground mb-1">
                                   {appointment.customer}
@@ -2705,7 +2705,7 @@ export default function HairstylistDashboard() {
                                   {appointment.totalPrice > 0 && (
                                     <span>Total: <span className="text-green-800 font-medium">${appointment.totalPrice.toFixed(2)}</span></span>
                                   )}
-                                </div>
+                    </div>
                                 
                                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                                   {appointment.phone && (
@@ -2745,13 +2745,13 @@ export default function HairstylistDashboard() {
               <div className="flex items-center justify-between p-6 border-b">
                 <div className="flex items-center space-x-3">
                   <Users className="w-6 h-6 text-blue-500" />
-                  <div>
+                    <div>
                     <h3 className="text-lg font-semibold text-gray-900">{selectedCustomer.full_name}'s Visit History</h3>
                     <p className="text-sm text-gray-600">
                       {visitsPagination.total_records} visit{visitsPagination.total_records !== 1 ? 's' : ''}
                     </p>
-                  </div>
-                </div>
+                    </div>
+                    </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -2764,7 +2764,7 @@ export default function HairstylistDashboard() {
                 >
                   <X className="w-5 h-5" />
                 </Button>
-              </div>
+                    </div>
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
                 {visitsLoading ? (
@@ -2795,11 +2795,11 @@ export default function HairstylistDashboard() {
                                   year: 'numeric'
                                 })}
                               </span>
-                            </div>
+                    </div>
                             <Badge className="bg-purple-200 text-purple-800 border-purple-200">
                               Completed
-                            </Badge>
-                          </div>
+                      </Badge>
+                    </div>
                           
                           <div className="space-y-2 mb-3">
                             <div className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -2829,7 +2829,7 @@ export default function HairstylistDashboard() {
                               <div className="space-y-2">
                                 {visit.services.map((service, idx) => (
                                   <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                                    <div>
+                    <div>
                                       <span className="font-medium text-foreground">{service.service_name}</span>
                                       {service.employee && (
                                         <p className="text-xs text-muted-foreground">
@@ -2837,12 +2837,12 @@ export default function HairstylistDashboard() {
                                           {service.employee.title && ` (${service.employee.title})`}
                                         </p>
                                       )}
-                                    </div>
+                    </div>
                                     <div className="text-right">
                                       <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
                                       <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
-                                    </div>
-                                  </div>
+                  </div>
+                </div>
                                 ))}
                               </div>
                               <div className="flex justify-end mt-3 pt-3 border-t">
@@ -2852,12 +2852,12 @@ export default function HairstylistDashboard() {
                               </div>
                             </div>
                           )}
-                        </CardContent>
-                      </Card>
+              </CardContent>
+            </Card>
                     ))}
                   </div>
                 )}
-              </div>
+                    </div>
 
               {/* Pagination Controls for Visits */}
               {visitsPagination.total_records > visitsPagination.limit && (
@@ -2884,11 +2884,11 @@ export default function HairstylistDashboard() {
                       Next
                       <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
+                    </div>
                   </div>
-                </div>
               )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
         </div>
       )}
     </div>
