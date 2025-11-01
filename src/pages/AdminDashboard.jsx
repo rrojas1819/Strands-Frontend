@@ -5,18 +5,21 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
-import { BarChart3, Users, TrendingUp, DollarSign, Users2, LogOut } from 'lucide-react';
+import { BarChart3, Users, TrendingUp, DollarSign, Users2, LogOut, Activity, Calendar, Repeat, ArrowUp, ArrowDown, Eye, Scissors } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminDashboard() {
   const [demographics, setDemographics] = useState(null);
   const [approvedSalonsCount, setApprovedSalonsCount] = useState(0);
+  const [userEngagement, setUserEngagement] = useState(null);
+  const [engagementLoading, setEngagementLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const authContext = useContext(AuthContext);
 
   useEffect(() => {
     fetchDemographics();
+    fetchUserEngagement();
   }, []);
 
   const fetchDemographics = async () => {
@@ -77,6 +80,52 @@ export default function AdminDashboard() {
       setError('Failed to fetch demographics data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserEngagement = async () => {
+    try {
+      setEngagementLoading(true);
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setError('No authentication token found');
+        setEngagementLoading(false);
+        return;
+      }
+
+      console.log('Fetching user engagement data...');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/user-engagement`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      console.log('User engagement response status:', response.status);
+      const data = await response.json();
+      console.log('User engagement response data:', data);
+      console.log('Top 3 viewed salons:', data.data?.top3ViewedSalons);
+
+      if (response.ok) {
+        setUserEngagement(data.data);
+        // Log the top3ViewedSalons specifically to debug
+        if (data.data?.top3ViewedSalons) {
+          console.log('Top viewed salons array:', data.data.top3ViewedSalons);
+          console.log('Array length:', data.data.top3ViewedSalons.length);
+        } else {
+          console.log('top3ViewedSalons is missing or undefined');
+        }
+      } else {
+        console.error('Failed to fetch user engagement:', data.message);
+        toast.error(data.message || 'Failed to fetch user engagement data');
+      }
+    } catch (err) {
+      console.error('User engagement fetch error:', err);
+      toast.error('Failed to fetch user engagement data');
+    } finally {
+      setEngagementLoading(false);
     }
   };
 
@@ -314,9 +363,237 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
+        {/* User Engagement Stats Section */}
+        <div className="mt-8 mb-8">
+          <h2 className="text-3xl font-bold text-foreground mb-2">
+            User Engagement Statistics
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Monitor platform usage and user activity metrics.
+          </p>
+        </div>
+
+        {engagementLoading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading engagement data...</p>
+          </div>
+        ) : userEngagement ? (
+          <div className="space-y-6">
+            {/* Login Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Today's Logins</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="text-3xl font-bold">{userEngagement.today_logins || 0}</div>
+                    <Activity className="w-8 h-8 text-blue-500" />
+                  </div>
+                  {userEngagement.yesterday_logins !== undefined && (
+                    <div className="flex items-center mt-2 text-sm">
+                      {userEngagement.today_logins > userEngagement.yesterday_logins ? (
+                        <>
+                          <ArrowUp className="w-4 h-4 text-green-500 mr-1" />
+                          <span className="text-green-600">
+                            {((userEngagement.today_logins - userEngagement.yesterday_logins) / (userEngagement.yesterday_logins || 1) * 100).toFixed(0)}% vs yesterday
+                          </span>
+                        </>
+                      ) : userEngagement.today_logins < userEngagement.yesterday_logins ? (
+                        <>
+                          <ArrowDown className="w-4 h-4 text-red-500 mr-1" />
+                          <span className="text-red-600">
+                            {((userEngagement.yesterday_logins - userEngagement.today_logins) / (userEngagement.yesterday_logins || 1) * 100).toFixed(0)}% vs yesterday
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">No change</span>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Yesterday's Logins</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="text-3xl font-bold">{userEngagement.yesterday_logins || 0}</div>
+                    <Activity className="w-8 h-8 text-gray-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Past Week Logins</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="text-3xl font-bold">{userEngagement.past_week_logins || 0}</div>
+                    <Users2 className="w-8 h-8 text-purple-500" />
+                  </div>
+                  {userEngagement.previous_week_logins !== undefined && (
+                    <div className="flex items-center mt-2 text-sm">
+                      {userEngagement.past_week_logins > userEngagement.previous_week_logins ? (
+                        <>
+                          <ArrowUp className="w-4 h-4 text-green-500 mr-1" />
+                          <span className="text-green-600">
+                            {((userEngagement.past_week_logins - userEngagement.previous_week_logins) / (userEngagement.previous_week_logins || 1) * 100).toFixed(0)}% vs previous week
+                          </span>
+                        </>
+                      ) : userEngagement.past_week_logins < userEngagement.previous_week_logins ? (
+                        <>
+                          <ArrowDown className="w-4 h-4 text-red-500 mr-1" />
+                          <span className="text-red-600">
+                            {((userEngagement.previous_week_logins - userEngagement.past_week_logins) / (userEngagement.previous_week_logins || 1) * 100).toFixed(0)}% vs previous week
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">No change</span>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Previous Week Logins</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="text-3xl font-bold">{userEngagement.previous_week_logins || 0}</div>
+                    <Users2 className="w-8 h-8 text-gray-400" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Booking Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Calendar className="w-5 h-5" />
+                    <span>Booking Statistics</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Overview of platform booking activity
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total Bookings</p>
+                      <p className="text-3xl font-bold text-blue-600">{userEngagement.total_bookings || 0}</p>
+                    </div>
+                    <Calendar className="w-12 h-12 text-blue-500" />
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Repeat Customers</p>
+                      <p className="text-3xl font-bold text-purple-600">{userEngagement.repeat_bookers || 0}</p>
+                    </div>
+                    <Repeat className="w-12 h-12 text-purple-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Top Services */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Scissors className="w-5 h-5" />
+                    <span>Top Services</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Most booked services on the platform
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {userEngagement.top3Services && userEngagement.top3Services.length > 0 ? (
+                    <div className="space-y-3">
+                      {userEngagement.top3Services.map((service, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <p className="font-medium">{service.name}</p>
+                              <p className="text-sm text-muted-foreground">{service.total_bookings} bookings</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Scissors className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No service data available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Top Viewed Salons */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Eye className="w-5 h-5" />
+                  <span>Top Viewed Salons</span>
+                </CardTitle>
+                <CardDescription>
+                  Salons with the most detail page views
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {userEngagement.top3ViewedSalons && Array.isArray(userEngagement.top3ViewedSalons) && userEngagement.top3ViewedSalons.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {userEngagement.top3ViewedSalons.map((salon, index) => (
+                      <div key={index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium">{salon.name}</p>
+                            <p className="text-sm text-muted-foreground">{salon.clicks} views</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Eye className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground font-medium mb-2">No salon view data available</p>
+                    <p className="text-sm text-muted-foreground">
+                      Salon views will appear here once users start viewing salon detail pages.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-white rounded-lg border">
+            <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No engagement data available</h3>
+            <p className="text-sm text-muted-foreground">
+              Engagement statistics will appear here once data is available.
+            </p>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="mt-8 flex space-x-4">
-          <Button onClick={fetchDemographics} variant="outline">
+          <Button onClick={() => { fetchDemographics(); fetchUserEngagement(); }} variant="outline">
             Refresh Data
                   </Button>
                 </div>
