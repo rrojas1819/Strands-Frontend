@@ -1288,7 +1288,7 @@ export default function SalonOwnerDashboard() {
                                   })}
                                 </span>
                               </div>
-                              <Badge className="bg-purple-200 text-purple-800 border-purple-200">
+                              <Badge className="bg-purple-200 text-purple-800 border-purple-200 hover:bg-purple-200">
                                 Completed
                               </Badge>
                             </div>
