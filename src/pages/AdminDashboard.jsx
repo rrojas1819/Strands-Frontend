@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
-import { BarChart3, Users, TrendingUp, DollarSign, Users2, LogOut, Activity, Calendar, Repeat, ArrowUp, ArrowDown, Eye, Scissors } from 'lucide-react';
+import { BarChart3, Users, TrendingUp, DollarSign, Users2, LogOut, Activity, Calendar, Repeat, ArrowUp, ArrowDown, Eye, Scissors, Clock, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminDashboard() {
@@ -13,14 +13,24 @@ export default function AdminDashboard() {
   const [approvedSalonsCount, setApprovedSalonsCount] = useState(0);
   const [userEngagement, setUserEngagement] = useState(null);
   const [engagementLoading, setEngagementLoading] = useState(false);
+  const [appointmentAnalytics, setAppointmentAnalytics] = useState(null);
+  const [appointmentLoading, setAppointmentLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('user-analytics'); // 'user-analytics' or 'business-insights'
+  const [peakView, setPeakView] = useState('hours'); // 'hours' or 'days'
   const authContext = useContext(AuthContext);
 
   useEffect(() => {
     fetchDemographics();
     fetchUserEngagement();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'business-insights') {
+      fetchAppointmentAnalytics();
+    }
+  }, [activeTab]);
 
   const fetchDemographics = async () => {
     try {
@@ -129,6 +139,44 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchAppointmentAnalytics = async () => {
+    try {
+      setAppointmentLoading(true);
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('No authentication token found');
+        setAppointmentLoading(false);
+        return;
+      }
+
+      console.log('Fetching appointment analytics data...');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/appointment-analytics`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      console.log('Appointment analytics response status:', response.status);
+      const data = await response.json();
+      console.log('Appointment analytics response data:', data);
+
+      if (response.ok) {
+        setAppointmentAnalytics(data);
+      } else {
+        console.error('Failed to fetch appointment analytics:', data.message);
+        toast.error(data.message || 'Failed to fetch appointment analytics data');
+      }
+    } catch (err) {
+      console.error('Appointment analytics fetch error:', err);
+      toast.error('Failed to fetch appointment analytics data');
+    } finally {
+      setAppointmentLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     authContext.logout();
   };
@@ -187,10 +235,24 @@ export default function AdminDashboard() {
                 >
                   Loyalty Monitoring
                 </Link>
-                <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
+                <button 
+                  onClick={() => setActiveTab('user-analytics')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'user-analytics'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
                   User Analytics
                 </button>
-                <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                <button 
+                  onClick={() => setActiveTab('business-insights')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'business-insights'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
                   Business Insights
                 </button>
                 <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
@@ -208,15 +270,18 @@ export default function AdminDashboard() {
           </Alert>
         )}
 
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
-            User Analytics
-          </h2>
-          <p className="text-muted-foreground">
-            View user demographics and engagement metrics to understand your platform's user base.
-                    </p>
-                  </div>
+        {/* Tab Content */}
+        {activeTab === 'user-analytics' ? (
+          <>
+            {/* Welcome Section */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-foreground mb-2">
+                User Analytics
+              </h2>
+              <p className="text-muted-foreground">
+                View user demographics and engagement metrics to understand your platform's user base.
+              </p>
+            </div>
 
         {/* Analytics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -591,12 +656,525 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="mt-8 flex space-x-4">
-          <Button onClick={() => { fetchDemographics(); fetchUserEngagement(); }} variant="outline">
-            Refresh Data
-                  </Button>
+            {/* Action Buttons */}
+            <div className="mt-8 flex space-x-4">
+              <Button onClick={() => { fetchDemographics(); fetchUserEngagement(); }} variant="outline">
+                Refresh Data
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Business Insights Tab */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-foreground mb-2">
+                Business Insights
+              </h2>
+              <p className="text-muted-foreground">
+                Analyze appointment trends and peak booking times to optimize business operations.
+              </p>
+            </div>
+
+            {/* Appointment Analytics Data */}
+            {appointmentLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading appointment analytics...</p>
+              </div>
+            ) : appointmentAnalytics ? (() => {
+              // Transform appointmentsByDay object to array with short day names
+              const dayMapping = {
+                'Sunday': 'Sun',
+                'Monday': 'Mon',
+                'Tuesday': 'Tue',
+                'Wednesday': 'Wed',
+                'Thursday': 'Thu',
+                'Friday': 'Fri',
+                'Saturday': 'Sat'
+              };
+              
+              const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+              const appointmentsByDay = dayOrder.map(day => ({
+                date: dayMapping[day],
+                count: appointmentAnalytics.appointmentsByDay?.[day] || 0
+              }));
+
+              // Transform peakHours object to array in correct order (12 AM to 11 PM)
+              const hourOrder = [
+                '12 AM', '1 AM', '2 AM', '3 AM', '4 AM', '5 AM', '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM',
+                '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', '9 PM', '10 PM', '11 PM'
+              ];
+              const peakHours = hourOrder.map(hour => ({
+                hour,
+                count: appointmentAnalytics.peakHours?.[hour] || 0
+              }));
+
+              // Transform appointmentsByDay for peak days view (use full day names)
+              const peakDays = dayOrder.map(day => ({
+                day,
+                count: appointmentAnalytics.appointmentsByDay?.[day] || 0
+              }));
+
+              // Calculate average duration
+              const avgDuration = appointmentAnalytics.avgDurationInMin 
+                ? parseFloat(appointmentAnalytics.avgDurationInMin).toFixed(1)
+                : '0';
+
+              // Calculate peak hour and day
+              const peakHourData = peakHours.reduce((max, h) => h.count > max.count ? h : max);
+              const peakDayData = peakDays.reduce((max, d) => d.count > max.count ? d : max);
+              
+              // Calculate total appointments for the week
+              const totalWeek = appointmentsByDay.reduce((sum, day) => sum + day.count, 0);
+
+              // Helper function to calculate Y-axis intervals using exact max value
+              const calculateBarChartIntervals = (maxValue) => {
+                if (maxValue <= 0) return { maxCount: 1, intervals: [0, 1] };
+                
+                // Use exact max value (no rounding up)
+                const maxCount = maxValue;
+                
+                // Generate nice intervals that include the exact max
+                // For small values, use step of 1
+                // For larger values, calculate a reasonable step
+                let step;
+                if (maxCount <= 10) {
+                  step = 1;
+                } else if (maxCount <= 20) {
+                  step = 2;
+                } else if (maxCount <= 50) {
+                  step = 5;
+                } else {
+                  // For very large values, use approximately 5 intervals
+                  step = Math.ceil(maxCount / 5);
+                  // Round step to a nice number
+                  const stepMagnitude = Math.pow(10, Math.floor(Math.log10(step)));
+                  const normalizedStep = step / stepMagnitude;
+                  let niceStep;
+                  if (normalizedStep <= 1) niceStep = 1;
+                  else if (normalizedStep <= 2) niceStep = 2;
+                  else if (normalizedStep <= 5) niceStep = 5;
+                  else niceStep = 10;
+                  step = niceStep * stepMagnitude;
+                }
+                
+                const intervals = [];
+                for (let i = 0; i <= maxCount; i += step) {
+                  intervals.push(i);
+                }
+                // Ensure max value is included
+                if (intervals[intervals.length - 1] < maxCount) {
+                  intervals.push(maxCount);
+                }
+                
+                return { maxCount, intervals };
+              };
+
+              // Helper function to render bar chart with proper axes (full width, no stretching)
+              const renderBarChart = (data, maxValue) => {
+                // Calculate max value - use exact max from data (no padding/rounding)
+                const dataMax = Math.max(...data.map(d => d.count), 0);
+                const { maxCount, intervals } = maxValue 
+                  ? { maxCount: maxValue, intervals: [0, maxValue / 4, maxValue / 2, maxValue * 3 / 4, maxValue] }
+                  : calculateBarChartIntervals(dataMax === 0 ? 1 : dataMax);
+                
+                // Find the bar with the highest value for highlighting
+                const maxBarIndex = data.findIndex(d => d.count === dataMax);
+                
+                const chartHeight = 280;
+                const chartWidth = 1200;
+                const padding = { top: 20, right: 20, bottom: 80, left: 60 };
+                const barWidth = (chartWidth - padding.left - padding.right) / data.length * 0.7;
+                const barSpacing = (chartWidth - padding.left - padding.right) / data.length;
+                const chartAreaHeight = chartHeight - padding.top - padding.bottom;
+                
+                const bars = data.map((item, index) => {
+                  const barHeight = (item.count / maxCount) * chartAreaHeight;
+                  const x = padding.left + (index * barSpacing) + (barSpacing - barWidth) / 2;
+                  const y = chartHeight - padding.bottom - barHeight;
+                  return { x, y, width: barWidth, height: barHeight, ...item, isMax: index === maxBarIndex && dataMax > 0 };
+                });
+
+                return (
+                  <div className="w-full -mx-6 px-6">
+                    <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
+                      {/* Grid lines and Y-axis labels - aligned with intervals */}
+                      {intervals.map((value) => {
+                        const y = chartHeight - padding.bottom - ((value / maxCount) * chartAreaHeight);
+                        return (
+                          <g key={value}>
+                            <line
+                              x1={padding.left}
+                              y1={y}
+                              x2={chartWidth - padding.right}
+                              y2={y}
+                              stroke="#e5e7eb"
+                              strokeWidth="1"
+                              strokeDasharray="2,2"
+                            />
+                            <text
+                              x={padding.left - 10}
+                              y={y + 4}
+                              textAnchor="end"
+                              fontSize="11"
+                              fill="#6b7280"
+                            >
+                              {value}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* Bars */}
+                      {bars.map((bar, index) => (
+                        <g key={index}>
+                          <rect
+                            x={bar.x}
+                            y={bar.y}
+                            width={bar.width}
+                            height={bar.height}
+                            fill={bar.isMax ? "#6b21a8" : "#3b82f6"}
+                            rx="4"
+                          />
+                          {/* Value label on top of bar */}
+                          <text
+                            x={bar.x + bar.width / 2}
+                            y={bar.y - 5}
+                            textAnchor="middle"
+                            fontSize="11"
+                            fill={bar.isMax ? "#581c87" : "#1f2937"}
+                            fontWeight={bar.isMax ? "600" : "500"}
+                          >
+                            {bar.count}
+                          </text>
+                        </g>
+                      ))}
+
+                      {/* X-axis labels */}
+                      {bars.map((bar, index) => (
+                        <text
+                          key={index}
+                          x={bar.x + bar.width / 2}
+                          y={chartHeight - padding.bottom + 20}
+                          textAnchor="middle"
+                          fontSize="11"
+                          fill={bar.isMax ? "#6b21a8" : "#6b7280"}
+                          fontWeight={bar.isMax ? "600" : "400"}
+                        >
+                          {bar.date || bar.week || bar.month}
+                        </text>
+                      ))}
+                      
+                      {/* Y-axis label */}
+                      <text
+                        x={30}
+                        y={chartHeight / 2}
+                        textAnchor="middle"
+                        fontSize="12"
+                        fill="#6b7280"
+                        transform={`rotate(-90, 30, ${chartHeight / 2})`}
+                      >
+                        Appointments
+                      </text>
+                      
+                      {/* X-axis label */}
+                      <text
+                        x={chartWidth / 2}
+                        y={chartHeight - 30}
+                        textAnchor="middle"
+                        fontSize="12"
+                        fill="#6b7280"
+                      >
+                        Day
+                      </text>
+                    </svg>
+                  </div>
+                );
+              };
+
+              // Helper function to calculate nice Y-axis intervals (reused for line chart)
+              const calculateNiceIntervalsLine = (maxValue) => {
+                if (maxValue <= 0) return { maxCount: 1, intervals: [0, 1] };
+                
+                // Calculate a nice rounded max value
+                const magnitude = Math.pow(10, Math.floor(Math.log10(maxValue)));
+                const normalized = maxValue / magnitude;
+                let niceMax;
+                
+                if (normalized <= 1) niceMax = 1;
+                else if (normalized <= 2) niceMax = 2;
+                else if (normalized <= 5) niceMax = 5;
+                else niceMax = 10;
+                
+                niceMax = niceMax * magnitude;
+                
+                // Generate nice intervals (more intervals for line chart)
+                const step = niceMax <= 10 ? 1 : niceMax <= 20 ? 2 : niceMax <= 50 ? 5 : niceMax / 5;
+                const intervals = [];
+                for (let i = 0; i <= niceMax; i += step) {
+                  intervals.push(i);
+                }
+                
+                return { maxCount: niceMax, intervals };
+              };
+
+              // Helper function to render line chart (full width, no white space)
+              const renderLineChart = (data, maxValue) => {
+                // Calculate max value with auto-scaling
+                const dataMax = Math.max(...data.map(d => d.count), 0);
+                const { maxCount, intervals } = maxValue 
+                  ? { maxCount: maxValue, intervals: [0, maxValue / 4, maxValue / 2, maxValue * 3 / 4, maxValue] }
+                  : calculateNiceIntervalsLine(dataMax === 0 ? 1 : Math.ceil(dataMax * 1.1));
+                
+                const chartHeight = 300;
+                const chartWidth = 1200;
+                const padding = { top: 20, right: 20, bottom: 80, left: 60 };
+                const chartAreaHeight = chartHeight - padding.top - padding.bottom;
+                
+                // Calculate points for the line
+                const points = data.map((item, index) => {
+                  const x = padding.left + (index * (chartWidth - padding.left - padding.right) / (data.length - 1));
+                  const y = chartHeight - padding.bottom - ((item.count / maxCount) * chartAreaHeight);
+                  return { x, y, ...item };
+                });
+
+                // Create path for the line
+                const pathData = points.map((point, index) => {
+                  return `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`;
+                }).join(' ');
+
+                return (
+                  <div className="w-full -mx-6 px-6">
+                    <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
+                      {/* Grid lines and Y-axis labels - aligned with intervals */}
+                      {intervals.map((value) => {
+                        const y = chartHeight - padding.bottom - ((value / maxCount) * chartAreaHeight);
+                        return (
+                          <g key={value}>
+                            <line
+                              x1={padding.left}
+                              y1={y}
+                              x2={chartWidth - padding.right}
+                              y2={y}
+                              stroke="#e5e7eb"
+                              strokeWidth="1"
+                              strokeDasharray="2,2"
+                            />
+                            <text
+                              x={padding.left - 10}
+                              y={y + 4}
+                              textAnchor="end"
+                              fontSize="11"
+                              fill="#6b7280"
+                            >
+                              {value}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* Line */}
+                      <path
+                        d={pathData}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth="2.5"
+                      />
+
+                      {/* Data points */}
+                      {points.map((point, index) => (
+                        <circle
+                          key={index}
+                          cx={point.x}
+                          cy={point.y}
+                          r="4"
+                          fill="#3b82f6"
+                          stroke="white"
+                          strokeWidth="2"
+                        />
+                      ))}
+
+                      {/* X-axis labels */}
+                      {points.map((point, index) => {
+                        // Only show every nth label if too many points (for 24 hours)
+                        const showLabel = data.length <= 7 || index % Math.ceil(data.length / 7) === 0 || index === data.length - 1;
+                        return showLabel ? (
+                          <text
+                            key={index}
+                            x={point.x}
+                            y={chartHeight - padding.bottom + 20}
+                            textAnchor="middle"
+                            fontSize="10"
+                            fill="#6b7280"
+                          >
+                            {point.hour || point.day}
+                          </text>
+                        ) : null;
+                      })}
+                      
+                      {/* Y-axis label */}
+                      <text
+                        x={30}
+                        y={chartHeight / 2}
+                        textAnchor="middle"
+                        fontSize="12"
+                        fill="#6b7280"
+                        transform={`rotate(-90, 30, ${chartHeight / 2})`}
+                      >
+                        Appointments
+                      </text>
+                      
+                      {/* X-axis label */}
+                      <text
+                        x={chartWidth / 2}
+                        y={chartHeight - 30}
+                        textAnchor="middle"
+                        fontSize="12"
+                        fill="#6b7280"
+                      >
+                        {data[0]?.hour ? 'Time' : 'Day'}
+                      </text>
+                    </svg>
+                  </div>
+                );
+              };
+
+              return (
+                <div className="space-y-6">
+                  {/* Total Appointments Card */}
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="flex items-center space-x-2">
+                            <Calendar className="w-5 h-5" />
+                            <span>Total Appointments</span>
+                          </CardTitle>
+                          <CardDescription>
+                            Appointment trends over time
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-0">
+                      {renderBarChart(appointmentsByDay)}
+                      <div className="mt-4 mx-6 text-sm text-muted-foreground text-center">
+                        Last 7 days
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Peak Booking Times Card */}
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="flex items-center space-x-2">
+                            <BarChart3 className="w-5 h-5" />
+                            <span>Peak Booking Times</span>
+                          </CardTitle>
+                          <CardDescription>
+                            Identify peak hours and days for appointments
+                          </CardDescription>
+                        </div>
+                        <div className="flex space-x-1 bg-muted rounded-lg p-1">
+                          <Button
+                            variant={peakView === 'hours' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setPeakView('hours')}
+                            className="px-3 py-1 text-xs"
+                          >
+                            Hours
+                          </Button>
+                          <Button
+                            variant={peakView === 'days' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setPeakView('days')}
+                            className="px-3 py-1 text-xs"
+                          >
+                            Days
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-0">
+                      {peakView === 'hours' && renderLineChart(peakHours)}
+                      {peakView === 'days' && renderLineChart(peakDays)}
+                      <div className="mt-4 mx-6 p-3 bg-blue-50 rounded-lg">
+                        <p className="text-sm font-medium text-blue-900">
+                          Peak Time: {peakView === 'hours' 
+                            ? peakHourData.hour
+                            : peakDayData.day
+                          } ({peakView === 'hours' 
+                            ? peakHourData.count
+                            : peakDayData.count
+                          } appointments)
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Average Appointment Duration Card */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center space-x-2">
+                          <Clock className="w-5 h-5" />
+                          <span>Average Appointment Duration</span>
+                        </CardTitle>
+                        <CardDescription>
+                          Average length of appointments across all services
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-center py-8">
+                          <div className="text-5xl font-bold text-primary mb-2">{avgDuration}</div>
+                          <div className="text-lg text-muted-foreground">minutes</div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center space-x-2">
+                          <TrendingUp className="w-5 h-5" />
+                          <span>Trend Summary</span>
+                        </CardTitle>
+                        <CardDescription>
+                          Key insights from appointment data
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                            <span className="text-sm font-medium">Busiest Day</span>
+                            <span className="text-sm font-bold text-green-700">{peakDayData.day}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                            <span className="text-sm font-medium">Peak Hour</span>
+                            <span className="text-sm font-bold text-blue-700">{peakHourData.hour}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                            <span className="text-sm font-medium">Total This Week</span>
+                            <span className="text-sm font-bold text-purple-700">{totalWeek}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
+              );
+            })() : (
+              <div className="text-center py-12 bg-white rounded-lg border">
+                <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No appointment data available</h3>
+                <p className="text-sm text-muted-foreground">
+                  Appointment analytics will appear here once data is available.
+                </p>
+              </div>
+            )}
+          </>
+        )}
       </main>
     </div>
   );
