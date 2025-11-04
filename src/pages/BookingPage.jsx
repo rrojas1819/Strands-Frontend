@@ -54,6 +54,19 @@ export default function BookingPage() {
   useEffect(() => {
     if (location.state?.reschedule && location.state?.appointment && stylists.length > 0) {
       const appointment = location.state.appointment;
+      
+      // Check if appointment is today - cannot reschedule same day
+      const appointmentDate = new Date(appointment.appointment?.scheduled_start || appointment.scheduled_start);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      appointmentDate.setHours(0, 0, 0, 0);
+      
+      if (appointmentDate.getTime() === today.getTime()) {
+        notifyError('Cannot reschedule appointments on the day of the appointment. Please contact the salon directly.');
+        navigate('/appointments');
+        return;
+      }
+      
       setIsReschedule(true);
       
       // Find and set the stylist from the appointment
@@ -80,7 +93,7 @@ export default function BookingPage() {
         }, 1000); // Wait for services to load
       }
     }
-  }, [location.state, stylists, services]);
+  }, [location.state, stylists, services, navigate]);
 
   // Fetch time slots when stylist and services are selected
   useEffect(() => {
@@ -269,6 +282,18 @@ export default function BookingPage() {
 
       // Use the new reschedule endpoint if rescheduling
       if (isReschedule && location.state?.bookingId) {
+        // Double-check same-day restriction before sending request
+        const originalAppointmentDate = new Date(location.state?.appointment?.appointment?.scheduled_start || location.state?.appointment?.scheduled_start);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        originalAppointmentDate.setHours(0, 0, 0, 0);
+        
+        if (originalAppointmentDate.getTime() === today.getTime()) {
+          notifyError('Cannot reschedule appointments on the day of the appointment. Please contact the salon directly.');
+          setBookingLoading(false);
+          return;
+        }
+        
         // Reschedule endpoint: cancel + create in one call
         response = await fetch(`${apiUrl}/bookings/reschedule`, {
           method: 'POST',
@@ -305,13 +330,18 @@ export default function BookingPage() {
           } else if (response.status === 404) {
             notifyError('Appointment not found or cannot be rescheduled.');
           } else if (response.status === 400) {
-            notifyError(errorMessage);
+            // Check for same-day error message from backend
+            if (errorMessage.includes('day') || errorMessage.includes('today')) {
+              notifyError('Cannot reschedule appointments on the day of the appointment. Please contact the salon directly.');
+            } else {
+              notifyError(errorMessage);
+            }
           } else {
             notifyError(errorMessage || 'Failed to reschedule appointment. Please try again.');
           }
         }
       } else {
-        // New booking flow
+        // New booking flow - create pending booking and redirect to payment
         response = await fetch(`${apiUrl}/salons/${salonId}/stylists/${selectedStylist.employee_id}/book`, {
           method: 'POST',
           headers: {
@@ -329,16 +359,26 @@ export default function BookingPage() {
         data = await response.json();
 
         if (response.ok) {
-          notifySuccess('Appointment booked successfully!');
-          navigate('/appointments');
+          // Calculate total amount from selected services
+          const totalAmount = selectedServices.reduce((sum, service) => {
+            const price = typeof service.price === 'number' ? service.price : parseFloat(service.price || 0);
+            return sum + price;
+          }, 0);
           
-          // Track booking analytics (non-blocking)
-          trackBooking(
-            salonId,
-            selectedStylist.employee_id,
-            selectedServices.map(s => s.service_id),
-            user.user_id
-          ).catch(err => console.error('Analytics tracking failed:', err));
+          // Navigate to payment page with booking details
+          navigate('/payment', {
+            state: {
+              bookingId: data.data?.booking_id || data.booking_id,
+              amount: totalAmount,
+              bookingDetails: {
+                salon: salon?.name || '',
+                stylist: selectedStylist?.full_name || '',
+                date: selectedDate,
+                time: selectedTimeSlot.start_time,
+                services: selectedServices.map(s => s.name)
+              }
+            }
+          });
         } else {
           // Handle booking errors
           const errorMessage = data.message || 'Booking failed';
@@ -583,7 +623,16 @@ export default function BookingPage() {
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {salon && (
-          <p className="text-muted-foreground mb-8 hidden sm:block">{isReschedule ? 'Reschedule your appointment' : 'Complete your booking'}</p>
+          <>
+            <p className="text-muted-foreground mb-4 hidden sm:block">{isReschedule ? 'Reschedule your appointment' : 'Complete your booking'}</p>
+            {isReschedule && (
+              <Alert className="mb-8 bg-blue-50 border-blue-200">
+                <AlertDescription className="text-sm text-blue-800">
+                  Note: Appointments cannot be cancelled or rescheduled on the day of the appointment. Please contact the salon directly for same-day changes.
+                </AlertDescription>
+              </Alert>
+            )}
+          </>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -688,7 +737,7 @@ export default function BookingPage() {
                           <p className="text-sm text-muted-foreground">{service.description} - <span className="text-blue-600 font-medium">{(service.duration_minutes || 30)} min</span></p>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : (service.price || 0)}</span>
+                          <span className="font-semibold text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</span>
                           {isSelected && <Check className="w-5 h-5 text-primary" />}
                         </div>
                       </div>
@@ -921,7 +970,12 @@ export default function BookingPage() {
                 )}
                 <div className="flex justify-between text-lg font-bold pt-3 border-t">
                   <span>Total:</span>
-                  <span className="text-green-800">${selectedServices.reduce((sum, s) => sum + (typeof s.price === 'number' ? s.price : 0), 0).toFixed(2)}</span>
+                  <span className="text-green-800">
+                    ${selectedServices.reduce((sum, service) => {
+                      const price = typeof service.price === 'number' ? service.price : parseFloat(service.price || 0);
+                      return sum + price;
+                    }, 0).toFixed(2)}
+                  </span>
                 </div>
                 <Button 
                   className="w-full mt-4" 
