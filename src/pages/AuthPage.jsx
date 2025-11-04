@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -18,6 +18,10 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const authContext = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Determine default tab based on route
+  const defaultTab = location.pathname === '/signup' ? 'signup' : 'login';
 
   const [registerForm, setRegisterForm] = useState({
     email: '',
@@ -165,7 +169,7 @@ export default function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs defaultValue={defaultTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>

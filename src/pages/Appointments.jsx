@@ -77,6 +77,20 @@ export default function Appointments() {
   };
 
   const handleCancel = async () => {
+    // Check if appointment is today - cannot cancel day of appointment
+    if (selectedAppointment?.scheduled_start) {
+      const appointmentDate = new Date(selectedAppointment.scheduled_start);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      appointmentDate.setHours(0, 0, 0, 0);
+      
+      if (appointmentDate.getTime() === today.getTime()) {
+        notifyError('Cannot cancel appointments on the day of the appointment. Please contact the salon directly.');
+        setShowCancelModal(false);
+        return;
+      }
+    }
+    
     setCanceling(true);
     try {
       const token = localStorage.getItem('auth_token');
@@ -99,12 +113,29 @@ export default function Appointments() {
       const data = await response.json();
 
       if (response.ok) {
-        notifySuccess('Appointment cancelled successfully');
+        // Check if refund was processed (backend should handle this automatically)
+        const refundMessage = data.data?.refund_processed 
+          ? 'Appointment cancelled and refund processed successfully.' 
+          : 'Appointment cancelled successfully. Refund will be processed if applicable.';
+        notifySuccess(refundMessage);
         fetchAppointments();
         setShowCancelModal(false);
         setSelectedAppointment(null);
       } else {
-        throw new Error(data.message || 'Cancellation failed');
+        // Provide specific error messages
+        let errorMessage = data.message || 'Cancellation failed';
+        if (response.status === 400) {
+          if (data.message && data.message.includes('day') || data.message && data.message.includes('today')) {
+            errorMessage = 'Cannot cancel appointments on the day of the appointment. Please contact the salon directly.';
+          } else if (data.message && data.message.includes('past')) {
+            errorMessage = 'Cannot cancel past appointments.';
+          } else if (data.message && data.message.includes('already')) {
+            errorMessage = 'This appointment has already been cancelled.';
+          }
+        } else if (response.status === 404) {
+          errorMessage = 'Appointment not found. It may have already been cancelled.';
+        }
+        throw new Error(errorMessage);
       }
     } catch (err) {
       console.error('Error cancelling appointment:', err);
@@ -146,22 +177,54 @@ export default function Appointments() {
 
   // Filter appointments based on selected filter
   const getFilteredAppointments = () => {
-    if (filter === 'all') return appointments;
+    let filtered = appointments;
     
-    return appointments.filter(appointment => {
-      const status = appointment.appointment?.status || appointment.status;
-      const isPast = isAppointmentPast(appointment);
-      const isCancelled = status === 'CANCELLED' || status === 'CANCELED';
+    if (filter !== 'all') {
+      filtered = appointments.filter(appointment => {
+        const status = appointment.appointment?.status || appointment.status;
+        const isPast = isAppointmentPast(appointment);
+        const isCancelled = status === 'CANCELLED' || status === 'CANCELED';
+        
+        if (filter === 'scheduled') {
+          return status === 'SCHEDULED' && !isPast;
+        } else if (filter === 'past') {
+          return isPast && !isCancelled;
+        } else if (filter === 'cancelled') {
+          return isCancelled;
+        }
+        
+        return true;
+      });
+    }
+    
+    // Sort by date
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.appointment?.scheduled_start || a.scheduled_start);
+      const dateB = new Date(b.appointment?.scheduled_start || b.scheduled_start);
+      const now = new Date();
       
+      const isAPast = isAppointmentPast(a);
+      const isBPast = isAppointmentPast(b);
+      
+      // For "scheduled" filter, all are upcoming - sort ascending (soonest first)
       if (filter === 'scheduled') {
-        return status === 'SCHEDULED' && !isPast;
-      } else if (filter === 'past') {
-        return isPast && !isCancelled;
-      } else if (filter === 'cancelled') {
-        return isCancelled;
+        return dateA - dateB;
       }
       
-      return true;
+      // For "past" filter, sort descending (most recent first)
+      if (filter === 'past') {
+        return dateB - dateA;
+      }
+      
+      // For "all" filter, upcoming first (soonest first), then past (most recent first)
+      if (isAPast && !isBPast) return 1;
+      if (!isAPast && isBPast) return -1;
+      
+      if (!isAPast && !isBPast) {
+        return dateA - dateB;
+      } else {
+        return dateB - dateA;
+      }
     });
   };
 
@@ -379,14 +442,23 @@ export default function Appointments() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
             {getFilteredAppointments().map((appointment) => {
               const isPast = isAppointmentPast(appointment);
               const status = appointment.appointment?.status || appointment.status;
               const canModify = status === 'SCHEDULED' && !isPast;
               
+              // Check if appointment is today - cannot cancel or reschedule same day
+              const appointmentDate = new Date(appointment.appointment?.scheduled_start || appointment.scheduled_start);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              appointmentDate.setHours(0, 0, 0, 0);
+              const isSameDay = appointmentDate.getTime() === today.getTime();
+              const canCancel = canModify && !isSameDay;
+              const canReschedule = canModify && !isSameDay;
+              
               return (
-              <Card key={appointment.booking_id}>
+              <Card key={appointment.booking_id} className="flex flex-col">
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
@@ -402,8 +474,8 @@ export default function Appointments() {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
+                <CardContent className="flex flex-col flex-grow">
+                  <div className="space-y-3 flex-grow">
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Calendar className="w-4 h-4 mr-2" />
                       {new Date(appointment.appointment?.scheduled_start || appointment.scheduled_start).toLocaleDateString('en-US', {
@@ -435,33 +507,40 @@ export default function Appointments() {
                         </div>
                       </div>
                     )}
-                    <div className="flex items-center justify-between pt-3 border-t">
-                      <span className="text-lg font-semibold text-green-800">
-                        ${typeof appointment.total_price === 'number' ? appointment.total_price.toFixed(2) : (appointment.total_price || '0.00')}
-                      </span>
-                      <div className="flex space-x-2">
-                        {canModify && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRescheduleClick(appointment)}
-                            >
-                              <Edit2 className="w-4 h-4 mr-1" />
-                              Reschedule
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleCancelClick(appointment)}
-                            >
-                              <X className="w-4 h-4 mr-1" />
-                              Cancel
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                    {isSameDay && canModify && (
+                      <Alert className="mt-3 bg-yellow-50 border-yellow-200 py-2">
+                        <AlertDescription className="text-xs text-yellow-800">
+                          Cannot cancel or reschedule on the day of appointment. Contact salon directly.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t mt-auto">
+                    <span className="text-lg font-semibold text-green-800">
+                      ${typeof appointment.total_price === 'number' ? appointment.total_price.toFixed(2) : (appointment.total_price || '0.00')}
+                    </span>
+                    <div className="flex space-x-2">
+                      {canReschedule && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRescheduleClick(appointment)}
+                        >
+                          <Edit2 className="w-4 h-4 mr-1" />
+                          Reschedule
+                        </Button>
+                      )}
+                      {canCancel && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => handleCancelClick(appointment)}
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Cancel
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -478,7 +557,20 @@ export default function Appointments() {
         onClose={() => setShowCancelModal(false)}
         onConfirm={handleCancel}
         title="Cancel Appointment"
-        message={`Are you sure you want to cancel this appointment at ${selectedAppointment?.salon_name}?\n\nThis action cannot be undone.`}
+        message={(() => {
+          let refundNote = 'A refund will be processed if applicable.\n\n';
+          if (selectedAppointment?.scheduled_start) {
+            const appointmentDate = new Date(selectedAppointment.scheduled_start);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            appointmentDate.setHours(0, 0, 0, 0);
+            if (appointmentDate.getTime() === today.getTime()) {
+              refundNote = 'Cannot cancel appointments on the day of the appointment.\n\n';
+            }
+          }
+          const salonName = selectedAppointment?.salon?.name || selectedAppointment?.salon_name || 'this salon';
+          return `Are you sure you want to cancel this appointment at ${salonName}?\n\n${refundNote}This action cannot be undone.`;
+        })()}
         confirmText="Cancel Appointment"
         cancelText="Keep Appointment"
         type="danger"

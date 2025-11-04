@@ -15,6 +15,7 @@ import LoyaltyMonitoring from './pages/LoyaltyMonitoring';
 import HairstylistDashboard from './pages/HairstylistDashboard';
 import BookingPage from './pages/BookingPage';
 import Appointments from './pages/Appointments';
+import PaymentPage from './pages/PaymentPage';
 
 // Context
 import { AuthContext, RewardsContext } from './context/AuthContext';
@@ -366,6 +367,10 @@ export default function App() {
             <Route 
               path="/appointments" 
               element={user ? <Appointments /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/payment" 
+              element={user ? <PaymentPage /> : <Navigate to="/login" replace />} 
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

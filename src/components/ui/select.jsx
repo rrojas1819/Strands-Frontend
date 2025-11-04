@@ -45,7 +45,7 @@ const Select = ({ children, value, onValueChange, ...props }) => {
   );
 };
 
-const SelectTrigger = React.forwardRef(({ className = '', children, isOpen, setIsOpen, ...props }, ref) => (
+const SelectTrigger = React.forwardRef(({ className = '', children, isOpen, setIsOpen, value, ...props }, ref) => (
   <button
     ref={ref}
     type="button"
@@ -58,7 +58,12 @@ const SelectTrigger = React.forwardRef(({ className = '', children, isOpen, setI
     }}
     {...props}
   >
-    {children}
+    {React.Children.map(children, child => {
+      if (React.isValidElement(child) && child.type?.displayName === 'SelectValue') {
+        return React.cloneElement(child, { value });
+      }
+      return child;
+    })}
     <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
   </button>
 ));
