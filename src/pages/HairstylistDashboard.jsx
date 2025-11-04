@@ -1,6 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import SalonReviews from '../components/SalonReviews';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -9,6 +10,7 @@ import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png'
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import StrandsModal from '../components/ui/strands-modal';
 import { toast } from 'sonner';
 
 export default function HairstylistDashboard() {
@@ -86,6 +88,9 @@ export default function HairstylistDashboard() {
     total_records: 0,
     has_more: false
   });
+  
+  const [showModal, setShowModal] = useState(false);
+  const [modalConfig, setModalConfig] = useState({});
   
   useEffect(() => {
     fetchStylistSalon();
@@ -2014,13 +2019,18 @@ export default function HairstylistDashboard() {
         )}
 
         {activeTab === 'reviews' && (
-          <div className="text-center py-12">
-            <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg mb-2">Reviews Tab</h3>
-                          <p className="text-sm text-muted-foreground">
-              Reviews content will be implemented here.
-            </p>
-                          </div>
+          <SalonReviews 
+            salonId={salonData?.salon_id}
+            onError={(error) => {
+              setModalConfig({
+                title: 'Error',
+                message: error,
+                type: 'error',
+                onConfirm: () => setShowModal(false)
+              });
+              setShowModal(true);
+            }}
+          />
         )}
 
         {activeTab === 'services' && (
@@ -2891,6 +2901,18 @@ export default function HairstylistDashboard() {
             </Card>
         </div>
       )}
+
+      <StrandsModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText || 'OK'}
+        showCancel={modalConfig.showCancel || false}
+        cancelText={modalConfig.cancelText || 'Cancel'}
+      />
     </div>
   );
 }
