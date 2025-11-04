@@ -6,6 +6,7 @@ import LoyaltyConfiguration from '../components/LoyaltyConfiguration';
 import OperatingHours from '../components/OperatingHours';
 import EmployeeHoursModal from '../components/EmployeeHoursModal';
 import ProductManagement from '../components/ProductManagement';
+import SalonReviews from '../components/SalonReviews';
 import { Button } from '../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
@@ -141,6 +142,7 @@ export default function SalonOwnerDashboard() {
       fetchCustomers();
     }
   }, [activeTab, sortOrder, salonStatus]);
+
 
   const fetchEmployees = async (page = 1) => {
     setEmployeesLoading(true);
@@ -497,6 +499,7 @@ export default function SalonOwnerDashboard() {
     setSortOrder(newOrder);
   };
 
+
   // UPH-1.2: Open customer visit history modal
   const openCustomerVisitModal = async (customer) => {
     setSelectedCustomer(customer);
@@ -650,8 +653,12 @@ export default function SalonOwnerDashboard() {
                   Customers
                 </button>
                 <button 
-                  onClick={() => toast.info('Reviews coming soon!')}
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                  onClick={() => setActiveTab('reviews')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'reviews' 
+                      ? 'border-primary text-primary' 
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
                 >
                   Reviews
                 </button>
@@ -1070,6 +1077,21 @@ export default function SalonOwnerDashboard() {
               </>
             )}
           </div>
+        )}
+
+        {activeTab === 'reviews' && salonStatus === 'APPROVED' && (
+          <SalonReviews 
+            salonId={salonInfo?.salon_id}
+            onError={(error) => {
+              setModalConfig({
+                title: 'Error',
+                message: error,
+                type: 'error',
+                onConfirm: () => setShowModal(false)
+              });
+              setShowModal(true);
+            }}
+          />
         )}
 
         {activeTab === 'loyalty' && salonStatus === 'APPROVED' && (

@@ -291,7 +291,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
   const categories = [
     'SHAMPOO',
     'CONDITIONER',
-    'Hair Treatment',
+    'HAIR TREATMENT',
     'STYLING PRODUCT',
     'HAIR COLOR',
     'HAIR ACCESSORIES',
