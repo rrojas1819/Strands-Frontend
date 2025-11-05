@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { MapPin, Phone, Mail, Star, Clock, LogOut, Calendar, Users, Award, Menu, X } from 'lucide-react';
-import { Notifications } from '../utils/notifications';
+import { MapPin, Phone, Mail, Star, Clock, LogOut, Calendar, Users, Award, Menu, X, Edit, Trash2 } from 'lucide-react';
+import { Notifications, notifyError, notifySuccess } from '../utils/notifications';
 import { trackSalonView } from '../utils/analytics';
 import StrandsModal from '../components/StrandsModal';
+import SalonReviews from '../components/SalonReviews';
+import { Textarea } from '../components/ui/textarea';
 
 export default function SalonDetail() {
   const { user, logout } = useContext(AuthContext);
@@ -21,6 +23,15 @@ export default function SalonDetail() {
   const [error, setError] = useState('');
   const [showRedeemModal, setShowRedeemModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [reviewsMeta, setReviewsMeta] = useState({ avg_rating: null, total: 0 });
+  const [myReview, setMyReview] = useState(null);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalConfig, setConfirmModalConfig] = useState({});
+  const [hoverRating, setHoverRating] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -35,15 +46,33 @@ export default function SalonDetail() {
         const token = localStorage.getItem('auth_token');
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
         
-        // Fetch salon and loyalty data in parallel
-        const [salonResponse, loyaltyResponse] = await Promise.allSettled([
+        // Fetch salon, loyalty, and reviews data in parallel
+        const fetchPromises = [
           fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
             headers: { 'Authorization': `Bearer ${token}` },
           }),
           fetch(`${apiUrl}/user/loyalty/view?salon_id=${salonId}`, {
             headers: { 'Authorization': `Bearer ${token}` },
+          }),
+          fetch(`${apiUrl}/reviews/salon/${salonId}/all?limit=1&offset=0`, {
+            headers: { 'Authorization': `Bearer ${token}` },
           })
-        ]);
+        ];
+
+        // Only fetch myReview if user is a CUSTOMER
+        if (user?.role === 'CUSTOMER') {
+          fetchPromises.push(
+            fetch(`${apiUrl}/reviews/salon/${salonId}/myReview`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            })
+          );
+        }
+
+        const responses = await Promise.allSettled(fetchPromises);
+        const salonResponse = responses[0];
+        const loyaltyResponse = responses[1];
+        const reviewsResponse = responses[2];
+        const myReviewResponse = user?.role === 'CUSTOMER' ? responses[3] : null;
 
         // Handle salon data
         if (salonResponse.status === 'fulfilled' && salonResponse.value.ok) {
@@ -67,10 +96,36 @@ export default function SalonDetail() {
             userRewards: loyaltyResult.userRewards || []
           });
         }
+
+        if (reviewsResponse && reviewsResponse.status === 'fulfilled' && reviewsResponse.value) {
+          try {
+            if (reviewsResponse.value.ok) {
+              const reviewsResult = await reviewsResponse.value.json();
+              setReviewsMeta({
+                avg_rating: reviewsResult.meta?.avg_rating || null,
+                total: reviewsResult.meta?.total || 0
+              });
+            }
+          } catch (err) {
+          }
+        }
+
+        if (user?.role === 'CUSTOMER' && myReviewResponse && myReviewResponse.status === 'fulfilled' && myReviewResponse.value) {
+          try {
+            if (myReviewResponse.value.ok) {
+              const myReviewResult = await myReviewResponse.value.json();
+              if (myReviewResult.data) {
+                setMyReview(myReviewResult.data);
+                setReviewRating(myReviewResult.data.rating);
+                setReviewMessage(myReviewResult.data.message || '');
+              }
+            }
+          } catch (err) {
+          }
+        }
         
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching salon details:', err);
         setError(err.message || 'Failed to load salon details.');
         setLoading(false);
       }
@@ -90,12 +145,188 @@ export default function SalonDetail() {
   };
 
   const handleRedeemConfirm = () => {
-    // TODO: Connect to backend redeem endpoint when available
-    // For now just show success message to user
     Notifications.notifySuccess(
       `Reward redeemed! ${loyaltyData.discount_percentage || 10}% off will be applied to your next visit at ${salon.name}.`
     );
     setShowRedeemModal(false);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewRating || reviewRating <= 0) {
+      notifyError('Please select a rating');
+      setShowConfirmModal(false);
+      return;
+    }
+    
+    setReviewLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      if (myReview) {
+        // Update existing review
+        const response = await fetch(`${apiUrl}/reviews/update/${myReview.review_id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            rating: Number(reviewRating),
+            message: reviewMessage && reviewMessage.trim() ? reviewMessage.trim() : null
+          })
+        });
+
+        if (!response.ok) {
+          const responseText = await response.text();
+          let errorData = {};
+          try {
+            errorData = JSON.parse(responseText);
+          } catch (e) {
+          }
+          
+          let errorMessage = errorData.message || 'Failed to update review';
+          if (response.status === 500) {
+            errorMessage = 'Server error occurred. Please check the backend logs for details.';
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+
+        notifySuccess('Review updated successfully!');
+        setMyReview(data.data);
+        setShowReviewForm(false);
+        setShowConfirmModal(false);
+      } else {
+        const requestBody = {
+          salon_id: parseInt(salonId),
+          rating: Number(reviewRating),
+          message: reviewMessage && reviewMessage.trim() ? reviewMessage.trim() : null
+        };
+        
+        const ratingNum = Number(reviewRating);
+        if (ratingNum < 0.5 || ratingNum > 5 || (ratingNum * 2) % 1 !== 0) {
+          notifyError('Invalid rating. Please select a valid rating between 0.5 and 5.0');
+          setShowConfirmModal(false);
+          setReviewLoading(false);
+          return;
+        }
+        
+        const response = await fetch(`${apiUrl}/reviews/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        const responseText = await response.text();
+        
+        if (!response.ok) {
+          let errorData = {};
+          try {
+            errorData = JSON.parse(responseText);
+          } catch (e) {
+          }
+          
+          let errorMessage = errorData.message || 'Failed to create review';
+          if (response.status === 403) {
+            errorMessage = 'You must complete a visit to this salon before leaving a review.';
+          } else if (response.status === 409) {
+            errorMessage = 'You have already reviewed this salon. Please update your existing review instead.';
+          } else if (response.status === 400) {
+            errorMessage = errorData.message || 'Invalid review data. Please check your rating and try again.';
+          } else if (response.status === 500) {
+            errorMessage = 'Server error occurred. Please check the backend logs for details.';
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+        const data = JSON.parse(responseText);
+
+        notifySuccess('Review submitted successfully!');
+        setMyReview(data.data);
+        setShowReviewForm(false);
+        setShowConfirmModal(false);
+      }
+
+      // Refresh reviews meta
+      const reviewsResponse = await fetch(`${apiUrl}/reviews/salon/${salonId}/all?limit=1&offset=0`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (reviewsResponse.ok) {
+        const reviewsResult = await reviewsResponse.json();
+        setReviewsMeta({
+          avg_rating: reviewsResult.meta?.avg_rating || null,
+          total: reviewsResult.meta?.total || 0
+        });
+      }
+
+      window.location.reload();
+    } catch (err) {
+      notifyError(err.message || 'Failed to submit review');
+      setShowConfirmModal(false);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    setReviewLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      const response = await fetch(`${apiUrl}/reviews/delete/${myReview.review_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to delete review');
+      }
+
+      notifySuccess('Review deleted successfully!');
+      setMyReview(null);
+      setReviewRating(0);
+      setReviewMessage('');
+      setShowReviewForm(false);
+      setShowConfirmModal(false);
+
+      // Refresh reviews meta
+      const reviewsResponse = await fetch(`${apiUrl}/reviews/salon/${salonId}/all?limit=1&offset=0`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (reviewsResponse.ok) {
+        const reviewsResult = await reviewsResponse.json();
+        setReviewsMeta({
+          avg_rating: reviewsResult.meta?.avg_rating || null,
+          total: reviewsResult.meta?.total || 0
+        });
+      }
+
+      window.location.reload();
+    } catch (err) {
+      notifyError(err.message || 'Failed to delete review');
+      setShowConfirmModal(false);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const formatTo12Hour = (time24) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':').map(Number);
+    const hours12 = hours % 12 || 12;
+    const ampm = hours < 12 ? 'AM' : 'PM';
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
   };
 
   const isSalonOpen = () => {
@@ -321,9 +552,18 @@ export default function SalonDetail() {
                     <CardTitle className="text-3xl font-bold">{salon.name}</CardTitle>
                     <CardDescription className="text-lg mt-2">{salon.category}</CardDescription>
                     <div className="flex items-center mt-4">
-                      <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                      <span className="ml-2 text-lg font-semibold">4.8</span>
-                      <span className="ml-1 text-muted-foreground">(24 reviews)</span>
+                      {reviewsMeta.avg_rating ? (
+                        <>
+                          <Star className="w-5 h-5 text-yellow-500 fill-current" />
+                          <span className="ml-2 text-lg font-semibold">{reviewsMeta.avg_rating}</span>
+                          <span className="ml-1 text-muted-foreground">({reviewsMeta.total} {reviewsMeta.total === 1 ? 'review' : 'reviews'})</span>
+                        </>
+                      ) : (
+                        <>
+                          <Star className="w-5 h-5 text-gray-300" />
+                          <span className="ml-2 text-lg font-semibold text-muted-foreground">No ratings yet</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <Badge 
@@ -369,7 +609,7 @@ export default function SalonDetail() {
                           <Clock className="w-4 h-4 text-muted-foreground mr-3" />
                           <span>
                             {dayName}: {isOpen 
-                              ? `${hours.start_time} - ${hours.end_time}` 
+                              ? `${formatTo12Hour(hours.start_time)} - ${formatTo12Hour(hours.end_time)}` 
                               : 'Closed'}
                           </span>
                         </div>
@@ -382,6 +622,21 @@ export default function SalonDetail() {
                     )}
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Reviews Section */}
+            <Card className="mt-8">
+              <CardHeader>
+                <CardTitle>Reviews</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SalonReviews 
+                  salonId={salonId}
+                  onError={(error) => {
+                    setError(error);
+                  }}
+                />
               </CardContent>
             </Card>
           </div>
@@ -491,56 +746,259 @@ export default function SalonDetail() {
               </CardContent>
             </Card>
 
-            {/* Reviews Preview */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Reviews</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium">A</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center mb-1">
-                        <div className="flex">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="w-3 h-3 text-yellow-500 fill-current" />
-                          ))}
+            {/* Write Review */}
+            {user?.role === 'CUSTOMER' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{myReview ? 'Edit Your Review' : 'Write a Review'}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {showReviewForm ? (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Rating</label>
+                        <div 
+                          className="flex"
+                          style={{ gap: '4px', margin: 0, padding: 0 }}
+                          onMouseLeave={() => setHoverRating(0)}
+                        >
+                          {[1, 2, 3, 4, 5].map((star) => {
+                            const activeRating = hoverRating > 0 ? hoverRating : reviewRating;
+                            const fullStars = Math.floor(activeRating);
+                            const hasHalfStar = activeRating % 1 === 0.5 && Math.ceil(activeRating) === star;
+                            const isFull = star <= fullStars;
+                            const isHalf = hasHalfStar;
+                            
+                            return (
+                              <div
+                                key={star}
+                                className="relative"
+                                style={{ 
+                                  width: '24px', 
+                                  height: '24px', 
+                                  flexShrink: 0,
+                                  isolation: 'isolate',
+                                  overflow: 'hidden',
+                                  margin: 0,
+                                  padding: 0,
+                                  boxSizing: 'border-box'
+                                }}
+                              >
+                                {/* Background star (always gray) */}
+                                <Star className="w-6 h-6 text-gray-300 absolute pointer-events-none" style={{ left: 0, top: 0, margin: 0 }} />
+                                {/* Foreground star (colored portion) */}
+                                <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ margin: 0, padding: 0 }}>
+                                  <Star
+                                    className="w-6 h-6 text-yellow-500 fill-current"
+                                    style={{
+                                      left: 0,
+                                      top: 0,
+                                      margin: 0,
+                                      clipPath: isHalf 
+                                        ? 'polygon(0% 0%, 50% 0%, 50% 100%, 0% 100%)' 
+                                        : isFull 
+                                        ? 'none' 
+                                        : 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)'
+                                    }}
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  className="absolute focus:outline-none z-20 bg-transparent border-0 cursor-pointer"
+                                  style={{ 
+                                    left: 0, 
+                                    top: 0, 
+                                    width: '50%', 
+                                    height: '100%',
+                                    margin: 0,
+                                    padding: 0,
+                                    minWidth: 0,
+                                    minHeight: 0
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.stopPropagation();
+                                    setHoverRating(star - 0.5);
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setReviewRating(star - 0.5);
+                                  }}
+                                  aria-label={`${star - 0.5} stars`}
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute focus:outline-none z-20 bg-transparent border-0 cursor-pointer"
+                                  style={{ 
+                                    left: '50%', 
+                                    top: 0, 
+                                    width: '50%', 
+                                    height: '100%',
+                                    margin: 0,
+                                    padding: 0,
+                                    minWidth: 0,
+                                    minHeight: 0
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.stopPropagation();
+                                    setHoverRating(star);
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setReviewRating(star);
+                                  }}
+                                  aria-label={`${star} stars`}
+                                />
+                              </div>
+                            );
+                          })}
                         </div>
-                        <span className="ml-2 text-sm text-muted-foreground">2 days ago</span>
                       </div>
-                      <p className="text-sm">"Great service and friendly staff!"</p>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Comment (optional)</label>
+                        <Textarea
+                          value={reviewMessage}
+                          onChange={(e) => setReviewMessage(e.target.value)}
+                          placeholder="Share your experience..."
+                          className="min-h-[100px]"
+                        />
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          className="flex-1 bg-primary hover:bg-primary/90"
+                          onClick={() => {
+                            if (!reviewRating || reviewRating <= 0) {
+                              notifyError('Please select a rating');
+                              return;
+                            }
+                            setConfirmModalConfig({
+                              title: myReview ? 'Update Review' : 'Submit Review',
+                              message: myReview 
+                                ? 'Are you sure you want to update your review?'
+                                : 'Are you sure you want to submit this review?',
+                              type: 'info',
+                              onConfirm: () => {
+                                handleSubmitReview();
+                              }
+                            });
+                            setShowConfirmModal(true);
+                          }}
+                          disabled={reviewLoading}
+                        >
+                          {myReview ? 'Update Review' : 'Submit Review'}
+                        </Button>
+                        {myReview && (
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setConfirmModalConfig({
+                                title: 'Delete Review',
+                                message: 'Are you sure you want to delete your review? This action cannot be undone.',
+                                type: 'warning',
+                                onConfirm: () => {
+                                  handleDeleteReview();
+                                }
+                              });
+                              setShowConfirmModal(true);
+                            }}
+                            disabled={reviewLoading}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowReviewForm(false);
+                            if (myReview) {
+                              setReviewRating(myReview.rating);
+                              setReviewMessage(myReview.message || '');
+                            } else {
+                              setReviewRating(0);
+                              setReviewMessage('');
+                            }
+                          }}
+                          disabled={reviewLoading}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium">B</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center mb-1">
-                        <div className="flex">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="w-3 h-3 text-yellow-500 fill-current" />
-                          ))}
+                  ) : myReview ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="flex">
+                            {[1, 2, 3, 4, 5].map((star) => {
+                              const isFullStar = myReview.rating >= star;
+                              const isHalfStar = myReview.rating === star - 0.5;
+                              return (
+                                <div key={star} className="relative">
+                                  <Star className="w-4 h-4 text-gray-300" />
+                                  {isFullStar || isHalfStar ? (
+                                    <div className="absolute inset-0 overflow-hidden">
+                                      <Star
+                                        className={`w-4 h-4 text-yellow-500 fill-current ${
+                                          isHalfStar ? 'opacity-50' : ''
+                                        }`}
+                                        style={{
+                                          clipPath: isHalfStar 
+                                            ? 'inset(0 50% 0 0)' 
+                                            : 'none'
+                                        }}
+                                      />
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {myReview.message || 'No comment'}
+                          </span>
                         </div>
-                        <span className="ml-2 text-sm text-muted-foreground">1 week ago</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowReviewForm(true)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <p className="text-sm">"Love the atmosphere here!"</p>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setConfirmModalConfig({
+                            title: 'Delete Review',
+                            message: 'Are you sure you want to delete your review? This action cannot be undone.',
+                            type: 'warning',
+                            onConfirm: () => handleDeleteReview()
+                          });
+                          setShowConfirmModal(true);
+                        }}
+                        disabled={reviewLoading}
+                        className="w-full"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Review
+                      </Button>
                     </div>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" className="w-full mt-3">
-                  View All Reviews
-                </Button>
-              </CardContent>
-            </Card>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => setShowReviewForm(true)}
+                    >
+                      Write a Review
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </main>
 
-      {/* Custom Strands Modal */}
+      {/* Custom Strands Modal - Redeem */}
       <StrandsModal
         isOpen={showRedeemModal}
         onClose={() => setShowRedeemModal(false)}
@@ -550,6 +1008,24 @@ export default function SalonDetail() {
         confirmText="Redeem"
         cancelText="Cancel"
         type="success"
+      />
+
+      {/* Custom Strands Modal - Review Confirmation */}
+      <StrandsModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={() => {
+          if (confirmModalConfig.onConfirm) {
+            confirmModalConfig.onConfirm();
+          } else {
+            setShowConfirmModal(false);
+          }
+        }}
+        title={confirmModalConfig.title || 'Confirm'}
+        message={confirmModalConfig.message || ''}
+        confirmText="Confirm"
+        cancelText="Cancel"
+        type={confirmModalConfig.type || 'info'}
       />
     </div>
   );

@@ -14,6 +14,7 @@ export default function SalonBrowser() {
   const { rewardsCount } = useContext(RewardsContext);
   const navigate = useNavigate();
   const [salons, setSalons] = useState([]);
+  const [salonRatings, setSalonRatings] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,7 +23,6 @@ export default function SalonBrowser() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Salon categories
   const categories = [
     { value: 'all', label: 'All Categories' },
     { value: 'HAIR SALON', label: 'Hair Salon' },
@@ -33,17 +33,15 @@ export default function SalonBrowser() {
     { value: 'FULL SERVICE BEAUTY', label: 'Full Service Beauty' }
   ];
 
-  // Update current time every minute
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000); // Update every minute
+    }, 60000);
 
     return () => clearInterval(timer);
   }, []);
 
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (isDropdownOpen && !event.target.closest('.relative')) {
@@ -81,8 +79,35 @@ export default function SalonBrowser() {
 
         const data = await response.json();
         setSalons(data.data);
+        
+        const ratingsMap = {};
+        const ratingPromises = data.data.map(async (salon) => {
+          try {
+            const ratingResponse = await fetch(
+              `${import.meta.env.VITE_API_URL}/reviews/salon/${salon.salon_id}/all?limit=1&offset=0`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              }
+            );
+            if (ratingResponse.ok) {
+              try {
+                const ratingData = await ratingResponse.json();
+                ratingsMap[salon.salon_id] = {
+                  avg_rating: ratingData.meta?.avg_rating || null,
+                  total: ratingData.meta?.total || 0
+                };
+              } catch (parseErr) {
+              }
+            }
+          } catch (err) {
+          }
+        });
+        
+        await Promise.allSettled(ratingPromises);
+        setSalonRatings(ratingsMap);
       } catch (err) {
-        console.error('Error fetching salons:', err);
         setError(err.message || 'Failed to load salons.');
       } finally {
         setLoading(false);
@@ -123,7 +148,6 @@ export default function SalonBrowser() {
     );
   };
 
-  // Helper function to format time to 12-hour AM/PM format
   const formatTo12Hour = (time24) => {
     if (!time24) return '';
     const [hours, minutes] = time24.split(':').map(Number);
@@ -132,7 +156,6 @@ export default function SalonBrowser() {
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
   };
 
-  // Helper function to get short day names
   const getShortDayName = (day) => {
     const dayMap = {
       'sunday': 'Sun',
@@ -146,11 +169,9 @@ export default function SalonBrowser() {
     return dayMap[day.toLowerCase()] || day;
   };
 
-  // Helper function to group and format hours
   const formatHours = (weeklyHours) => {
     if (!weeklyHours) return [];
     
-    // Group days by hours
     const hoursMap = {};
     Object.entries(weeklyHours).forEach(([day, hours]) => {
       const dayName = getShortDayName(day.charAt(0) + day.slice(1).toLowerCase());
@@ -163,7 +184,6 @@ export default function SalonBrowser() {
       hoursMap[key].days.push(dayName);
     });
 
-    // Format grouped hours
     const formatted = [];
     Object.entries(hoursMap).forEach(([key, data]) => {
       const daysStr = data.days.join(', ');
@@ -174,12 +194,11 @@ export default function SalonBrowser() {
     return formatted;
   };
 
-  // Function to check if salon is currently open
   const isSalonOpen = (salon) => {
-    if (!salon?.weekly_hours) return null; // No data available
+    if (!salon?.weekly_hours) return null;
 
     const now = currentTime;
-    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const dayOfWeek = now.getDay();
     const currentHour = now.getHours();
     const currentMinutes = now.getMinutes();
     const currentTimeMinutes = currentHour * 60 + currentMinutes;
@@ -433,10 +452,17 @@ export default function SalonBrowser() {
                       {getCategoryBadge(salon.category)}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                    <span className="text-sm font-medium">4.8</span>
-                  </div>
+                  {salonRatings[salon.salon_id]?.avg_rating ? (
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                      <span className="text-sm font-medium">{salonRatings[salon.salon_id].avg_rating}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-4 h-4 text-gray-300" />
+                      <span className="text-sm font-medium text-muted-foreground">N/A</span>
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col h-full">
