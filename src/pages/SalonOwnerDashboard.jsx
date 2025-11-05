@@ -624,7 +624,7 @@ export default function SalonOwnerDashboard() {
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                   }`}
                 >
-                  Staff & Services
+                  Staff
                 </button>
                 <button 
                   onClick={() => setActiveTab('products')}
@@ -635,12 +635,6 @@ export default function SalonOwnerDashboard() {
                   }`}
                 >
                   Products
-                </button>
-                <button 
-                  onClick={() => toast.info('Appointments coming soon!')}
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
-                >
-                  Appointments
                 </button>
                 <button 
                   onClick={() => setActiveTab('customers')}
@@ -1082,6 +1076,7 @@ export default function SalonOwnerDashboard() {
         {activeTab === 'reviews' && salonStatus === 'APPROVED' && (
           <SalonReviews 
             salonId={salonInfo?.salon_id}
+            canReply={true}
             onError={(error) => {
               setModalConfig({
                 title: 'Error',

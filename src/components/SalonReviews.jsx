@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Star, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Textarea } from './ui/textarea';
+import StrandsModal from './ui/strands-modal';
+import { Star, Users, ChevronLeft, ChevronRight, MessageSquare, Edit, Trash2, X } from 'lucide-react';
 
-export default function SalonReviews({ salonId, onError }) {
+export default function SalonReviews({ salonId, canReply = false, onError }) {
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsMeta, setReviewsMeta] = useState({
@@ -14,6 +16,12 @@ export default function SalonReviews({ salonId, onError }) {
     offset: 0,
     hasMore: false
   });
+
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [editingReply, setEditingReply] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [replyLoading, setReplyLoading] = useState(false);
+  const [deletingReplyId, setDeletingReplyId] = useState(null);
 
   useEffect(() => {
     if (salonId) {
@@ -63,6 +71,138 @@ export default function SalonReviews({ salonId, onError }) {
       ? reviewsMeta.offset + reviewsMeta.limit
       : Math.max(0, reviewsMeta.offset - reviewsMeta.limit);
     fetchReviews(newOffset);
+  };
+
+  const handleStartReply = (reviewId) => {
+    setReplyingTo(reviewId);
+    setReplyText('');
+    setEditingReply(null);
+  };
+
+  const handleStartEdit = (reply) => {
+    setEditingReply(reply.reply_id);
+    setReplyText(reply.message);
+    setReplyingTo(null);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+    setEditingReply(null);
+    setReplyText('');
+  };
+
+  const handleCreateReply = async (reviewId) => {
+    if (!replyText.trim()) {
+      if (onError) onError('Please enter a reply message');
+      return;
+    }
+
+    setReplyLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL;
+
+      const response = await fetch(`${apiUrl}/reviews/replies/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          review_id: reviewId,
+          message: replyText.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setReplyingTo(null);
+        setReplyText('');
+        fetchReviews(reviewsMeta.offset);
+      } else {
+        if (onError) onError(data.message || 'Failed to create reply');
+      }
+    } catch (error) {
+      console.error('Create reply error:', error);
+      if (onError) onError('Failed to create reply');
+    } finally {
+      setReplyLoading(false);
+    }
+  };
+
+  const handleUpdateReply = async (replyId) => {
+    if (!replyText.trim()) {
+      if (onError) onError('Please enter a reply message');
+      return;
+    }
+
+    setReplyLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL;
+
+      const response = await fetch(`${apiUrl}/reviews/replies/update/${replyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          message: replyText.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setEditingReply(null);
+        setReplyText('');
+        fetchReviews(reviewsMeta.offset);
+      } else {
+        if (onError) onError(data.message || 'Failed to update reply');
+      }
+    } catch (error) {
+      console.error('Update reply error:', error);
+      if (onError) onError('Failed to update reply');
+    } finally {
+      setReplyLoading(false);
+    }
+  };
+
+  const handleDeleteReply = (replyId) => {
+    setDeletingReplyId(replyId);
+  };
+
+  const confirmDeleteReply = async () => {
+    if (!deletingReplyId) return;
+
+    setReplyLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL;
+
+      const response = await fetch(`${apiUrl}/reviews/replies/delete/${deletingReplyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setDeletingReplyId(null);
+        fetchReviews(reviewsMeta.offset);
+      } else {
+        if (onError) onError(data.message || 'Failed to delete reply');
+      }
+    } catch (error) {
+      console.error('Delete reply error:', error);
+      if (onError) onError('Failed to delete reply');
+    } finally {
+      setReplyLoading(false);
+    }
   };
 
   return (
@@ -180,6 +320,60 @@ export default function SalonReviews({ salonId, onError }) {
                   {review.message && (
                     <p className="text-sm text-foreground mt-3">{review.message}</p>
                   )}
+
+                  {canReply && !review.reply && replyingTo !== review.review_id && (
+                    <div className="mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleStartReply(review.review_id)}
+                        disabled={replyLoading}
+                        className="flex items-center space-x-2"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Reply</span>
+                      </Button>
+                    </div>
+                  )}
+
+                  {canReply && replyingTo === review.review_id && (
+                    <div className="mt-4 pt-4 border-t border-muted">
+                      <div className="space-y-3">
+                        <Textarea
+                          placeholder="Write your reply..."
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          rows={3}
+                          maxLength={2000}
+                          className="resize-none"
+                        />
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {replyText.length}/2000 characters
+                          </span>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleCancelReply}
+                              disabled={replyLoading}
+                            >
+                              <X className="w-4 h-4 mr-1" />
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleCreateReply(review.review_id)}
+                              disabled={replyLoading || !replyText.trim()}
+                            >
+                              {replyLoading ? 'Sending...' : 'Send Reply'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {review.reply && (
                     <div className="mt-4 pt-4 border-t border-muted">
                       <div className="flex justify-between items-start mb-3">
@@ -198,15 +392,77 @@ export default function SalonReviews({ salonId, onError }) {
                             </div>
                           </div>
                         </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
-                          {new Date(review.reply.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(review.reply.created_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-sm text-foreground">{review.reply.message}</p>
+                      {editingReply === review.reply.reply_id ? (
+                        <div className="space-y-3">
+                          <Textarea
+                            placeholder="Write your reply..."
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            rows={3}
+                            maxLength={2000}
+                            className="resize-none"
+                          />
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">
+                              {replyText.length}/2000 characters
+                            </span>
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCancelReply}
+                                disabled={replyLoading}
+                              >
+                                <X className="w-4 h-4 mr-1" />
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleUpdateReply(review.reply.reply_id)}
+                                disabled={replyLoading || !replyText.trim()}
+                              >
+                                {replyLoading ? 'Updating...' : 'Update Reply'}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm text-foreground mb-0 leading-tight">{review.reply.message}</p>
+                          {canReply && (
+                            <div className="flex justify-end space-x-2 -mt-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleStartEdit(review.reply)}
+                                disabled={replyLoading}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteReply(review.reply.reply_id)}
+                                disabled={replyLoading}
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -243,6 +499,18 @@ export default function SalonReviews({ salonId, onError }) {
           )}
         </>
       )}
+
+      <StrandsModal
+        isOpen={deletingReplyId !== null}
+        onClose={() => setDeletingReplyId(null)}
+        title="Delete Reply"
+        message="Are you sure you want to delete this reply? This action cannot be undone."
+        type="warning"
+        onConfirm={confirmDeleteReply}
+        confirmText="Delete"
+        showCancel={true}
+        cancelText="Cancel"
+      />
     </div>
   );
 }
