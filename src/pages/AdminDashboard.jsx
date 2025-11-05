@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
-import { BarChart3, Users, TrendingUp, DollarSign, Users2, LogOut, Activity, Calendar, Repeat, ArrowUp, ArrowDown, Eye, Scissors, Clock, TrendingDown } from 'lucide-react';
+import { BarChart3, Users, TrendingUp, DollarSign, Users2, LogOut, Activity, Calendar, Repeat, ArrowUp, ArrowDown, Eye, Scissors, Clock, TrendingDown, Building2, ShoppingBag, Award, Receipt, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminDashboard() {
@@ -15,10 +15,12 @@ export default function AdminDashboard() {
   const [engagementLoading, setEngagementLoading] = useState(false);
   const [appointmentAnalytics, setAppointmentAnalytics] = useState(null);
   const [appointmentLoading, setAppointmentLoading] = useState(false);
+  const [revenueAnalytics, setRevenueAnalytics] = useState(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('user-analytics'); // 'user-analytics' or 'business-insights'
-  const [peakView, setPeakView] = useState('hours'); // 'hours' or 'days'
+  const [activeTab, setActiveTab] = useState('user-analytics');
+  const [peakView, setPeakView] = useState('hours');
   const authContext = useContext(AuthContext);
 
   useEffect(() => {
@@ -29,6 +31,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab === 'business-insights') {
       fetchAppointmentAnalytics();
+    } else if (activeTab === 'revenue-analytics') {
+      fetchRevenueAnalytics();
     }
   }, [activeTab]);
 
@@ -150,7 +154,6 @@ export default function AdminDashboard() {
         return;
       }
 
-      console.log('Fetching appointment analytics data...');
       const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/appointment-analytics`, {
         method: 'GET',
         headers: {
@@ -159,21 +162,50 @@ export default function AdminDashboard() {
         },
       });
 
-      console.log('Appointment analytics response status:', response.status);
       const data = await response.json();
-      console.log('Appointment analytics response data:', data);
 
       if (response.ok) {
         setAppointmentAnalytics(data);
       } else {
-        console.error('Failed to fetch appointment analytics:', data.message);
         toast.error(data.message || 'Failed to fetch appointment analytics data');
       }
     } catch (err) {
-      console.error('Appointment analytics fetch error:', err);
       toast.error('Failed to fetch appointment analytics data');
     } finally {
       setAppointmentLoading(false);
+    }
+  };
+
+  const fetchRevenueAnalytics = async () => {
+    try {
+      setRevenueLoading(true);
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('No authentication token found');
+        setRevenueLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/salon-revenue-analytics`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setRevenueAnalytics(data);
+      } else {
+        toast.error(data.message || 'Failed to fetch revenue analytics data');
+      }
+    } catch (err) {
+      toast.error('Failed to fetch revenue analytics data');
+    } finally {
+      setRevenueLoading(false);
     }
   };
 
@@ -255,7 +287,14 @@ export default function AdminDashboard() {
                 >
                   Business Insights
                 </button>
-                <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                <button 
+                  onClick={() => setActiveTab('revenue-analytics')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'revenue-analytics'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
                   Revenue Tracking
                 </button>
               </div>
@@ -663,7 +702,7 @@ export default function AdminDashboard() {
               </Button>
             </div>
           </>
-        ) : (
+        ) : activeTab === 'business-insights' ? (
           <>
             {/* Business Insights Tab */}
             <div className="mb-8">
@@ -1174,7 +1213,274 @@ export default function AdminDashboard() {
               </div>
             )}
           </>
-        )}
+        ) : activeTab === 'revenue-analytics' ? (
+          <>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-foreground mb-2">
+                Revenue Tracking
+              </h2>
+              <p className="text-muted-foreground">
+                Monitor platform revenue, top performers, and financial metrics.
+              </p>
+            </div>
+
+            {revenueLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading revenue analytics...</p>
+              </div>
+            ) : revenueAnalytics ? (
+              <div className="space-y-6">
+                {(() => {
+                  const platformData = revenueAnalytics.platformRevenueAnalytics?.[0] || {};
+                  const platformRevenue = parseFloat(platformData.platform_revenue || 0);
+                  const totalSuccessful = platformData.total_successful || 0;
+                  
+                  const topSalon = revenueAnalytics.topMetrics?.topSalon || {};
+                  const topProduct = revenueAnalytics.topMetrics?.topProduct || {};
+                  const topStylist = revenueAnalytics.topMetrics?.topStylist || {};
+                  const topServices = revenueAnalytics.topMetrics?.topServices || [];
+                  const perSalonData = revenueAnalytics.perSalonRevenueAnalytics || [];
+
+                  return (
+                    <>
+                      <div className="grid grid-cols-1 gap-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center space-x-2">
+                              <DollarSign className="w-5 h-5" />
+                              <span>Total Platform Revenue</span>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-foreground">
+                              ${platformRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              {totalSuccessful} successful bookings
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {topSalon.salon_name && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center space-x-2">
+                              <Building2 className="w-5 h-5" />
+                              <span>Highest Grossing Salon</span>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                                <div>
+                                  <p className="font-semibold text-lg">{topSalon.salon_name}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-2xl font-bold text-foreground">
+                                    ${parseFloat(topSalon.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">Total Revenue</p>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground">Booking Revenue</p>
+                                  <p className="font-semibold">
+                                    ${parseFloat(topSalon.booking_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Product Revenue</p>
+                                  <p className="font-semibold">
+                                    ${parseFloat(topSalon.product_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {topProduct.product_name && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="flex items-center space-x-2">
+                                <ShoppingBag className="w-5 h-5" />
+                                <span>Highest Grossing Product</span>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg h-[72px]">
+                                  <div className="flex flex-col justify-center">
+                                    <p className="font-semibold">{topProduct.product_name}</p>
+                                    <p className="text-sm text-muted-foreground opacity-0">Placeholder</p>
+                                  </div>
+                                  <div className="text-right flex flex-col justify-center">
+                                    <p className="text-xl font-bold">
+                                      ${parseFloat(topProduct.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-sm space-y-2">
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Units Sold</span>
+                                    <span className="font-semibold">{topProduct.units_sold || 0} units</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Listing Price</span>
+                                    <span className="font-semibold">
+                                      ${parseFloat(topProduct.listing_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {topStylist.stylist_name && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="flex items-center space-x-2">
+                                <Scissors className="w-5 h-5" />
+                                <span>Highest Grossing Stylist</span>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg h-[72px]">
+                                  <div className="flex flex-col justify-center">
+                                    <p className="font-semibold">{topStylist.stylist_name}</p>
+                                    <p className="text-sm text-muted-foreground">{topStylist.salon_name || ''}</p>
+                                  </div>
+                                  <div className="text-right flex flex-col justify-center">
+                                    <p className="text-xl font-bold">
+                                      ${parseFloat(topStylist.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-sm space-y-2">
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Total Bookings</span>
+                                    <span className="font-semibold">{topStylist.total_bookings || 0} appointments</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Avg per Booking</span>
+                                    <span className="font-semibold">
+                                      ${topStylist.total_bookings > 0 
+                                        ? (parseFloat(topStylist.total_revenue || 0) / topStylist.total_bookings).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        : '0.00'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+
+                      {topServices.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center space-x-2">
+                              <Award className="w-5 h-5" />
+                              <span>Highest Grossing Services</span>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {topServices.map((service, index) => {
+                                const serviceRevenue = parseFloat(service.total_revenue || 0);
+                                const topServiceRevenue = topServices.length > 0 ? parseFloat(topServices[0].total_revenue || 0) : 0;
+                                const isTopService = serviceRevenue === topServiceRevenue && index === 0;
+                                
+                                return (
+                                  <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                    <div>
+                                      <p className="font-semibold">{service.service_name}</p>
+                                      <p className="text-sm text-muted-foreground">{service.salon_name || ''}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-lg font-bold">
+                                        ${serviceRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </p>
+                                      <p className="text-sm text-muted-foreground">
+                                        {service.times_booked || 0} bookings
+                                      </p>
+                                      {isTopService && (
+                                        <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                          Top Performer
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {perSalonData.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center space-x-2">
+                              <Receipt className="w-5 h-5" />
+                              <span>Salon Revenue Breakdown</span>
+                            </CardTitle>
+                            <CardDescription>
+                              View individual salon revenue and performance metrics
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {perSalonData.map((salon, index) => {
+                                const salonRevenue = parseFloat(salon.salon_revenue || 0);
+                                const isTopPerformer = topSalon.salon_name === salon.salon_name;
+                                
+                                return (
+                                  <div key={index} className="p-4 border rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <p className="font-semibold text-lg">{salon.salon_name}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-xl font-bold text-foreground">
+                                          ${salonRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                        {isTopPerformer && (
+                                          <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                            Top Performer
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-white rounded-lg border">
+                <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No revenue data available</h3>
+                <p className="text-sm text-muted-foreground">
+                  Revenue analytics will appear here once data is available.
+                </p>
+              </div>
+            )}
+          </>
+        ) : null}
       </main>
     </div>
   );
