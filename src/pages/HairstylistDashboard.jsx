@@ -2066,31 +2066,31 @@ export default function HairstylistDashboard() {
             ) : (
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                  {services.map((service) => (
-                   <Card key={service.service_id} className="hover:shadow-lg transition-shadow">
-                     <CardContent className="p-6 pt-5">
+                   <Card key={service.service_id} className="hover:shadow-lg transition-shadow h-full flex flex-col">
+                    <CardContent className="p-6 pt-5 flex flex-col flex-1">
                                              <div className="flex justify-between items-start mb-4">
-                         <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
-                         <div className="flex space-x-2">
-                        <Button 
-                             variant="ghost"
-                          size="sm"
-                             onClick={() => openEditModal(service)}
-                             className="h-10 w-10 p-0"
-                        >
-                             <Edit className="w-6 h-6" />
-                        </Button>
-                        <Button 
-                             variant="ghost"
-                          size="sm"
-                             onClick={() => openDeleteModal(service)}
-                             className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
-                        >
-                             <Trash2 className="w-6 h-6" />
-                        </Button>
-                      </div>
-                    </div>
-                      <p className="text-sm text-muted-foreground mb-4">{service.description}</p>
-                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
+                        <div className="flex space-x-2">
+                       <Button 
+                            variant="ghost"
+                         size="sm"
+                            onClick={() => openEditModal(service)}
+                            className="h-10 w-10 p-0"
+                       >
+                            <Edit className="w-6 h-6" />
+                       </Button>
+                       <Button 
+                            variant="ghost"
+                         size="sm"
+                            onClick={() => openDeleteModal(service)}
+                            className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
+                       >
+                            <Trash2 className="w-6 h-6" />
+                       </Button>
+                     </div>
+                   </div>
+                     <p className="text-sm text-muted-foreground mb-4 flex-1">{service.description}</p>
+                     <div className="flex justify-between items-center mt-auto">
                         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4" />
                           <span className="text-blue-600 font-medium">{service.duration_minutes} min</span>
