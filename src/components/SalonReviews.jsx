@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { Star, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function SalonReviews({ salonId, onError }) {
@@ -176,8 +177,37 @@ export default function SalonReviews({ salonId, onError }) {
                       })}
                     </span>
                   </div>
-                  {review.comment && (
-                    <p className="text-sm text-foreground mt-3">{review.comment}</p>
+                  {review.message && (
+                    <p className="text-sm text-foreground mt-3">{review.message}</p>
+                  )}
+                  {review.reply && (
+                    <div className="mt-4 pt-4 border-t border-muted">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <Star className="w-4 h-4 text-primary" />
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium text-foreground">
+                                {review.reply.user?.name || 'Salon Owner'}
+                              </span>
+                              <Badge variant="secondary" className="text-xs">
+                                Owner
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
+                          {new Date(review.reply.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-foreground">{review.reply.message}</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
