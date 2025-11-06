@@ -172,7 +172,7 @@ export default function SalonDetail() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            rating: Number(reviewRating),
+            rating: parseFloat(reviewRating),
             message: reviewMessage && reviewMessage.trim() ? reviewMessage.trim() : null
           })
         });
@@ -202,11 +202,11 @@ export default function SalonDetail() {
       } else {
         const requestBody = {
           salon_id: parseInt(salonId),
-          rating: Number(reviewRating),
+          rating: parseFloat(reviewRating),
           message: reviewMessage && reviewMessage.trim() ? reviewMessage.trim() : null
         };
         
-        const ratingNum = Number(reviewRating);
+        const ratingNum = parseFloat(reviewRating);
         if (ratingNum < 0.5 || ratingNum > 5 || (ratingNum * 2) % 1 !== 0) {
           notifyError('Invalid rating. Please select a valid rating between 0.5 and 5.0');
           setShowConfirmModal(false);
