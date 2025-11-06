@@ -328,8 +328,8 @@ export default function AdminDashboard() {
               </h2>
               <p className="text-muted-foreground">
                 View user demographics and engagement metrics to understand your platform's user base.
-              </p>
-            </div>
+                      </p>
+                    </div>
 
         {/* Analytics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -403,8 +403,8 @@ export default function AdminDashboard() {
                             });
                           })()}
                         </svg>
-                    </div>
-                  </div>
+            </div>
+          </div>
 
                     {/* Legend */}
                     <div className="mt-4 grid grid-cols-2 gap-2">
@@ -424,7 +424,7 @@ export default function AdminDashboard() {
                             ></div>
                             <span className="capitalize">{role.toLowerCase()}</span>
                             <span className="text-muted-foreground">— {count} users ({percentage}%)</span>
-                    </div>
+        </div>
                         );
                       })}
                   </div>
@@ -525,26 +525,26 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Yesterday's Logins</CardTitle>
-              </CardHeader>
-              <CardContent>
+                </CardHeader>
+                <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold">{userEngagement.yesterday_logins || 0}</div>
                     <Activity className="w-8 h-8 text-gray-500" />
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Past Week Logins</CardTitle>
-              </CardHeader>
-              <CardContent>
+                </CardHeader>
+                <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold">{userEngagement.past_week_logins || 0}</div>
                     <Users2 className="w-8 h-8 text-purple-500" />
@@ -570,20 +570,20 @@ export default function AdminDashboard() {
                       )}
                       </div>
                   )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Previous Week Logins</CardTitle>
-              </CardHeader>
-              <CardContent>
+                </CardHeader>
+                <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold">{userEngagement.previous_week_logins || 0}</div>
                     <Users2 className="w-8 h-8 text-gray-400" />
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Booking Statistics */}
@@ -598,19 +598,19 @@ export default function AdminDashboard() {
                     Overview of platform booking activity
                 </CardDescription>
               </CardHeader>
-                <CardContent className="space-y-4">
+              <CardContent className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Total Bookings</p>
                       <p className="text-3xl font-bold text-blue-600">{userEngagement.total_bookings || 0}</p>
-                    </div>
-                    <Calendar className="w-12 h-12 text-blue-500" />
                   </div>
+                    <Calendar className="w-12 h-12 text-blue-500" />
+                </div>
                   <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
                 <div>
                       <p className="text-sm font-medium text-muted-foreground">Repeat Customers</p>
                       <p className="text-3xl font-bold text-purple-600">{userEngagement.repeat_bookers || 0}</p>
-                          </div>
+                  </div>
                     <Repeat className="w-12 h-12 text-purple-500" />
                 </div>
               </CardContent>
@@ -635,13 +635,13 @@ export default function AdminDashboard() {
                           <div className="flex items-center space-x-3">
                             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold">
                               {index + 1}
-                  </div>
+                    </div>
                   <div>
                               <p className="font-medium">{service.name}</p>
                               <p className="text-sm text-muted-foreground">{service.total_bookings} bookings</p>
-                            </div>
-                          </div>
-                        </div>
+                  </div>
+                    </div>
+                  </div>
                       ))}
                     </div>
                   ) : (
@@ -674,13 +674,13 @@ export default function AdminDashboard() {
                           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold">
                             {index + 1}
                     </div>
-                          <div>
+                  <div>
                             <p className="font-medium">{salon.name}</p>
                             <p className="text-sm text-muted-foreground">{salon.clicks} views</p>
-                  </div>
-                    </div>
-                  </div>
-                    ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                 ) : (
                   <div className="text-center py-8">
@@ -693,7 +693,7 @@ export default function AdminDashboard() {
                 )}
               </CardContent>
             </Card>
-                    </div>
+                            </div>
         ) : (
           <div className="text-center py-12 bg-white rounded-lg border">
             <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -701,7 +701,7 @@ export default function AdminDashboard() {
             <p className="text-sm text-muted-foreground">
               Engagement statistics will appear here once data is available.
                     </p>
-                  </div>
+                          </div>
         )}
 
             {/* Action Buttons */}
@@ -709,7 +709,7 @@ export default function AdminDashboard() {
               <Button onClick={() => { fetchDemographics(); fetchUserEngagement(); }} variant="outline">
                 Refresh Data
               </Button>
-                          </div>
+                        </div>
           </>
         ) : activeTab === 'business-insights' ? (
           <>
@@ -721,14 +721,14 @@ export default function AdminDashboard() {
               <p className="text-muted-foreground">
                 Analyze appointment trends and peak booking times to optimize business operations.
               </p>
-                          </div>
+                    </div>
 
             {/* Appointment Analytics Data */}
             {appointmentLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading appointment analytics...</p>
-                        </div>
+                  </div>
             ) : appointmentAnalytics ? (() => {
               // Transform appointmentsByDay object to array with short day names
               const dayMapping = {
@@ -936,7 +936,7 @@ export default function AdminDashboard() {
                         Day
                       </text>
                     </svg>
-                        </div>
+                </div>
                 );
               };
 
@@ -1101,47 +1101,47 @@ export default function AdminDashboard() {
                 <CardDescription>
                             Appointment trends over time
                 </CardDescription>
-                      </div>
-                    </div>
+                        </div>
+                        </div>
                     </CardHeader>
                     <CardContent className="px-0">
                       {renderBarChart(appointmentsByDay)}
                       <div className="mt-4 mx-6 text-sm text-muted-foreground text-center">
                         Last 7 days
-                      </div>
-                    </CardContent>
-                  </Card>
+                </div>
+              </CardContent>
+            </Card>
 
                   {/* Peak Booking Times Card */}
-                  <Card>
-                    <CardHeader>
+            <Card>
+              <CardHeader>
                       <div className="flex items-center justify-between">
                         <div>
                           <CardTitle className="flex items-center space-x-2">
                             <BarChart3 className="w-5 h-5" />
                             <span>Peak Booking Times</span>
                           </CardTitle>
-                          <CardDescription>
+                <CardDescription>
                             Identify peak hours and days for appointments
-                          </CardDescription>
-                      </div>
+                </CardDescription>
+                          </div>
                         <div className="flex space-x-1 bg-muted rounded-lg p-1">
-                  <Button 
+                          <Button 
                             variant={peakView === 'hours' ? 'default' : 'ghost'}
                             size="sm"
                             onClick={() => setPeakView('hours')}
                             className="px-3 py-1 text-xs"
                           >
                             Hours
-                  </Button>
-                  <Button 
+                          </Button>
+                          <Button 
                             variant={peakView === 'days' ? 'default' : 'ghost'}
                             size="sm"
                             onClick={() => setPeakView('days')}
                             className="px-3 py-1 text-xs"
                           >
                             Days
-                  </Button>
+                        </Button>
                       </div>
                     </div>
                 </CardHeader>
@@ -1158,29 +1158,29 @@ export default function AdminDashboard() {
                             : peakDayData.count
                           } appointments)
                         </p>
-                      </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
 
                   {/* Average Appointment Duration Card */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                      <CardHeader>
+            <Card>
+              <CardHeader>
                         <CardTitle className="flex items-center space-x-2">
                           <Clock className="w-5 h-5" />
                           <span>Average Appointment Duration</span>
                         </CardTitle>
-                        <CardDescription>
+                <CardDescription>
                           Average length of appointments across all services
-                        </CardDescription>
-                </CardHeader>
-                <CardContent>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
                         <div className="text-center py-8">
                           <div className="text-5xl font-bold text-primary mb-2">{avgDuration}</div>
                           <div className="text-lg text-muted-foreground">minutes</div>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
@@ -1197,19 +1197,19 @@ export default function AdminDashboard() {
                           <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                             <span className="text-sm font-medium">Busiest Day</span>
                             <span className="text-sm font-bold text-green-700">{peakDayData.day}</span>
-                          </div>
+                    </div>
                           <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                             <span className="text-sm font-medium">Peak Hour</span>
                             <span className="text-sm font-bold text-blue-700">{peakHourData.hour}</span>
-                          </div>
+                  </div>
                           <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                             <span className="text-sm font-medium">Total This Week</span>
                             <span className="text-sm font-bold text-purple-700">{totalWeek}</span>
-                          </div>
-                </div>
+                    </div>
+                  </div>
               </CardContent>
             </Card>
-                  </div>
+                    </div>
                 </div>
               );
             })() : (
@@ -1218,8 +1218,8 @@ export default function AdminDashboard() {
                 <h3 className="text-lg font-medium text-foreground mb-2">No appointment data available</h3>
                 <p className="text-sm text-muted-foreground">
                   Appointment analytics will appear here once data is available.
-                </p>
-              </div>
+                    </p>
+                  </div>
             )}
           </>
         ) : activeTab === 'revenue-analytics' ? (
@@ -1230,14 +1230,14 @@ export default function AdminDashboard() {
               </h2>
               <p className="text-muted-foreground">
                 Monitor platform revenue, top performers, and financial metrics.
-              </p>
-            </div>
+                    </p>
+                  </div>
 
             {revenueLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading revenue analytics...</p>
-              </div>
+                </div>
             ) : revenueAnalytics ? (
               <div className="space-y-6">
                 {(() => {
@@ -1264,119 +1264,119 @@ export default function AdminDashboard() {
                           <CardContent>
                             <div className="text-3xl font-bold text-foreground">
                               ${platformRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </div>
+                          </div>
                             <p className="text-sm text-muted-foreground mt-2">
                               {totalSuccessful} successful bookings
                             </p>
-                          </CardContent>
-                        </Card>
+              </CardContent>
+            </Card>
                       </div>
 
                       {topSalon.salon_name && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center space-x-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
                               <Building2 className="w-5 h-5" />
                               <span>Highest Grossing Salon</span>
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                             <div className="space-y-4">
                               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                                <div>
+                  <div>
                                   <p className="font-semibold text-lg">{topSalon.salon_name}</p>
-                                </div>
+                            </div>
                                 <div className="text-right">
                                   <p className="text-2xl font-bold text-foreground">
                                     ${parseFloat(topSalon.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </p>
                                   <p className="text-sm text-muted-foreground">Total Revenue</p>
-                                </div>
-                              </div>
+                          </div>
+                        </div>
                               <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
+                  <div>
                                   <p className="text-muted-foreground">Booking Revenue</p>
                                   <p className="font-semibold">
                                     ${parseFloat(topSalon.booking_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </p>
-                                </div>
-                                <div>
+                  </div>
+                  <div>
                                   <p className="text-muted-foreground">Product Revenue</p>
                                   <p className="font-semibold">
                                     ${parseFloat(topSalon.product_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </p>
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
                       )}
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {topProduct.product_name && (
-                          <Card>
-                            <CardHeader>
-                              <CardTitle className="flex items-center space-x-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
                                 <ShoppingBag className="w-5 h-5" />
                                 <span>Highest Grossing Product</span>
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg h-[72px]">
                                   <div className="flex flex-col justify-center">
                                     <p className="font-semibold">{topProduct.product_name}</p>
                                     <p className="text-sm text-muted-foreground opacity-0">Placeholder</p>
-                                  </div>
+                    </div>
                                   <div className="text-right flex flex-col justify-center">
                                     <p className="text-xl font-bold">
                                       ${parseFloat(topProduct.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </p>
-                                  </div>
-                                </div>
+                    </p>
+                  </div>
+                    </div>
                                 <div className="text-sm space-y-2">
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Units Sold</span>
                                     <span className="font-semibold">{topProduct.units_sold || 0} units</span>
-                                  </div>
+                  </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Listing Price</span>
                                     <span className="font-semibold">
                                       ${parseFloat(topProduct.listing_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
                         )}
 
                         {topStylist.stylist_name && (
-                          <Card>
-                            <CardHeader>
-                              <CardTitle className="flex items-center space-x-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
                                 <Scissors className="w-5 h-5" />
                                 <span>Highest Grossing Stylist</span>
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg h-[72px]">
                                   <div className="flex flex-col justify-center">
                                     <p className="font-semibold">{topStylist.stylist_name}</p>
                                     <p className="text-sm text-muted-foreground">{topStylist.salon_name || ''}</p>
-                                  </div>
+                      </div>
                                   <div className="text-right flex flex-col justify-center">
                                     <p className="text-xl font-bold">
                                       ${parseFloat(topStylist.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </p>
-                                  </div>
-                                </div>
+                    </div>
+                      </div>
                                 <div className="text-sm space-y-2">
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Total Bookings</span>
                                     <span className="font-semibold">{topStylist.total_bookings || 0} appointments</span>
-                                  </div>
+                    </div>
                                   <div className="flex justify-between">
                                     <span className="text-muted-foreground">Avg per Booking</span>
                                     <span className="font-semibold">
@@ -1384,23 +1384,23 @@ export default function AdminDashboard() {
                                         ? (parseFloat(topStylist.total_revenue || 0) / topStylist.total_bookings).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                                         : '0.00'}
                                     </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
+                      </div>
+                    </div>
+                </div>
+              </CardContent>
+            </Card>
                         )}
                       </div>
 
                       {topServices.length > 0 && (
-                        <Card>
+              <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center space-x-2">
                               <Award className="w-5 h-5" />
                               <span>Highest Grossing Services</span>
                             </CardTitle>
-                          </CardHeader>
-                          <CardContent>
+                </CardHeader>
+                <CardContent>
                             <div className="space-y-3">
                               {topServices.map((service, index) => {
                                 const serviceRevenue = parseFloat(service.total_revenue || 0);
@@ -1412,7 +1412,7 @@ export default function AdminDashboard() {
                                     <div>
                                       <p className="font-semibold">{service.service_name}</p>
                                       <p className="text-sm text-muted-foreground">{service.salon_name || ''}</p>
-                                    </div>
+                  </div>
                                     <div className="text-right">
                                       <p className="text-lg font-bold">
                                         ${serviceRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1430,22 +1430,22 @@ export default function AdminDashboard() {
                                 );
                               })}
                             </div>
-                          </CardContent>
-                        </Card>
+                </CardContent>
+              </Card>
                       )}
 
                       {perSalonData.length > 0 && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center space-x-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
                               <Receipt className="w-5 h-5" />
                               <span>Salon Revenue Breakdown</span>
-                            </CardTitle>
-                            <CardDescription>
+                </CardTitle>
+                <CardDescription>
                               View individual salon revenue and performance metrics
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
                             <div className="space-y-4">
                               {perSalonData.map((salon, index) => {
                                 const salonRevenue = parseFloat(salon.salon_revenue || 0);
@@ -1471,9 +1471,9 @@ export default function AdminDashboard() {
                                   </div>
                                 );
                               })}
-                            </div>
-                          </CardContent>
-                        </Card>
+                </div>
+              </CardContent>
+            </Card>
                       )}
                     </>
                   );

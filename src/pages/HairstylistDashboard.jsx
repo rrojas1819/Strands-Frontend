@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonReviews from '../components/SalonReviews';
+import StaffReviews from '../components/StaffReviews';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -17,7 +18,9 @@ export default function HairstylistDashboard() {
   const authContext = useContext(AuthContext);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('schedule');
+  const [reviewsSubTab, setReviewsSubTab] = useState('salon'); // 'salon' or 'my'
   const [salonData, setSalonData] = useState(null);
+  const [employeeId, setEmployeeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [scheduleData, setScheduleData] = useState([]);
@@ -96,6 +99,30 @@ export default function HairstylistDashboard() {
     fetchStylistSalon();
   }, []);
 
+  const fetchEmployeeId = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      const response = await fetch(`${apiUrl}/salons/stylist/myServices`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data?.employee?.employee_id) {
+          setEmployeeId(data.data.employee.employee_id);
+        }
+      }
+    } catch (err) {
+      // Silently handle errors
+    }
+  };
+
   useEffect(() => {
     if (salonData && activeTab === 'schedule') {
       fetchScheduleData();
@@ -135,7 +162,6 @@ export default function HairstylistDashboard() {
         return;
       }
 
-      console.log('Fetching stylist salon data...');
       const response = await fetch(`${import.meta.env.VITE_API_URL}/user/stylist/getSalon`, {
         method: 'GET',
         headers: {
@@ -144,13 +170,11 @@ export default function HairstylistDashboard() {
         },
       });
 
-      console.log('Stylist salon response status:', response.status);
       const data = await response.json();
-      console.log('Stylist salon response data:', data);
-      console.log('API URL used:', `${import.meta.env.VITE_API_URL}/user/stylist/getSalon`);
 
       if (response.ok) {
         setSalonData(data.data);
+        fetchEmployeeId();
       } else if (response.status === 404) {
         setError('You are not an employee of any salon');
       } else {
@@ -252,6 +276,18 @@ export default function HairstylistDashboard() {
 
       console.log('Schedule response status:', response.status);
       const data = await response.json();
+      
+      // Try to extract employee_id from schedule response if not found earlier
+      if (!employeeId && data.data) {
+        const scheduleEmployeeId = data.data?.employee_id || 
+                                  data.data?.employeeId ||
+                                  data.data?.employee?.employee_id ||
+                                  data.data?.employee?.employeeId;
+        if (scheduleEmployeeId) {
+          console.log('Found employee_id from schedule response:', scheduleEmployeeId);
+          setEmployeeId(scheduleEmployeeId);
+        }
+      }
       console.log('Schedule response data:', data);
       console.log('Raw schedule data:', data.data?.schedule);
 
@@ -2018,18 +2054,78 @@ export default function HairstylistDashboard() {
         )}
 
         {activeTab === 'reviews' && (
-          <SalonReviews 
-            salonId={salonData?.salon_id}
-            onError={(error) => {
-              setModalConfig({
-                title: 'Error',
-                message: error,
-                type: 'error',
-                onConfirm: () => setShowModal(false)
-              });
-              setShowModal(true);
-            }}
-          />
+          <div className="space-y-6">
+            {/* Sub-tabs for Salon Reviews vs My Reviews */}
+            <div className="border-b border-muted">
+              <div className="flex space-x-8">
+                <button
+                  onClick={() => setReviewsSubTab('salon')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    reviewsSubTab === 'salon'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
+                  Salon Reviews
+                </button>
+                <button
+                  onClick={() => setReviewsSubTab('my')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    reviewsSubTab === 'my'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
+                  My Reviews
+                </button>
+              </div>
+            </div>
+
+            {/* Salon Reviews Tab */}
+            {reviewsSubTab === 'salon' && (
+              <SalonReviews 
+                salonId={salonData?.salon_id}
+                onError={(error) => {
+                  setModalConfig({
+                    title: 'Error',
+                    message: error,
+                    type: 'error',
+                    onConfirm: () => setShowModal(false)
+                  });
+                  setShowModal(true);
+                }}
+              />
+            )}
+
+            {/* My Reviews Tab */}
+            {reviewsSubTab === 'my' && (
+              (employeeId || authContext?.user?.user_id) ? (
+                <StaffReviews
+                  employeeId={employeeId || authContext?.user?.user_id}
+                  canReply={true}
+                  onError={(error) => {
+                    setModalConfig({
+                      title: 'Error',
+                      message: error,
+                      type: 'error',
+                      onConfirm: () => setShowModal(false)
+                    });
+                    setShowModal(true);
+                  }}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">Unable to Load Reviews</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Could not find employee information. Please refresh the page.
+                    </p>
+                  </CardContent>
+                </Card>
+              )
+            )}
+          </div>
         )}
 
         {activeTab === 'services' && (

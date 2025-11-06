@@ -600,8 +600,8 @@ export default function SalonOwnerDashboard() {
               ? 'Manage your salon business and grow your customer base.' 
               : 'Register your salon to start accepting bookings and managing your business.'
             }
-                  </p>
-        </div>
+                      </p>
+                    </div>
 
         {!hasSalon && <SalonRegistrationForm />}
         
@@ -619,8 +619,8 @@ export default function SalonOwnerDashboard() {
                     salonStatus === 'PENDING' ? 'text-yellow-600' :
                     'text-red-600'
                   }`} />
-                </div>
-              </div>
+            </div>
+          </div>
               
               <h3 className="text-2xl font-bold mb-2">
                 {salonStatus === 'APPROVED' ? 'Salon Approved' :
