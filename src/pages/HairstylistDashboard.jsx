@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonReviews from '../components/SalonReviews';
+import StaffReviews from '../components/StaffReviews';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -91,6 +92,8 @@ export default function HairstylistDashboard() {
   
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
+  const [reviewTab, setReviewTab] = useState('salon'); // 'salon' or 'stylist'
+  const [employeeId, setEmployeeId] = useState(null);
   
   useEffect(() => {
     fetchStylistSalon();
@@ -123,6 +126,29 @@ export default function HairstylistDashboard() {
     }
   }, [activeTab, sortOrder]);
 
+  const fetchEmployeeId = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL;
+      
+      const response = await fetch(`${apiUrl}/salons/stylist/myServices`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data?.employee?.employee_id) {
+          setEmployeeId(data.data.employee.employee_id);
+        }
+      }
+    } catch (err) {
+    }
+  };
+
   const fetchStylistSalon = async () => {
     try {
       setLoading(true);
@@ -151,6 +177,7 @@ export default function HairstylistDashboard() {
 
       if (response.ok) {
         setSalonData(data.data);
+        fetchEmployeeId();
       } else if (response.status === 404) {
         setError('You are not an employee of any salon');
       } else {
@@ -2019,18 +2046,60 @@ export default function HairstylistDashboard() {
         )}
 
         {activeTab === 'reviews' && (
-          <SalonReviews 
-            salonId={salonData?.salon_id}
-            onError={(error) => {
-              setModalConfig({
-                title: 'Error',
-                message: error,
-                type: 'error',
-                onConfirm: () => setShowModal(false)
-              });
-              setShowModal(true);
-            }}
-          />
+          <div className="space-y-6">
+            <div className="flex border-b">
+              <button
+                onClick={() => setReviewTab('salon')}
+                className={`px-4 py-2 font-medium text-sm transition-colors ${
+                  reviewTab === 'salon'
+                    ? 'border-b-2 border-primary text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Salon Reviews
+              </button>
+              <button
+                onClick={() => setReviewTab('stylist')}
+                className={`px-4 py-2 font-medium text-sm transition-colors ${
+                  reviewTab === 'stylist'
+                    ? 'border-b-2 border-primary text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                My Reviews
+              </button>
+            </div>
+
+            {reviewTab === 'salon' ? (
+              <SalonReviews 
+                salonId={salonData?.salon_id}
+                canReply={false}
+                onError={(error) => {
+                  setModalConfig({
+                    title: 'Error',
+                    message: error,
+                    type: 'error',
+                    onConfirm: () => setShowModal(false)
+                  });
+                  setShowModal(true);
+                }}
+              />
+            ) : (
+              <StaffReviews
+                employeeId={employeeId}
+                canReply={true}
+                onError={(error) => {
+                  setModalConfig({
+                    title: 'Error',
+                    message: error,
+                    type: 'error',
+                    onConfirm: () => setShowModal(false)
+                  });
+                  setShowModal(true);
+                }}
+              />
+            )}
+          </div>
         )}
 
         {activeTab === 'services' && (

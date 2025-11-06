@@ -9,6 +9,7 @@ import { Calendar, Clock, X, Edit2 } from 'lucide-react';
 import { notifySuccess, notifyError } from '../utils/notifications';
 import StrandsModal from '../components/StrandsModal';
 import UserNavbar from '../components/UserNavbar';
+import StaffReviews from '../components/StaffReviews';
 
 export default function Appointments() {
   const { user } = useContext(AuthContext);
@@ -22,6 +23,10 @@ export default function Appointments() {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [canceling, setCanceling] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'scheduled', 'past', 'cancelled'
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedStylistForReview, setSelectedStylistForReview] = useState(null);
+  const [stylistReviews, setStylistReviews] = useState({}); // Map of employee_id -> hasReview
 
   useEffect(() => {
     if (!user) {
@@ -50,6 +55,9 @@ export default function Appointments() {
         const data = await response.json();
         console.log('Appointments data received:', data);
         setAppointments(data.data || []);
+        
+        // Fetch reviews for stylists in past appointments
+        fetchStylistReviews(data.data || []);
       } else {
         const errorText = await response.text();
         console.error('Failed to fetch appointments:', errorText);
@@ -64,6 +72,58 @@ export default function Appointments() {
     }
   };
 
+  const fetchStylistReviews = async (appointmentsList) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Get unique employee_ids from past appointments
+      const employeeIds = new Set();
+      appointmentsList.forEach(appointment => {
+        const isPast = isAppointmentPast(appointment);
+        if (isPast && appointment.stylists && appointment.stylists.length > 0) {
+          const employeeId = appointment.stylists[0].employee_id;
+          if (employeeId) {
+            employeeIds.add(employeeId);
+          }
+        }
+      });
+
+      // Fetch review for each employee
+      const reviewsMap = {};
+      const reviewPromises = Array.from(employeeIds).map(async (employeeId) => {
+        try {
+          const reviewResponse = await fetch(
+            `${apiUrl}/staff-reviews/employee/${employeeId}/myReview`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            }
+          );
+          
+          if (reviewResponse.ok) {
+            const reviewData = await reviewResponse.json();
+            if (reviewData.data) {
+              reviewsMap[employeeId] = true;
+            }
+          }
+        } catch (err) {
+          // Silently fail if review doesn't exist
+        }
+      });
+
+      await Promise.allSettled(reviewPromises);
+      setStylistReviews(reviewsMap);
+    } catch (err) {
+      // Silently fail - reviews are optional
+    }
+  };
+
+  const handleLogout = () => {
+    Notifications.logoutSuccess();
+    logout();
+  };
 
   const handleCancelClick = (appointment) => {
     setSelectedAppointment(appointment);
@@ -370,6 +430,24 @@ export default function Appointments() {
                       ${typeof appointment.total_price === 'number' ? appointment.total_price.toFixed(2) : (appointment.total_price || '0.00')}
                     </span>
                     <div className="flex space-x-2">
+                      {isPast && appointment.stylists && appointment.stylists.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const stylist = appointment.stylists[0];
+                            setSelectedStylistForReview({
+                              employee_id: stylist.employee_id,
+                              full_name: stylist.name,
+                              title: stylist.title || ''
+                            });
+                            setShowReviewModal(true);
+                          }}
+                        >
+                          <Star className="w-4 h-4 mr-1" />
+                          {stylistReviews[appointment.stylists[0].employee_id] ? 'Edit Review' : 'Review Stylist'}
+                        </Button>
+                      )}
                       {canReschedule && (
                         <Button
                           size="sm"
@@ -426,6 +504,59 @@ export default function Appointments() {
         type="danger"
         loading={canceling}
       />
+
+      {/* Review Stylist Modal */}
+      {showReviewModal && selectedStylistForReview && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-6 border-b">
+                <div className="flex items-center space-x-3">
+                  <Star className="w-6 h-6 text-yellow-500" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Review {selectedStylistForReview.full_name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedStylistForReview.title}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowReviewModal(false);
+                    setSelectedStylistForReview(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                {selectedStylistForReview?.employee_id ? (
+                  <StaffReviews
+                    employeeId={selectedStylistForReview.employee_id}
+                    canReview={true}
+                    onError={(error) => {
+                      notifyError(error);
+                    }}
+                    onReviewChange={() => {
+                      // Refresh reviews state after submit/update/delete
+                      fetchStylistReviews(appointments);
+                    }}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Loading...</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
