@@ -59,7 +59,47 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
       });
 
       if (response.status === 404) {
-        // No reviews yet - this is expected and not an error
+        try {
+          const errorData = await response.json();
+          if (errorData.message?.includes('Employee not found') || errorData.message?.includes('employee')) {
+            if (onError) onError('Employee information not found. Please refresh the page.');
+          } else {
+            setReviews([]);
+            setReviewsMeta({
+              total: 0,
+              avg_rating: null,
+              limit: 20,
+              offset: 0,
+              hasMore: false
+            });
+            return;
+          }
+        } catch (e) {
+          setReviews([]);
+          setReviewsMeta({
+            total: 0,
+            avg_rating: null,
+            limit: 20,
+            offset: 0,
+            hasMore: false
+          });
+          return;
+        }
+        
+        setReviews([]);
+        setReviewsMeta({
+          total: 0,
+          avg_rating: null,
+          limit: 20,
+          offset: 0,
+          hasMore: false
+        });
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to load reviews' }));
+        if (onError) onError(errorData.message || 'Failed to load reviews');
         setReviews([]);
         setReviewsMeta({
           total: 0,
@@ -73,18 +113,14 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
 
       const data = await response.json();
       
-      if (response.ok) {
-        setReviews(data.data || []);
-        setReviewsMeta({
-          total: data.meta?.total || 0,
-          avg_rating: data.meta?.avg_rating || null,
-          limit: data.meta?.limit || 20,
-          offset: data.meta?.offset || 0,
-          hasMore: data.meta?.hasMore || false
-        });
-      } else {
-        if (onError) onError(data.message || 'Failed to load reviews');
-      }
+      setReviews(data.data || []);
+      setReviewsMeta({
+        total: data.meta?.total || 0,
+        avg_rating: data.meta?.avg_rating || null,
+        limit: data.meta?.limit || 20,
+        offset: data.meta?.offset || 0,
+        hasMore: data.meta?.hasMore || false
+      });
     } catch (error) {
       if (onError) onError('Failed to load reviews');
     } finally {
@@ -98,7 +134,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
     try {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      
+
       const response = await fetch(`${apiUrl}/staff-reviews/employee/${employeeId}/myReview`, {
         headers: {
           'Authorization': `Bearer ${token}`
