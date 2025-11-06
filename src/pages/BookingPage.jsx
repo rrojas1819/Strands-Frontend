@@ -7,11 +7,12 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { LogOut, Star, Clock, Users, Check, X, Menu } from 'lucide-react';
+import { LogOut, Star, Clock, Users, Check, X, Menu, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { notifySuccess, notifyError, notifyInfo, Notifications } from '../utils/notifications';
+import { notifySuccess, notifyError, notifyInfo } from '../utils/notifications';
 import { trackSalonView, trackBooking } from '../utils/analytics';
 import StrandsModal from '../components/StrandsModal';
+import StaffReviews from '../components/StaffReviews';
 
 export default function BookingPage() {
   const { user, logout } = useContext(AuthContext);
@@ -37,6 +38,9 @@ export default function BookingPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [useCustomTime, setUseCustomTime] = useState(false);
   const [customStartTime, setCustomStartTime] = useState('');
+  const [stylistRatings, setStylistRatings] = useState({});
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [selectedStylistForReviews, setSelectedStylistForReviews] = useState(null);
 
   useEffect(() => {
     if (!user) {
@@ -141,6 +145,9 @@ export default function BookingPage() {
         const fetchedStylists = stylistsData.data?.stylists || [];
         setAllStylists(fetchedStylists);
         setStylists(fetchedStylists); // Initially show all stylists
+        
+        // Fetch ratings for all stylists
+        fetchStylistRatings(fetchedStylists);
       }
 
       // Services will be loaded when a stylist is selected
@@ -151,6 +158,42 @@ export default function BookingPage() {
       console.error('Error fetching salon data:', err);
       setError(err.message || 'Failed to load booking information.');
       setLoading(false);
+    }
+  };
+
+  // Fetch stylist ratings
+  const fetchStylistRatings = async (stylistsList) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      const ratingsMap = {};
+      const ratingPromises = stylistsList.map(async (stylist) => {
+        try {
+          const ratingResponse = await fetch(
+            `${apiUrl}/staff-reviews/employee/${stylist.employee_id}/all?limit=1&offset=0`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            }
+          );
+          if (ratingResponse.ok) {
+            try {
+              const ratingData = await ratingResponse.json();
+              ratingsMap[stylist.employee_id] = {
+                avg_rating: ratingData.meta?.avg_rating || null,
+                total: ratingData.meta?.total || 0
+              };
+            } catch (parseErr) {
+            }
+          }
+        } catch (err) {
+        }
+      });
+      await Promise.allSettled(ratingPromises);
+      setStylistRatings(ratingsMap);
+    } catch (err) {
     }
   };
 
@@ -225,16 +268,21 @@ export default function BookingPage() {
   };
 
   const handleLogout = () => {
-    Notifications.logoutSuccess();
+    notifyInfo('Logged out', 'You have been successfully logged out.', 2000);
     logout();
   };
 
   const handleBookClick = () => {
-    if (!selectedStylist || !selectedDate || !selectedTimeSlot || selectedServices.length === 0) {
-      notifyError('Please select a stylist, date, time, and at least one service');
-      return;
+    try {
+      if (!selectedStylist || !selectedDate || !selectedTimeSlot || selectedServices.length === 0) {
+        notifyError('Please select a stylist, date, time, and at least one service');
+        return;
+      }
+      setShowConfirmModal(true);
+    } catch (error) {
+      console.error('Error in handleBookClick:', error);
+      notifyError('An error occurred. Please try again.');
     }
-    setShowConfirmModal(true);
   };
 
   const handleConfirmBooking = async () => {
@@ -643,41 +691,71 @@ export default function BookingPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {stylists.map((stylist) => (
-                  <Button
-                    key={stylist.employee_id}
-                    variant={selectedStylist?.employee_id === stylist.employee_id ? 'default' : 'outline'}
-                    className="w-full justify-start"
-                    onClick={() => {
-                      if (!isReschedule) {
-                        // If clicking the same stylist, deselect them
-                        if (selectedStylist?.employee_id === stylist.employee_id) {
-                          setSelectedStylist(null);
-                          setServices([]); // Clear services
-                          setSelectedServices([]); // Clear selected services
-                          setSelectedDate(null);
-                          setSelectedTimeSlot(null);
-                          setTimeSlots({});
-                          setUseCustomTime(false);
-                          setCustomStartTime('');
-                        } else {
-                          setSelectedStylist(stylist);
-                          setSelectedServices([]); // Clear selected services when switching stylists
-                          setSelectedDate(null);
-                          setSelectedTimeSlot(null);
-                          setTimeSlots({});
-                          setUseCustomTime(false);
-                          setCustomStartTime('');
-                          fetchStylistServices(stylist.employee_id);
-                        }
-                      }
-                    }}
-                    disabled={isReschedule}
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    {stylist.full_name} - {stylist.title}
-                  </Button>
-                ))}
+                {stylists.map((stylist) => {
+                  const rating = stylistRatings[stylist.employee_id];
+                  const isSelected = selectedStylist?.employee_id === stylist.employee_id;
+                  
+                  return (
+                    <div key={stylist.employee_id} className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant={isSelected ? 'default' : 'outline'}
+                          className="flex-1 justify-start"
+                          onClick={() => {
+                            if (!isReschedule) {
+                              // If clicking the same stylist, deselect them
+                              if (selectedStylist?.employee_id === stylist.employee_id) {
+                                setSelectedStylist(null);
+                                setServices([]);
+                                setSelectedServices([]);
+                                setSelectedDate(null);
+                                setSelectedTimeSlot(null);
+                                setTimeSlots({});
+                                setUseCustomTime(false);
+                                setCustomStartTime('');
+                              } else {
+                                setSelectedStylist(stylist);
+                                setSelectedServices([]);
+                                setSelectedDate(null);
+                                setSelectedTimeSlot(null);
+                                setTimeSlots({});
+                                setUseCustomTime(false);
+                                setCustomStartTime('');
+                                fetchStylistServices(stylist.employee_id);
+                              }
+                            }
+                          }}
+                          disabled={isReschedule}
+                        >
+                          <Users className="w-4 h-4 mr-2" />
+                          <div className="flex-1 text-left flex items-center justify-between">
+                            <div className="font-medium">{stylist.full_name} - {stylist.title}</div>
+                            {rating?.avg_rating && (
+                              <div className="flex items-center space-x-1 ml-2">
+                                <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                                <span className="text-xs font-medium">{rating.avg_rating}</span>
+                                <span className="text-xs text-muted-foreground">({rating.total})</span>
+                              </div>
+                            )}
+                          </div>
+                        </Button>
+                        {isSelected && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedStylistForReviews(stylist);
+                              setShowReviewsModal(true);
+                            }}
+                            className="flex-shrink-0 text-xs px-2"
+                          >
+                            Reviews
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -996,11 +1074,66 @@ export default function BookingPage() {
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleConfirmBooking}
         title={isReschedule ? "Confirm Reschedule" : "Confirm Booking"}
-        message={`Are you sure you want to ${isReschedule ? 'reschedule' : 'book'} this appointment?\n\nStylist: ${selectedStylist?.full_name}\nServices: ${selectedServices.map(s => s.name).join(', ')}\nDate: ${selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD'}\nTime: ${selectedTimeSlot?.start_time && selectedTimeSlot?.end_time ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}` : 'TBD'}`}
+        message={(() => {
+          try {
+            return `Are you sure you want to ${isReschedule ? 'reschedule' : 'book'} this appointment?\n\nStylist: ${selectedStylist?.full_name || 'N/A'}\nServices: ${selectedServices?.map(s => s?.name || '').filter(Boolean).join(', ') || 'N/A'}\nDate: ${selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD'}\nTime: ${selectedTimeSlot?.start_time && selectedTimeSlot?.end_time ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}` : 'TBD'}`;
+          } catch (e) {
+            return `Are you sure you want to ${isReschedule ? 'reschedule' : 'book'} this appointment?`;
+          }
+        })()}
         confirmText={isReschedule ? "Reschedule" : "Confirm"}
         cancelText="Cancel"
         type="success"
       />
+
+      {/* Reviews Modal */}
+      {showReviewsModal && selectedStylistForReviews && !showConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-6 border-b">
+                <div className="flex items-center space-x-3">
+                  <Star className="w-6 h-6 text-yellow-500" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {selectedStylistForReviews.full_name} - Reviews
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedStylistForReviews.title}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowReviewsModal(false);
+                    setSelectedStylistForReviews(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                {selectedStylistForReviews?.employee_id ? (
+                  <StaffReviews
+                    employeeId={selectedStylistForReviews.employee_id}
+                    canReview={false}
+                    onError={(error) => {
+                      notifyError(error);
+                    }}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Loading reviews...</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
