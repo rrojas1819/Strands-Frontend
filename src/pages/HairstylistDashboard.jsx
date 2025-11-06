@@ -2,7 +2,6 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonReviews from '../components/SalonReviews';
-import StaffReviews from '../components/StaffReviews';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -92,8 +91,6 @@ export default function HairstylistDashboard() {
   
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
-  const [reviewTab, setReviewTab] = useState('salon'); // 'salon' or 'stylist'
-  const [employeeId, setEmployeeId] = useState(null);
   
   useEffect(() => {
     fetchStylistSalon();
@@ -126,29 +123,6 @@ export default function HairstylistDashboard() {
     }
   }, [activeTab, sortOrder]);
 
-  const fetchEmployeeId = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL;
-      
-      const response = await fetch(`${apiUrl}/salons/stylist/myServices`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.data?.employee?.employee_id) {
-          setEmployeeId(data.data.employee.employee_id);
-        }
-      }
-    } catch (err) {
-    }
-  };
-
   const fetchStylistSalon = async () => {
     try {
       setLoading(true);
@@ -177,7 +151,6 @@ export default function HairstylistDashboard() {
 
       if (response.ok) {
         setSalonData(data.data);
-        fetchEmployeeId();
       } else if (response.status === 404) {
         setError('You are not an employee of any salon');
       } else {
@@ -1303,8 +1276,7 @@ export default function HairstylistDashboard() {
     { id: 'schedule', label: 'Schedule' },
     { id: 'services', label: 'Services' },
     { id: 'customers', label: 'Customers' },
-    { id: 'reviews', label: 'Reviews' },
-    { id: 'profile', label: 'Profile' }
+    { id: 'reviews', label: 'Reviews' }
   ];
 
   // Loading state
@@ -2046,60 +2018,18 @@ export default function HairstylistDashboard() {
         )}
 
         {activeTab === 'reviews' && (
-          <div className="space-y-6">
-            <div className="flex border-b">
-              <button
-                onClick={() => setReviewTab('salon')}
-                className={`px-4 py-2 font-medium text-sm transition-colors ${
-                  reviewTab === 'salon'
-                    ? 'border-b-2 border-primary text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Salon Reviews
-              </button>
-              <button
-                onClick={() => setReviewTab('stylist')}
-                className={`px-4 py-2 font-medium text-sm transition-colors ${
-                  reviewTab === 'stylist'
-                    ? 'border-b-2 border-primary text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                My Reviews
-              </button>
-            </div>
-
-            {reviewTab === 'salon' ? (
-              <SalonReviews 
-                salonId={salonData?.salon_id}
-                canReply={false}
-                onError={(error) => {
-                  setModalConfig({
-                    title: 'Error',
-                    message: error,
-                    type: 'error',
-                    onConfirm: () => setShowModal(false)
-                  });
-                  setShowModal(true);
-                }}
-              />
-            ) : (
-              <StaffReviews
-                employeeId={employeeId}
-                canReply={true}
-                onError={(error) => {
-                  setModalConfig({
-                    title: 'Error',
-                    message: error,
-                    type: 'error',
-                    onConfirm: () => setShowModal(false)
-                  });
-                  setShowModal(true);
-                }}
-              />
-            )}
-          </div>
+          <SalonReviews 
+            salonId={salonData?.salon_id}
+            onError={(error) => {
+              setModalConfig({
+                title: 'Error',
+                message: error,
+                type: 'error',
+                onConfirm: () => setShowModal(false)
+              });
+              setShowModal(true);
+            }}
+          />
         )}
 
         {activeTab === 'services' && (
@@ -2133,33 +2063,33 @@ export default function HairstylistDashboard() {
                 </Button>
               </div>
             ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
                  {services.map((service) => (
-                   <Card key={service.service_id} className="hover:shadow-lg transition-shadow h-full flex flex-col">
-                    <CardContent className="p-6 pt-5 flex flex-col flex-1">
+                   <Card key={service.service_id} className="hover:shadow-lg transition-shadow flex flex-col">
+                     <CardContent className="p-6 pt-5 flex flex-col flex-grow">
                                              <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
-                        <div className="flex space-x-2">
-                       <Button 
-                            variant="ghost"
-                         size="sm"
-                            onClick={() => openEditModal(service)}
-                            className="h-10 w-10 p-0"
-                       >
-                            <Edit className="w-6 h-6" />
-                       </Button>
-                       <Button 
-                            variant="ghost"
-                         size="sm"
-                            onClick={() => openDeleteModal(service)}
-                            className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
-                       >
-                            <Trash2 className="w-6 h-6" />
-                       </Button>
-                     </div>
-                   </div>
-                     <p className="text-sm text-muted-foreground mb-4 flex-1">{service.description}</p>
-                     <div className="flex justify-between items-center mt-auto">
+                         <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
+                         <div className="flex space-x-2">
+                        <Button 
+                             variant="ghost"
+                          size="sm"
+                             onClick={() => openEditModal(service)}
+                             className="h-10 w-10 p-0"
+                        >
+                             <Edit className="w-6 h-6" />
+                        </Button>
+                        <Button 
+                             variant="ghost"
+                          size="sm"
+                             onClick={() => openDeleteModal(service)}
+                             className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
+                        >
+                             <Trash2 className="w-6 h-6" />
+                        </Button>
+                      </div>
+                    </div>
+                      <p className="text-sm text-muted-foreground mb-4 flex-grow">{service.description}</p>
+                      <div className="flex justify-between items-center mt-auto">
                         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4" />
                           <span className="text-blue-600 font-medium">{service.duration_minutes} min</span>
@@ -2176,15 +2106,6 @@ export default function HairstylistDashboard() {
                         </div>
         )}
 
-        {activeTab === 'profile' && (
-                  <div className="text-center py-12">
-            <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg mb-2">Profile Tab</h3>
-                    <p className="text-sm text-muted-foreground">
-              Profile content will be implemented here.
-            </p>
-                          </div>
-        )}
       </main>
 
         {/* BS-1.5: Block Time Slot Modal */}
@@ -2342,7 +2263,7 @@ export default function HairstylistDashboard() {
                           <div className="flex items-center space-x-3">
                             <div className="bg-orange-100 p-2 rounded-lg">
                               <Clock className="w-4 h-4 text-orange-600" />
-                            </div>
+                        </div>
                         <div>
                               <p className="font-medium text-foreground text-sm">
                                 {dayNames[slot.weekday]}
@@ -2350,8 +2271,8 @@ export default function HairstylistDashboard() {
                               <p className="text-xs text-muted-foreground">
                                 {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
                             </p>
+                          </div>
                         </div>
-                      </div>
                         <Button 
                             variant="ghost"
                           size="sm"
@@ -2376,8 +2297,8 @@ export default function HairstylistDashboard() {
 
               {/* Actions */}
               <div className="flex justify-end">
-                <Button
-                  variant="outline"
+                        <Button 
+                          variant="outline" 
                   onClick={() => setShowUnblockModal(false)}
                   className="px-6 py-2 border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
@@ -2401,7 +2322,7 @@ export default function HairstylistDashboard() {
                   </div>
                 <Button
                   variant="ghost"
-                  size="sm"
+                          size="sm"
                   onClick={() => {
                     setShowServiceModal(false);
                     setServiceFormData({ name: '', description: '', duration_minutes: '', price: '' });
@@ -2409,7 +2330,7 @@ export default function HairstylistDashboard() {
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" />
-                </Button>
+                        </Button>
               </div>
 
               <div className="space-y-4 mb-6">
@@ -2471,11 +2392,11 @@ export default function HairstylistDashboard() {
                 </Button>
                 <Button onClick={handleCreateService} disabled={serviceLoading}>
                   {serviceLoading ? 'Creating...' : 'Create Service'}
-                </Button>
-              </div>
+                        </Button>
+                      </div>
               </CardContent>
             </Card>
-        </div>
+                    </div>
       )}
 
       {/* BS-1.01: Edit Service Modal */}
@@ -2597,12 +2518,12 @@ export default function HairstylistDashboard() {
                     <AlertCircle className="w-4 h-4 inline mr-1" />
                     This will permanently remove the service from your list.
                   </p>
-                  </div>
-                    </div>
+                        </div>
+                      </div>
 
               <div className="flex space-x-3 justify-end">
-                <Button
-                  variant="outline"
+                        <Button 
+                          variant="outline" 
                   onClick={() => {
                     setShowDeleteServiceModal(false);
                     setDeletingService(null);
@@ -2637,7 +2558,7 @@ export default function HairstylistDashboard() {
                 </div>
                 <Button
                   variant="ghost"
-                  size="sm"
+                          size="sm"
                   onClick={() => {
                     setShowAppointmentPopup(false);
                     setSelectedAppointment(null);
@@ -2645,8 +2566,8 @@ export default function HairstylistDashboard() {
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" />
-                </Button>
-              </div>
+                        </Button>
+                      </div>
 
               <div className="space-y-4">
                 <div className="flex items-center space-x-3">
@@ -2733,14 +2654,14 @@ export default function HairstylistDashboard() {
                   const allCancelledAppointments = scheduleData.filter(apt => apt.status === 'canceled');
                   
                   return allCancelledAppointments.length === 0 ? (
-                    <div className="text-center py-12">
+                  <div className="text-center py-12">
                       <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-foreground mb-2">No cancelled appointments</h3>
-                      <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                         You have no cancelled appointments.
-                      </p>
-                    </div>
-                  ) : (
+                    </p>
+                  </div>
+                ) : (
                     <div className="space-y-4">
                       {allCancelledAppointments
                         .sort((a, b) => {
@@ -2762,7 +2683,7 @@ export default function HairstylistDashboard() {
                                   <div className="flex items-center space-x-2">
                                     <Clock className="w-4 h-4 text-muted-foreground" />
                                     <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
-                  </div>
+                          </div>
                                   <Badge className="bg-red-200 text-red-800 border-red-200">
                                     Cancelled
                                   </Badge>

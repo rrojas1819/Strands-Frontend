@@ -863,7 +863,7 @@ export default function ProductCheckoutPage() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">{item.name}</p>
                       <p className="text-xs text-gray-500">Qty: {item.quantity} × ${typeof item.price === 'number' ? item.price.toFixed(2) : parseFloat(item.price || 0).toFixed(2)}</p>
-                    </div>
+                  </div>
                     <p className="text-sm font-semibold text-gray-900">
                       ${(parseFloat(item.price || 0) * (item.quantity || 0)).toFixed(2)}
                     </p>
@@ -873,7 +873,7 @@ export default function ProductCheckoutPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Subtotal</span>
                     <span className="font-medium">${subtotal.toFixed(2)}</span>
-                  </div>
+                    </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Tax (6.625%)</span>
                     <span className="font-medium">${tax.toFixed(2)}</span>
@@ -1323,7 +1323,7 @@ export default function ProductCheckoutPage() {
                         <span className="text-sm font-medium">${tax.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center pt-2 border-t">
-                        <span className="text-base font-medium text-gray-700">Total</span>
+                      <span className="text-base font-medium text-gray-700">Total</span>
                         <span className="text-xl font-bold text-gray-900">${total.toFixed(2)}</span>
                       </div>
                     </div>

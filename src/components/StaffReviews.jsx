@@ -50,13 +50,26 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
     setReviewsLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
       const response = await fetch(`${apiUrl}/staff-reviews/employee/${employeeId}/all?limit=20&offset=${offset}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
+
+      if (response.status === 404) {
+        // No reviews yet - this is expected and not an error
+        setReviews([]);
+        setReviewsMeta({
+          total: 0,
+          avg_rating: null,
+          limit: 20,
+          offset: 0,
+          hasMore: false
+        });
+        return;
+      }
 
       const data = await response.json();
       
@@ -84,13 +97,21 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
     
     try {
       const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
       const response = await fetch(`${apiUrl}/staff-reviews/employee/${employeeId}/myReview`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
+
+      if (response.status === 404) {
+        // No review yet - this is expected and not an error
+        setMyReview(null);
+        setReviewRating(0);
+        setReviewMessage('');
+        return;
+      }
 
       const data = await response.json();
       
@@ -102,6 +123,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
         }
       }
     } catch (error) {
+      // Silently handle errors - user might not have permission or review doesn't exist
     }
   };
 
@@ -114,7 +136,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
     setReviewLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
       const url = myReview 
         ? `${apiUrl}/staff-reviews/update/${myReview.staff_review_id}`
@@ -168,7 +190,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
     setReviewLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
       const response = await fetch(`${apiUrl}/staff-reviews/delete/${myReview.staff_review_id}`, {
         method: 'DELETE',
@@ -234,7 +256,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
     setReplyLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
       const response = await fetch(`${apiUrl}/staff-reviews/replies/create`, {
         method: 'POST',
@@ -273,7 +295,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
     setReplyLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
       const response = await fetch(`${apiUrl}/staff-reviews/replies/update/${replyId}`, {
         method: 'PATCH',
@@ -312,7 +334,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
     setReplyLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
       const response = await fetch(`${apiUrl}/staff-reviews/replies/delete/${deletingReplyId}`, {
         method: 'DELETE',
