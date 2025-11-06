@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -22,6 +22,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('user-analytics');
   const [peakView, setPeakView] = useState('hours');
   const authContext = useContext(AuthContext);
+  const location = useLocation();
 
   useEffect(() => {
     fetchDemographics();
@@ -257,26 +258,34 @@ export default function AdminDashboard() {
               <div className="flex space-x-8">
                 <Link
                   to="/admin/salon-verification"
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    location.pathname === '/admin/salon-verification'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
                 >
                   Salon Management
                 </Link>
                 <Link
                   to="/admin/loyalty-monitoring"
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    location.pathname === '/admin/loyalty-monitoring'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
                 >
                   Loyalty Monitoring
                 </Link>
-                <button 
-                  onClick={() => setActiveTab('user-analytics')}
+                <Link
+                  to="/dashboard"
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'user-analytics'
+                    location.pathname === '/dashboard'
                       ? 'border-primary text-primary'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                   }`}
                 >
                   User Analytics
-                </button>
+                </Link>
                 <button 
                   onClick={() => setActiveTab('business-insights')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${

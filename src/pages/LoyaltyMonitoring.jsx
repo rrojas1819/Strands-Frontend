@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -19,6 +19,7 @@ import { Notifications } from '../utils/notifications';
 export default function LoyaltyMonitoring() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [loyaltyData, setLoyaltyData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -167,25 +168,46 @@ export default function LoyaltyMonitoring() {
           <div className="flex space-x-8">
             <Link
               to="/admin/salon-verification"
-              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                location.pathname === '/admin/salon-verification'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+              }`}
             >
               Salon Management
             </Link>
-            <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
-              Loyalty Monitoring
-            </button>
             <Link
-              to="/admin/dashboard"
-              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+              to="/admin/loyalty-monitoring"
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                location.pathname === '/admin/loyalty-monitoring'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+              }`}
+            >
+              Loyalty Monitoring
+            </Link>
+            <Link
+              to="/dashboard"
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                location.pathname === '/dashboard'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+              }`}
             >
               User Analytics
             </Link>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+            <Link
+              to="/dashboard"
+              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+            >
               Business Insights
-            </button>
-            <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+            </Link>
+            <Link
+              to="/dashboard"
+              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+            >
               Revenue Tracking
-            </button>
+            </Link>
           </div>
         </div>
       </nav>

@@ -210,10 +210,13 @@ export default function OrderHistoryPage() {
     const salonId = order.salon_id || 'unknown';
     const salonName = order.salon_name || 'Unknown Salon';
     
-    // Extract order date from various possible field names (prioritize ordered_date)
-    const orderDate = order.ordered_date || order.order_date || order.orderDate || order.created_at || order.createdAt || 
-                     order.date || order.order_created_at || order.created || order.timestamp || 
-                     order.purchase_date || order.purchased_at || null;
+    // Extract order date/time from various possible field names (prioritize created_at for time sorting)
+    const orderDateTime = order.created_at || order.createdAt || order.ordered_date || order.order_date || 
+                         order.orderDate || order.order_created_at || order.created || order.timestamp || 
+                         order.purchase_date || order.purchased_at || null;
+    
+    // Extract just the date part for display (without time)
+    const orderDate = orderDateTime ? orderDateTime.split('T')[0] : null;
     
     // Use order_code as unique key (each order_code is unique)
     if (!groupedOrders[orderCode]) {
@@ -224,7 +227,8 @@ export default function OrderHistoryPage() {
         subtotal: parseFloat(order.subtotal_order_price || 0),
         tax: parseFloat(order.order_tax || 0),
         total: parseFloat(order.total_order_price || 0),
-        order_date: orderDate,
+        order_date: orderDate, // Date only for display
+        order_datetime: orderDateTime, // Full datetime for sorting
         items: []
       };
       
@@ -237,19 +241,19 @@ export default function OrderHistoryPage() {
       }
     }
     
-    // Add each item (backend returns one row per order item, but doesn't include quantity field)
-    // Each row represents quantity 1, so we'll count rows to get quantity
+    // Add each item - backend now returns quantity field
+    const itemQuantity = order.quantity || 1;
     groupedOrders[orderCode].items.push({
       product_id: order.product_id,
       name: order.name || 'Product',
       description: order.description || '',
       category: order.category || 'Product',
       purchase_price: parseFloat(order.purchase_price || 0),
-      quantity: 1 // Each row = quantity 1 (we'll sum these in consolidation)
+      quantity: itemQuantity
     });
   });
   
-  // Consolidate duplicate items in the same order
+  // Consolidate duplicate items in the same order (same product_id and purchase_price)
   Object.keys(groupedOrders).forEach(orderCode => {
     const order = groupedOrders[orderCode];
     const itemMap = {};
@@ -257,50 +261,27 @@ export default function OrderHistoryPage() {
     order.items.forEach(item => {
       const key = `${item.product_id}_${item.purchase_price}`;
       if (itemMap[key]) {
-        // Add quantities together for same product and price
-        // Each row from backend represents quantity 1, so we sum them
-        const currentQty = itemMap[key].quantity || 0;
-        const itemQty = item.quantity || 1;
-        itemMap[key].quantity = currentQty + itemQty;
+        // Sum quantities for same product and price
+        itemMap[key].quantity = (itemMap[key].quantity || 0) + (item.quantity || 0);
       } else {
-        // First occurrence - ensure quantity is set (default to 1 if somehow missing)
-        itemMap[key] = { ...item, quantity: item.quantity || 1 };
+        // First occurrence
+        itemMap[key] = { ...item, quantity: item.quantity || 0 };
       }
     });
     
-    const consolidatedItems = Object.values(itemMap);
-    
-    // Debug: log consolidation for all orders
-    if (order.items.length !== consolidatedItems.length) {
-      console.log(`Order ${orderCode}: Consolidated ${order.items.length} rows into ${consolidatedItems.length} unique items`);
-      consolidatedItems.forEach(item => {
-        const totalPrice = (item.purchase_price || 0) * (item.quantity || 1);
-        console.log(`  - ${item.name}: Qty ${item.quantity} × $${item.purchase_price.toFixed(2)} = $${totalPrice.toFixed(2)}`);
-      });
-    } else {
-      // Log even if no consolidation happened to verify quantities
-      console.log(`Order ${orderCode}: ${consolidatedItems.length} items (no consolidation needed)`);
-      consolidatedItems.forEach(item => {
-        const totalPrice = (item.purchase_price || 0) * (item.quantity || 1);
-        console.log(`  - ${item.name}: Qty ${item.quantity} × $${item.purchase_price.toFixed(2)} = $${totalPrice.toFixed(2)}`);
-      });
-    }
-    
-    order.items = consolidatedItems;
+    order.items = Object.values(itemMap);
   });
   
-  // Sort orders by date (most recent first), fallback to order_code if no date
+  // Sort orders by time (most recent first) - use order_datetime for accurate time sorting
   const sortedOrders = Object.values(groupedOrders).sort((a, b) => {
-    // If both have dates, sort by date (most recent first)
-    if (a.order_date && b.order_date) {
-      const dateA = new Date(a.order_date);
-      const dateB = new Date(b.order_date);
-      return dateB - dateA; // Most recent first
+    if (a.order_datetime && b.order_datetime) {
+      const timeA = new Date(a.order_datetime).getTime();
+      const timeB = new Date(b.order_datetime).getTime();
+      return timeB - timeA; // Most recent first
     }
-    // If only one has a date, prioritize it
-    if (a.order_date && !b.order_date) return -1;
-    if (!a.order_date && b.order_date) return 1;
-    // If neither has a date, sort by order_code
+    if (a.order_datetime && !b.order_datetime) return -1;
+    if (!a.order_datetime && b.order_datetime) return 1;
+    // Fallback to order_code
     return b.order_code.localeCompare(a.order_code);
   });
 
@@ -381,24 +362,30 @@ export default function OrderHistoryPage() {
                 <CardContent>
                   <div className="space-y-3">
                     {order.items.map((item, itemIdx) => (
-                      <div key={itemIdx} className="flex justify-between items-start py-3">
-                        <div className="flex-1 pr-4">
-                          <p className="font-medium text-sm text-foreground">{item.name}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{item.category || 'Product'}</p>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
-                          )}
+                      <div key={itemIdx}>
+                        <div className="flex justify-between items-start py-3">
+                          <div className="flex-1 pr-4">
+                            <p className="font-medium text-sm text-foreground">{item.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{item.category || 'Product'}</p>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                            )}
+                          </div>
+                          <div className="text-right min-w-[120px]">
+                            <p className="text-sm font-medium text-foreground">${(item.purchase_price || 0).toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Qty: {item.quantity || 1}</p>
+                            <p className="text-xs font-medium text-foreground mt-1">
+                              ${((item.purchase_price || 0) * (item.quantity || 1)).toFixed(2)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right min-w-[120px]">
-                          <p className="text-sm font-medium text-foreground">${(item.purchase_price || 0).toFixed(2)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Qty: {item.quantity || 1}</p>
-                          <p className="text-xs font-medium text-foreground mt-1">
-                            ${((item.purchase_price || 0) * (item.quantity || 1)).toFixed(2)}
-                          </p>
-                        </div>
+                        {itemIdx < order.items.length - 1 && (
+                          <div className="border-b border-gray-200"></div>
+                        )}
                       </div>
                     ))}
-                    <div className="pt-4 space-y-2 mt-4">
+                    <div className="border-b border-gray-200 mt-4"></div>
+                    <div className="pt-4 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Subtotal</span>
                         <span className="font-medium text-foreground">${order.subtotal.toFixed(2)}</span>

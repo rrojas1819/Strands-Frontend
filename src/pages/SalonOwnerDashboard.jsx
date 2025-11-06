@@ -7,6 +7,7 @@ import OperatingHours from '../components/OperatingHours';
 import EmployeeHoursModal from '../components/EmployeeHoursModal';
 import ProductManagement from '../components/ProductManagement';
 import SalonReviews from '../components/SalonReviews';
+import OwnerNavbar from '../components/OwnerNavbar';
 import { Button } from '../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
@@ -31,7 +32,6 @@ import {
   ArrowUpDown,
   Eye
 } from 'lucide-react';
-import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 import { toast } from 'sonner';
 import StrandsModal from '../components/ui/strands-modal';
 import { Card, CardContent } from '../components/ui/card';
@@ -93,6 +93,15 @@ export default function SalonOwnerDashboard() {
   });
 
   useEffect(() => {
+    // Check for tab in URL params
+    const searchParams = new URLSearchParams(location.search);
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && ['overview', 'staff-services', 'products', 'customers', 'reviews', 'loyalty', 'settings'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     const checkSalonStatus = async () => {
       try {
         const token = localStorage.getItem('auth_token');
@@ -132,7 +141,7 @@ export default function SalonOwnerDashboard() {
   }, [activeTab, salonStatus]);
 
   useEffect(() => {
-    if ((activeTab === 'overview' || activeTab === 'products') && salonStatus === 'APPROVED') {
+    if ((activeTab === 'overview' || activeTab === 'products' || activeTab === 'reviews') && salonStatus === 'APPROVED') {
       fetchSalonInfo();
     }
   }, [activeTab, salonStatus]);
@@ -574,130 +583,12 @@ export default function SalonOwnerDashboard() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="bg-background border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-            <img 
-              src={strandsLogo} 
-              alt="Strands" 
-                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
-              onClick={() => navigate('/')}
-            />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Salon Owner Dashboard</h1>
-                <p className="text-sm text-muted-foreground">Manage your salon business</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                Owner
-              </Badge>
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-                  </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <nav className="bg-muted/50 border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <button 
-              onClick={() => setActiveTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'overview' 
-                  ? 'border-primary text-primary' 
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-              }`}
-            >
-              Overview
-            </button>
-            {salonStatus === 'APPROVED' && (
-              <>
-                <button 
-                  onClick={() => setActiveTab('staff-services')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'staff-services' 
-                      ? 'border-primary text-primary' 
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Staff
-                </button>
-                <button 
-                  onClick={() => setActiveTab('products')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'products' 
-                      ? 'border-primary text-primary' 
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Products
-                </button>
-                <button 
-                  onClick={() => setActiveTab('customers')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'customers' 
-                      ? 'border-primary text-primary' 
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Customers
-                </button>
-                <button 
-                  onClick={() => navigate('/owner/order-history')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    location.pathname === '/owner/order-history'
-                      ? 'border-primary text-primary' 
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Order History
-                </button>
-                <button 
-                  onClick={() => setActiveTab('reviews')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'reviews' 
-                      ? 'border-primary text-primary' 
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Reviews
-                </button>
-                <button 
-                  onClick={() => setActiveTab('loyalty')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'loyalty' 
-                      ? 'border-primary text-primary' 
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Loyalty
-                </button>
-                <button 
-                  onClick={() => toast.info('Promotions coming soon!')}
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
-                >
-                  Promotions
-                </button>
-                <button 
-                  onClick={() => setActiveTab('settings')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'settings' 
-                      ? 'border-primary text-primary' 
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Settings
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </nav>
+      <OwnerNavbar 
+        salonStatus={salonStatus}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        handleLogout={handleLogout}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -1085,19 +976,29 @@ export default function SalonOwnerDashboard() {
         )}
 
         {activeTab === 'reviews' && salonStatus === 'APPROVED' && (
-          <SalonReviews 
-            salonId={salonInfo?.salon_id}
-            canReply={true}
-            onError={(error) => {
-              setModalConfig({
-                title: 'Error',
-                message: error,
-                type: 'error',
-                onConfirm: () => setShowModal(false)
-              });
-              setShowModal(true);
-            }}
-          />
+          salonInfoLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          ) : salonInfo?.salon_id ? (
+            <SalonReviews 
+              salonId={salonInfo.salon_id}
+              canReply={true}
+              onError={(error) => {
+                setModalConfig({
+                  title: 'Error',
+                  message: error,
+                  type: 'error',
+                  onConfirm: () => setShowModal(false)
+                });
+                setShowModal(true);
+              }}
+            />
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Unable to load salon information</p>
+            </div>
+          )
         )}
 
         {activeTab === 'loyalty' && salonStatus === 'APPROVED' && (
