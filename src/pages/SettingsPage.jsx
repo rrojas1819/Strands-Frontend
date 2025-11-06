@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { notifySuccess, notifyError } from '../utils/notifications';
 import { ArrowLeft, CreditCard, MapPin, Lock, Check, X, Trash2 } from 'lucide-react';
 import StrandsModal from '../components/StrandsModal';
+import UserNavbar from '../components/UserNavbar';
 
 // Card brand detection function - matches backend logic
 const detectCardBrand = (cardNumber) => {
@@ -149,26 +150,17 @@ const CardBrandLogo = ({ brand }) => {
   );
 };
 
-export default function PaymentPage() {
+export default function SettingsPage() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const location = useLocation();
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
   
-  const bookingId = location.state?.bookingId;
-  const bookingAmount = location.state?.amount || 0;
-  const bookingDetails = location.state?.bookingDetails || {};
-  
-  const [loading, setLoading] = useState(false);
-  const [editingAddress, setEditingAddress] = useState(false);
-  const [enteringNewCard, setEnteringNewCard] = useState(false);
-  
-  // Modal states
-  const [showDeleteAddressModal, setShowDeleteAddressModal] = useState(false);
-  const [showDeleteCardModal, setShowDeleteCardModal] = useState(false);
-  const [cardToDelete, setCardToDelete] = useState(null);
-  
-  // Billing address state
   const [billingAddress, setBillingAddress] = useState(null);
+  const [savedCards, setSavedCards] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
+  // Billing address form state
+  const [editingAddress, setEditingAddress] = useState(false);
   const [addressForm, setAddressForm] = useState({
     full_name: '',
     address_line1: '',
@@ -180,10 +172,8 @@ export default function PaymentPage() {
     phone: ''
   });
   
-  // Credit card state
-  const [savedCards, setSavedCards] = useState([]);
-  const [selectedCardId, setSelectedCardId] = useState(null);
-  const [saveCard, setSaveCard] = useState(false);
+  // Credit card form state
+  const [enteringNewCard, setEnteringNewCard] = useState(false);
   const [cardForm, setCardForm] = useState({
     card_number: '',
     cvc: '',
@@ -192,7 +182,10 @@ export default function PaymentPage() {
     cardholder_name: ''
   });
   
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  // Delete modals
+  const [showDeleteAddressModal, setShowDeleteAddressModal] = useState(false);
+  const [showDeleteCardModal, setShowDeleteCardModal] = useState(false);
+  const [cardToDelete, setCardToDelete] = useState(null);
   
   // US States for dropdown
   const usStates = [
@@ -220,16 +213,9 @@ export default function PaymentPage() {
       navigate('/login');
       return;
     }
-    
-    if (!bookingId) {
-      notifyError('No booking found. Please start over.');
-      navigate('/dashboard');
-      return;
-    }
-    
     fetchBillingAddress();
     fetchSavedCards();
-  }, [user, bookingId]);
+  }, [user]);
   
   const fetchBillingAddress = async () => {
     try {
@@ -244,7 +230,6 @@ export default function PaymentPage() {
         const data = await response.json();
         if (data.billing_address) {
           setBillingAddress(data.billing_address);
-          // Pre-fill form with existing address
           setAddressForm({
             full_name: data.billing_address.full_name || '',
             address_line1: data.billing_address.address_line1 || '',
@@ -257,18 +242,15 @@ export default function PaymentPage() {
           });
           setEditingAddress(false);
         } else {
-          // No billing address exists, show form
           setBillingAddress(null);
           setEditingAddress(true);
         }
       } else if (response.status === 404) {
-        // No billing address exists, show form
         setBillingAddress(null);
         setEditingAddress(true);
       }
     } catch (err) {
       console.error('Error fetching billing address:', err);
-      // If error, show form to allow user to create address
       setBillingAddress(null);
       setEditingAddress(true);
     }
@@ -286,10 +268,6 @@ export default function PaymentPage() {
       if (response.ok) {
         const data = await response.json();
         setSavedCards(data.credit_cards || []);
-        // Auto-select first card if available
-        if (data.credit_cards && data.credit_cards.length > 0 && !selectedCardId) {
-          setSelectedCardId(data.credit_cards[0].credit_card_id);
-        }
       }
     } catch (err) {
       console.error('Error fetching saved cards:', err);
@@ -303,7 +281,6 @@ export default function PaymentPage() {
     try {
       const token = localStorage.getItem('auth_token');
       
-      // Validate required fields
       if (!addressForm.full_name || !addressForm.address_line1 || !addressForm.city || 
           !addressForm.state || !addressForm.postal_code || !addressForm.country) {
         notifyError('Please fill in all required fields');
@@ -313,7 +290,6 @@ export default function PaymentPage() {
       
       let response;
       if (billingAddress) {
-        // Update existing address
         response = await fetch(`${apiUrl}/payments/updateBillingAddress`, {
           method: 'PUT',
           headers: {
@@ -323,7 +299,6 @@ export default function PaymentPage() {
           body: JSON.stringify(addressForm)
         });
       } else {
-        // Create new address
         response = await fetch(`${apiUrl}/payments/createBillingAddress`, {
           method: 'POST',
           headers: {
@@ -338,7 +313,6 @@ export default function PaymentPage() {
       
       if (response.ok) {
         notifySuccess('Billing address saved successfully');
-        // Fetch the updated address
         const addressResponse = await fetch(`${apiUrl}/payments/getBillingAddress`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -347,8 +321,8 @@ export default function PaymentPage() {
         if (addressResponse.ok) {
           const addressData = await addressResponse.json();
           setBillingAddress(addressData.billing_address);
+          setEditingAddress(false);
         }
-        setEditingAddress(false);
       } else {
         notifyError(data.message || 'Failed to save billing address');
       }
@@ -360,340 +334,9 @@ export default function PaymentPage() {
     }
   };
   
-  const handleCardSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!selectedCardId && !enteringNewCard) {
-      notifyError('Please select a card or enter a new one');
-      return;
-    }
-    
-    if (enteringNewCard) {
-      // Validate new card form
-      if (!cardForm.card_number || !cardForm.cvc || !cardForm.exp_month || !cardForm.exp_year || !cardForm.cardholder_name) {
-        notifyError('Please fill in all card fields');
-        return;
-      }
-      
-      // Validate card number format (basic)
-      const cleanedCardNumber = cardForm.card_number.replace(/\s/g, '');
-      if (cleanedCardNumber.length < 13 || cleanedCardNumber.length > 19) {
-        notifyError('Invalid card number');
-        return;
-      }
-      
-      if (cardForm.cvc.length < 3 || cardForm.cvc.length > 4) {
-        notifyError('Invalid CVC');
-        return;
-      }
-    }
-    
-    setLoading(true);
-    
-    try {
-      const token = localStorage.getItem('auth_token');
-      let creditCardId;
-      let billingAddressId;
-      
-      // Get billing address ID
-      const addressResponse = await fetch(`${apiUrl}/payments/getBillingAddress`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!addressResponse.ok) {
-        if (addressResponse.status === 404) {
-          notifyError('Please save your billing address first before adding a payment method.');
-          setEditingAddress(true);
-          setLoading(false);
-          return;
-        }
-        throw new Error('Failed to fetch billing address');
-      }
-      
-      const addressData = await addressResponse.json();
-      
-      if (!addressData.billing_address || !addressData.billing_address.billing_address_id) {
-        notifyError('Please save your billing address first before adding a payment method.');
-        setEditingAddress(true);
-        setLoading(false);
-        return;
-      }
-      
-      billingAddressId = addressData.billing_address.billing_address_id;
-      
-      // Handle card selection/creation
-      if (enteringNewCard) {
-        // Save card (permanent or temporary)
-        if (saveCard) {
-          // Save as permanent card
-          // Parse month and year - handle string "03" vs number 3
-          const expMonth = typeof cardForm.exp_month === 'string' 
-            ? parseInt(cardForm.exp_month, 10) 
-            : cardForm.exp_month;
-          const expYear = typeof cardForm.exp_year === 'string' 
-            ? parseInt(cardForm.exp_year, 10) 
-            : cardForm.exp_year;
-          
-          const cardPayload = {
-            card_number: cardForm.card_number.replace(/\s/g, ''),
-            cvc: cardForm.cvc,
-            exp_month: expMonth,
-            exp_year: expYear,
-            billing_address_id: billingAddressId
-          };
-          
-          // Validate payload before sending
-          if (!cardPayload.card_number || cardPayload.card_number.length < 13) {
-            throw new Error('Please enter a valid card number.');
-          }
-          if (!cardPayload.cvc || cardPayload.cvc.length < 3) {
-            throw new Error('Please enter a valid CVC code.');
-          }
-          if (!cardPayload.exp_month || cardPayload.exp_month < 1 || cardPayload.exp_month > 12) {
-            throw new Error('Please select a valid expiration month.');
-          }
-          if (!cardPayload.exp_year || cardPayload.exp_year < new Date().getFullYear()) {
-            throw new Error('Please select a valid expiration year.');
-          }
-          if (!cardPayload.billing_address_id) {
-            throw new Error('Billing address is required. Please save your billing address first.');
-          }
-          
-          // Ensure all values are numbers (not NaN)
-          if (isNaN(cardPayload.exp_month) || isNaN(cardPayload.exp_year)) {
-            throw new Error('Invalid expiration date. Please check month and year.');
-          }
-          
-          console.log('Saving permanent card with payload:', {
-            ...cardPayload,
-            card_number: cardPayload.card_number.substring(0, 4) + '****',
-            cvc: '***'
-          });
-          
-          const cardResponse = await fetch(`${apiUrl}/payments/saveCreditCard`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(cardPayload)
-          });
-          
-          let cardData;
-          try {
-            cardData = await cardResponse.json();
-          } catch (parseError) {
-            console.error('Failed to parse response:', parseError);
-            throw new Error('Server returned an invalid response. Please try again.');
-          }
-          
-          if (!cardResponse.ok) {
-            // Log full error details for debugging
-            console.error('Card save error - Full details:', {
-              status: cardResponse.status,
-              statusText: cardResponse.statusText,
-              headers: Object.fromEntries(cardResponse.headers.entries()),
-              data: cardData,
-              payload: {
-                ...cardPayload,
-                card_number: cardPayload.card_number.substring(0, 4) + '****',
-                cvc: '***'
-              }
-            });
-            
-            // Provide specific error messages for card validation failures
-            let errorMessage = cardData.message || 'Failed to save card';
-            if (cardData.message && (cardData.message.includes('Invalid card number') || cardData.message.includes('Luhn'))) {
-              errorMessage = 'Invalid card number. Please check your card details and try again.';
-            } else if (cardData.message && cardData.message.includes('expiration')) {
-              errorMessage = 'Invalid expiration date. Please check the month and year.';
-            } else if (cardData.message && cardData.message.includes('CVC')) {
-              errorMessage = 'Invalid CVC code. Please check the 3-4 digit code on the back of your card.';
-            } else if (cardData.message && cardData.message.includes('already saved')) {
-              errorMessage = 'This card is already saved. Please use your saved card.';
-            } else if (cardData.message && cardData.message.includes('billing address')) {
-              errorMessage = 'Billing address not found. Please save your billing address first.';
-            } else if (cardResponse.status === 500) {
-              // 500 errors are backend issues - check backend console for actual error
-              errorMessage = cardData.message || 'Server error occurred. The backend may be experiencing issues. Please check the backend console logs for details.';
-              console.error('Backend 500 Error - Check backend console for the actual error stack trace');
-            }
-            throw new Error(errorMessage);
-          }
-          
-          creditCardId = cardData.data.credit_card_id;
-        } else {
-          // Save as temporary card (for one-time use)
-          // Parse month and year - handle string "03" vs number 3
-          const expMonth = typeof cardForm.exp_month === 'string' 
-            ? parseInt(cardForm.exp_month, 10) 
-            : cardForm.exp_month;
-          const expYear = typeof cardForm.exp_year === 'string' 
-            ? parseInt(cardForm.exp_year, 10) 
-            : cardForm.exp_year;
-          
-          const cardPayload = {
-            card_number: cardForm.card_number.replace(/\s/g, ''),
-            cvc: cardForm.cvc,
-            exp_month: expMonth,
-            exp_year: expYear,
-            billing_address_id: billingAddressId
-          };
-          
-          // Validate payload before sending
-          if (!cardPayload.card_number || cardPayload.card_number.length < 13) {
-            throw new Error('Please enter a valid card number.');
-          }
-          if (!cardPayload.cvc || cardPayload.cvc.length < 3) {
-            throw new Error('Please enter a valid CVC code.');
-          }
-          if (!cardPayload.exp_month || cardPayload.exp_month < 1 || cardPayload.exp_month > 12) {
-            throw new Error('Please select a valid expiration month.');
-          }
-          if (!cardPayload.exp_year || cardPayload.exp_year < new Date().getFullYear()) {
-            throw new Error('Please select a valid expiration year.');
-          }
-          if (!cardPayload.billing_address_id) {
-            throw new Error('Billing address is required. Please save your billing address first.');
-          }
-          
-          // Ensure all values are numbers (not NaN)
-          if (isNaN(cardPayload.exp_month) || isNaN(cardPayload.exp_year)) {
-            throw new Error('Invalid expiration date. Please check month and year.');
-          }
-          
-          console.log('Saving temporary card with payload:', {
-            ...cardPayload,
-            card_number: cardPayload.card_number.substring(0, 4) + '****',
-            cvc: '***'
-          });
-          
-          const cardResponse = await fetch(`${apiUrl}/payments/saveTempCreditCard`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(cardPayload)
-          });
-          
-          const cardData = await cardResponse.json();
-          
-          if (!cardResponse.ok) {
-            // Provide specific error messages for card validation failures
-            let errorMessage = cardData.message || 'Failed to use temporary card';
-            if (cardData.message && (cardData.message.includes('Invalid card number') || cardData.message.includes('Luhn'))) {
-              errorMessage = 'Invalid card number. Please check your card details and try again.';
-            } else if (cardData.message && cardData.message.includes('expiration')) {
-              errorMessage = 'Invalid expiration date. Please check the month and year.';
-            } else if (cardData.message && cardData.message.includes('CVC')) {
-              errorMessage = 'Invalid CVC code. Please check the 3-4 digit code on the back of your card.';
-            } else if (cardData.message && cardData.message.includes('already have a saved')) {
-              errorMessage = 'You already have a saved credit card. Please use your saved card or save this new card.';
-            } else if (cardData.message && cardData.message.includes('billing address')) {
-              errorMessage = 'Billing address not found. Please save your billing address first.';
-            } else if (cardResponse.status === 500) {
-              // Log full error details for debugging
-              console.error('Temporary card save error - Full response:', {
-                status: cardResponse.status,
-                statusText: cardResponse.statusText,
-                data: cardData,
-                payload: {
-                  ...cardPayload,
-                  card_number: cardPayload.card_number.substring(0, 4) + '****',
-                  cvc: '***'
-                }
-              });
-              errorMessage = cardData.message || 'Server error. Please check your card details and try again. If the problem persists, contact support.';
-            }
-            throw new Error(errorMessage);
-          }
-          
-          creditCardId = cardData.data.credit_card_id;
-        }
-      } else {
-        // Use saved card directly
-        if (!selectedCardId) {
-          throw new Error('Please select a card');
-        }
-        creditCardId = selectedCardId;
-      }
-      
-      // Process payment
-      const paymentResponse = await fetch(`${apiUrl}/payments/process`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          credit_card_id: creditCardId,
-          billing_address_id: billingAddressId,
-          amount: bookingAmount,
-          booking_id: bookingId
-        })
-      });
-      
-      const paymentData = await paymentResponse.json();
-      
-      if (paymentResponse.ok) {
-        notifySuccess('Payment processed successfully! Booking confirmed.');
-        navigate('/appointments');
-      } else {
-        // Provide specific error messages for payment failures
-        let errorMessage = paymentData.message || 'Payment failed';
-        if (paymentResponse.status === 404) {
-          if (paymentData.message && paymentData.message.includes('card')) {
-            errorMessage = 'Credit card not found. Please try a different card.';
-          } else if (paymentData.message && paymentData.message.includes('address')) {
-            errorMessage = 'Billing address not found. Please update your billing address.';
-          } else if (paymentData.message && paymentData.message.includes('booking')) {
-            errorMessage = 'Booking not found. Please start over.';
-          }
-        } else if (paymentResponse.status === 400) {
-          if (paymentData.message && paymentData.message.includes('amount')) {
-            errorMessage = 'Invalid payment amount. Please contact support.';
-          } else if (paymentData.message && paymentData.message.includes('status')) {
-            errorMessage = 'This booking can no longer be paid. Please start a new booking.';
-          }
-        }
-        throw new Error(errorMessage);
-      }
-    } catch (err) {
-      console.error('Payment error:', err);
-      notifyError(err.message || 'Payment processing failed');
-      // Don't delete booking on error - user should be able to retry
-      // Booking will only be deleted if user backs out of payment page
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleBack = () => {
-    handleDeletePendingBooking();
-    navigate(-1);
-  };
-  
-  const handleDeletePendingBooking = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      await fetch(`${apiUrl}/bookings/${bookingId}/deletePendingBooking`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-    } catch (err) {
-      console.error('Error deleting pending booking:', err);
-    }
-  };
-  
-  
-  const handleDeleteCreditCardClick = (creditCardId, e) => {
-    e.stopPropagation(); // Prevent card selection when clicking delete
-    setCardToDelete(creditCardId);
+  const handleDeleteCreditCardClick = (cardId, e) => {
+    e.stopPropagation();
+    setCardToDelete(cardId);
     setShowDeleteCardModal(true);
   };
   
@@ -715,19 +358,7 @@ export default function PaymentPage() {
       
       if (response.ok) {
         notifySuccess('Credit card deleted successfully');
-        // Remove from saved cards list
         setSavedCards(savedCards.filter(card => card.credit_card_id !== cardToDelete));
-        // Clear selection if deleted card was selected
-        if (selectedCardId === cardToDelete) {
-          setSelectedCardId(null);
-          if (savedCards.length > 1) {
-            // Select first remaining card
-            const remainingCards = savedCards.filter(card => card.credit_card_id !== cardToDelete);
-            if (remainingCards.length > 0) {
-              setSelectedCardId(remainingCards[0].credit_card_id);
-            }
-          }
-        }
         setShowDeleteCardModal(false);
         setCardToDelete(null);
       } else {
@@ -740,6 +371,99 @@ export default function PaymentPage() {
       notifyError('Failed to delete credit card');
       setShowDeleteCardModal(false);
       setCardToDelete(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleCardSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!cardForm.card_number || !cardForm.cvc || !cardForm.exp_month || !cardForm.exp_year || !cardForm.cardholder_name) {
+      notifyError('Please fill in all card fields');
+      return;
+    }
+    
+    const cleanedCardNumber = cardForm.card_number.replace(/\s/g, '');
+    if (cleanedCardNumber.length < 13 || cleanedCardNumber.length > 19) {
+      notifyError('Invalid card number');
+      return;
+    }
+    
+    if (cardForm.cvc.length < 3 || cardForm.cvc.length > 4) {
+      notifyError('Invalid CVC');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const token = localStorage.getItem('auth_token');
+      
+      const addressResponse = await fetch(`${apiUrl}/payments/getBillingAddress`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!addressResponse.ok || addressResponse.status === 404) {
+        notifyError('Please save your billing address first before adding a payment method.');
+        setLoading(false);
+        return;
+      }
+      
+      const addressData = await addressResponse.json();
+      if (!addressData.billing_address || !addressData.billing_address.billing_address_id) {
+        notifyError('Please save your billing address first before adding a payment method.');
+        setLoading(false);
+        return;
+      }
+      
+      const billingAddressId = addressData.billing_address.billing_address_id;
+      
+      const expMonth = typeof cardForm.exp_month === 'string' 
+        ? parseInt(cardForm.exp_month, 10) 
+        : cardForm.exp_month;
+      const expYear = typeof cardForm.exp_year === 'string' 
+        ? parseInt(cardForm.exp_year, 10) 
+        : cardForm.exp_year;
+      
+      const cardPayload = {
+        card_number: cleanedCardNumber,
+        cvc: cardForm.cvc,
+        exp_month: expMonth,
+        exp_year: expYear,
+        billing_address_id: billingAddressId
+      };
+      
+      const cardResponse = await fetch(`${apiUrl}/payments/saveCreditCard`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(cardPayload)
+      });
+      
+      const cardData = await cardResponse.json();
+      
+      if (cardResponse.ok) {
+        notifySuccess('Credit card saved successfully');
+        setCardForm({
+          card_number: '',
+          cvc: '',
+          exp_month: '',
+          exp_year: '',
+          cardholder_name: ''
+        });
+        setEnteringNewCard(false);
+        fetchSavedCards();
+      } else {
+        notifyError(cardData.message || 'Failed to save credit card');
+      }
+    } catch (err) {
+      console.error('Error saving credit card:', err);
+      notifyError('Failed to save credit card');
     } finally {
       setLoading(false);
     }
@@ -772,6 +496,7 @@ export default function PaymentPage() {
           phone: ''
         });
         setEditingAddress(true);
+        fetchSavedCards();
       } else {
         notifyError(data.message || 'Failed to delete billing address');
       }
@@ -789,84 +514,11 @@ export default function PaymentPage() {
   };
   
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-4">
-          <Button 
-            variant="ghost" 
-            onClick={handleBack} 
-            disabled={loading}
-            className="mb-2 text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-semibold text-gray-900">Complete payment</h1>
-        </div>
-
-        {/* Booking Details Summary */}
-        {bookingDetails && (bookingDetails.salon || bookingDetails.stylist || bookingDetails.date) && (
-          <Card className="mb-4 shadow-lg border-gray-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Booking Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {bookingDetails.salon && (
-                  <div>
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Salon</Label>
-                    <p className="text-sm font-medium text-gray-900">{bookingDetails.salon}</p>
-                  </div>
-                )}
-                {bookingDetails.stylist && (
-                  <div>
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Stylist</Label>
-                    <p className="text-sm font-medium text-gray-900">{bookingDetails.stylist}</p>
-                  </div>
-                )}
-                {bookingDetails.date && (
-                  <div>
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Date</Label>
-                    <p className="text-sm font-medium text-gray-900">
-                      {new Date(bookingDetails.date + 'T00:00:00').toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </p>
-                  </div>
-                )}
-                {bookingDetails.time && (
-                  <div>
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Time</Label>
-                    <p className="text-sm font-medium text-gray-900">
-                      {bookingDetails.time.includes(':') 
-                        ? new Date(`2000-01-01T${bookingDetails.time}`).toLocaleTimeString('en-US', { 
-                            hour: 'numeric', 
-                            minute: '2-digit' 
-                          })
-                        : bookingDetails.time}
-                    </p>
-                  </div>
-                )}
-                {bookingDetails.services && bookingDetails.services.length > 0 && (
-                  <div className="md:col-span-2">
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Services</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {bookingDetails.services.map((service, idx) => (
-                        <span key={idx} className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm font-medium">
-                          {service}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+    <div className="min-h-screen bg-gray-50">
+      <UserNavbar activeTab="settings" title="Settings" />
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Payment Settings</h1>
 
         {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
@@ -890,7 +542,7 @@ export default function PaymentPage() {
                 <div className="space-y-3 flex flex-col flex-grow">
                   <div className="flex-grow">
                     <p className="text-sm text-gray-600 mb-3">
-                      Your saved billing address is shown below. You can edit it or proceed with payment.
+                      Your saved billing address is shown below. You can edit it or delete it.
                     </p>
                     
                     <div className="space-y-2">
@@ -938,7 +590,7 @@ export default function PaymentPage() {
                       type="button"
                       variant="outline"
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
-                              onClick={() => setShowDeleteAddressModal(true)}
+                      onClick={() => setShowDeleteAddressModal(true)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -1010,7 +662,6 @@ export default function PaymentPage() {
                         <Select
                           value={addressForm.state}
                           onValueChange={(value) => {
-                            console.log('State changed to:', value);
                             setAddressForm(prev => ({ ...prev, state: value }));
                           }}
                         >
@@ -1079,9 +730,9 @@ export default function PaymentPage() {
               </div>
             </CardHeader>
             <CardContent className="flex flex-col flex-grow">
-              <form onSubmit={handleCardSubmit} className="space-y-3 flex flex-col flex-grow">
+              <div className="space-y-3 flex flex-col flex-grow">
                 <p className="text-sm text-gray-600 mb-3">
-                  Select a saved card or enter new card details.
+                  View your saved cards or add a new one.
                 </p>
                 
                 {/* Saved Cards */}
@@ -1090,15 +741,7 @@ export default function PaymentPage() {
                     {savedCards.map((card) => (
                       <div
                         key={card.credit_card_id}
-                        onClick={() => {
-                          setSelectedCardId(card.credit_card_id);
-                          setEnteringNewCard(false);
-                        }}
-                        className={`relative p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                          selectedCardId === card.credit_card_id
-                            ? 'border-blue-600 bg-blue-50 shadow-sm'
-                            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                        }`}
+                        className="relative p-4 border-2 rounded-lg border-gray-200 bg-white"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4 flex-1">
@@ -1110,24 +753,23 @@ export default function PaymentPage() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {selectedCardId === card.credit_card_id && (
-                              <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
-                                <Check className="w-3 h-3 text-white" />
-                              </div>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => handleDeleteCreditCardClick(card.credit_card_id, e)}
-                              className="p-1 text-gray-400 hover:text-red-600 transition-colors rounded hover:bg-red-50"
-                              title="Delete card"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteCreditCardClick(card.credit_card_id, e)}
+                            className="p-1 text-gray-400 hover:text-red-600 transition-colors rounded hover:bg-red-50"
+                            title="Delete card"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+                
+                {savedCards.length === 0 && !enteringNewCard && (
+                  <div className="flex-grow flex items-center justify-center">
+                    <p className="text-sm text-gray-500 text-center">No saved credit cards</p>
                   </div>
                 )}
                 
@@ -1139,16 +781,16 @@ export default function PaymentPage() {
                     className="w-full h-11 border-gray-300 hover:bg-gray-50 mb-4"
                     onClick={() => {
                       setEnteringNewCard(true);
-                      setSelectedCardId(null);
                     }}
+                    disabled={!billingAddress}
                   >
-                    Enter Card Details
+                    {billingAddress ? 'Enter Card Details' : 'Save billing address first'}
                   </Button>
                 )}
                 
                 {/* New Card Form */}
                 {enteringNewCard && (
-                  <div className="space-y-4 border-t pt-4">
+                  <form onSubmit={handleCardSubmit} className="space-y-4 border-t pt-4">
                     <div>
                       <Label htmlFor="card_number" className="text-sm font-medium text-gray-700 mb-2 block">
                         Card Number
@@ -1199,7 +841,6 @@ export default function PaymentPage() {
                         <Select
                           value={cardForm.exp_month}
                           onValueChange={(value) => {
-                            console.log('Month changed to:', value);
                             setCardForm(prev => ({ ...prev, exp_month: value }));
                           }}
                         >
@@ -1225,7 +866,6 @@ export default function PaymentPage() {
                         <Select
                           value={cardForm.exp_year}
                           onValueChange={(value) => {
-                            console.log('Year changed to:', value);
                             setCardForm(prev => ({ ...prev, exp_year: value }));
                           }}
                         >
@@ -1261,68 +901,43 @@ export default function PaymentPage() {
                       </div>
                     </div>
                     
-                    <div className="flex items-start gap-3 pt-2">
-                      <input
-                        type="checkbox"
-                        id="save_card"
-                        checked={saveCard}
-                        onChange={(e) => setSaveCard(e.target.checked)}
-                        className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <Label htmlFor="save_card" className="text-sm text-gray-600 cursor-pointer leading-5">
-                        Save this card for future use
-                      </Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                        disabled={loading}
+                      >
+                        {loading ? 'Saving...' : 'Save Card'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-11 text-sm text-gray-600 hover:text-gray-900"
+                        onClick={() => {
+                          setEnteringNewCard(false);
+                          if (savedCards.length > 0) {
+                            // Keep form state for re-entry
+                          } else {
+                            setCardForm({
+                              card_number: '',
+                              cvc: '',
+                              exp_month: '',
+                              exp_year: '',
+                              cardholder_name: ''
+                            });
+                          }
+                        }}
+                      >
+                        Cancel
+                      </Button>
                     </div>
-                    
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="w-full text-sm text-gray-600 hover:text-gray-900"
-                      onClick={() => {
-                        setEnteringNewCard(false);
-                        if (savedCards.length > 0) {
-                          setSelectedCardId(savedCards[0].credit_card_id);
-                        }
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
+                  </form>
                 )}
-                
-                {/* Total Amount Display */}
-                {bookingAmount > 0 && (
-                  <div className="border-t pt-3 mt-auto">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-base font-medium text-gray-700">Total</span>
-                      <span className="text-xl font-bold text-gray-900">
-                        ${typeof bookingAmount === 'number' ? bookingAmount.toFixed(2) : parseFloat(bookingAmount || 0).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Process Payment Button */}
-                <Button 
-                  type="submit" 
-                  className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm disabled:opacity-50 mt-3" 
-                  disabled={loading || (!selectedCardId && !enteringNewCard) || !billingAddress}
-                  title={!billingAddress ? 'Please save your billing address first' : ''}
-                >
-                  <Lock className="h-4 w-4 mr-2" />
-                  {loading ? 'Processing...' : `Process Payment & Book`}
-                </Button>
-                
-                {/* Security Notice */}
-                <p className="text-xs text-center text-gray-500 pt-1">
-                  <Lock className="h-3 w-3 inline mr-1" />
-                  Your payment information is secure and encrypted
-                </p>
-              </form>
+              </div>
             </CardContent>
           </Card>
         </div>
-      </div>
+      </main>
       
       {/* Delete Billing Address Modal */}
       <StrandsModal

@@ -5,13 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { LogOut, Star, Calendar, Clock, MapPin, Phone, X, Edit2, Menu } from 'lucide-react';
-import { notifySuccess, notifyError, Notifications } from '../utils/notifications';
+import { Calendar, Clock, X, Edit2 } from 'lucide-react';
+import { notifySuccess, notifyError } from '../utils/notifications';
 import StrandsModal from '../components/StrandsModal';
+import UserNavbar from '../components/UserNavbar';
 
 export default function Appointments() {
-  const { user, logout } = useContext(AuthContext);
-  const { rewardsCount } = useContext(RewardsContext);
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -19,11 +19,9 @@ export default function Appointments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [canceling, setCanceling] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'scheduled', 'past', 'cancelled'
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -66,10 +64,6 @@ export default function Appointments() {
     }
   };
 
-  const handleLogout = () => {
-    Notifications.logoutSuccess();
-    logout();
-  };
 
   const handleCancelClick = (appointment) => {
     setSelectedAppointment(appointment);
@@ -238,151 +232,7 @@ export default function Appointments() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Header */}
-      <header className="bg-background border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <img 
-                src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
-                alt="Strands Logo" 
-                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20"
-              />
-              <div>
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">My Appointments</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">View and manage your appointments</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <Link
-                to="/loyalty-points"
-                className="hidden sm:flex items-center space-x-2 px-2 sm:px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors"
-              >
-                <Star className="w-4 h-4 text-yellow-600" />
-                <span className="text-xs sm:text-sm font-medium text-yellow-800">{rewardsCount} rewards</span>
-              </Link>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs sm:text-sm hidden sm:inline-flex">
-                {user?.role || 'User'}
-              </Badge>
-              <Button variant="outline" onClick={handleLogout} className="hidden sm:flex items-center space-x-2 text-xs sm:text-sm px-2 sm:px-4">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden lg:inline">Logout</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="sm:hidden"
-              >
-                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="bg-background border-b sm:hidden">
-          <div className="max-w-7xl mx-auto px-4 py-4 space-y-2">
-            <Link
-              to="/loyalty-points"
-              className="flex items-center space-x-2 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <Star className="w-4 h-4 text-yellow-600" />
-              <span className="text-sm font-medium text-yellow-800">Loyalty Program ({rewardsCount} rewards)</span>
-            </Link>
-            <div className="flex items-center justify-between px-3 py-2">
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                {user?.role || 'User'}
-              </Badge>
-              <Button variant="outline" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="flex items-center space-x-2">
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Navigation Bar - Condensed and logical */}
-      <nav className="bg-muted/50 border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="hidden sm:flex space-x-4 lg:space-x-8 overflow-x-auto">
-            {/* Current: Browse Salons */}
-            <button 
-              onClick={() => navigate('/dashboard')}
-              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm whitespace-nowrap"
-            >
-              Browse Salons
-            </button>
-            
-            {/* Booking & Appointments */}
-            <button 
-              onClick={() => navigate('/appointments')}
-              className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm whitespace-nowrap"
-            >
-              My Appointments
-            </button>
-            
-            {/* Loyalty & Rewards */}
-            <Link
-              to="/loyalty-points"
-              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm whitespace-nowrap"
-            >
-              Loyalty Program
-            </Link>
-            
-            {/* Profile & History */}
-            <button onClick={() => navigate('/profile')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm whitespace-nowrap">
-              My Profile
-            </button>
-            
-            {/* Reviews & Feedback */}
-            <button onClick={() => navigate('/reviews')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm whitespace-nowrap">
-              Reviews
-            </button>
-          </div>
-          
-          {/* Mobile Navigation */}
-          {isMobileMenuOpen && (
-            <div className="sm:hidden py-2 space-y-1">
-              <button 
-                onClick={() => { navigate('/dashboard'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-3 px-4 border-b-2 border-transparent text-muted-foreground font-medium text-sm"
-              >
-                Browse Salons
-              </button>
-              <button 
-                onClick={() => { setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-3 px-4 border-b-2 border-primary text-primary font-medium text-sm"
-              >
-                My Appointments
-              </button>
-              <Link
-                to="/loyalty-points"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block py-3 px-4 border-b-2 border-transparent text-muted-foreground font-medium text-sm"
-              >
-                Loyalty Program
-              </Link>
-              <button 
-                onClick={() => { navigate('/profile'); setIsMobileMenuOpen(false); }} 
-                className="w-full text-left py-3 px-4 border-b-2 border-transparent text-muted-foreground font-medium text-sm"
-              >
-                My Profile
-              </button>
-              <button 
-                onClick={() => { navigate('/reviews'); setIsMobileMenuOpen(false); }} 
-                className="w-full text-left py-3 px-4 border-b-2 border-transparent text-muted-foreground font-medium text-sm"
-              >
-                Reviews
-              </button>
-            </div>
-          )}
-        </div>
-      </nav>
+      <UserNavbar activeTab="appointments" title="My Appointments" subtitle="View and manage your appointments" />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

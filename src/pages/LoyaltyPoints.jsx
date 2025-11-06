@@ -5,11 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Star, Gift, Trophy, Clock, LogOut, TrendingUp, Award, Zap } from 'lucide-react';
+import { Star, Gift, Trophy, Clock, TrendingUp, Award, Zap } from 'lucide-react';
 import { Notifications } from '../utils/notifications';
+import UserNavbar from '../components/UserNavbar';
 
 export default function LoyaltyPoints() {
-  const { user, logout } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [loyaltyData, setLoyaltyData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -161,10 +162,6 @@ export default function LoyaltyPoints() {
     fetchLoyaltyData();
   }, [user, navigate]);
 
-  const handleLogout = () => {
-    Notifications.logoutSuccess();
-    logout();
-  };
 
   const getTierBadge = (tier) => {
     const tierColors = {
@@ -203,65 +200,7 @@ export default function LoyaltyPoints() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Header */}
-      <header className="bg-background border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <img 
-                src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
-                alt="Strands Logo" 
-                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20"
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Loyalty Program</h1>
-                <p className="text-sm text-muted-foreground">Track Your Visits And Rewards</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <Star className="w-4 h-4 text-yellow-600" />
-                <span className="text-sm font-medium text-yellow-800">
-                  {loyaltyData?.salonProgress?.reduce((total, salon) => total + salon.availableRewards, 0) || '0'} rewards ready
-                </span>
-              </div>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                {user?.role || 'User'}
-              </Badge>
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation Bar */}
-      <nav className="bg-muted/50 border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <Link
-              to="/dashboard"
-              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
-            >
-              Browse Salons
-            </Link>
-            <button onClick={() => navigate('/appointments')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
-              My Appointments
-            </button>
-            <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm cursor-pointer">
-              Loyalty Program
-            </button>
-            <button onClick={() => navigate('/profile')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
-              My Profile
-            </button>
-            <button onClick={() => navigate('/reviews')} className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm cursor-pointer">
-              Reviews
-            </button>
-          </div>
-        </div>
-      </nav>
+      <UserNavbar activeTab="loyalty" title="Loyalty Program" subtitle="Track Your Visits And Rewards" />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

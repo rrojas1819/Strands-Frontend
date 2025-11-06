@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonRegistrationForm from '../components/SalonRegistrationForm';
 import LoyaltyConfiguration from '../components/LoyaltyConfiguration';
@@ -40,6 +40,7 @@ import { Card, CardContent } from '../components/ui/card';
 export default function SalonOwnerDashboard() {
   const authContext = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [hasSalon, setHasSalon] = useState(false);
   const [salonStatus, setSalonStatus] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -586,8 +587,8 @@ export default function SalonOwnerDashboard() {
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Salon Owner Dashboard</h1>
                 <p className="text-sm text-muted-foreground">Manage your salon business</p>
-              </div>
             </div>
+          </div>
           <div className="flex items-center space-x-4">
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Owner
@@ -645,6 +646,16 @@ export default function SalonOwnerDashboard() {
                   }`}
                 >
                   Customers
+                </button>
+                <button 
+                  onClick={() => navigate('/owner/order-history')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    location.pathname === '/owner/order-history'
+                      ? 'border-primary text-primary' 
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
+                  Order History
                 </button>
                 <button 
                   onClick={() => setActiveTab('reviews')}
@@ -740,7 +751,7 @@ export default function SalonOwnerDashboard() {
             {salonInfo && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
+                    <div>
                     <h3 className="text-xl font-semibold mb-4">Salon Information</h3>
                     <div className="space-y-3">
                     <div>
@@ -760,33 +771,33 @@ export default function SalonOwnerDashboard() {
                         <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${salonInfo.status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' : salonInfo.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100' : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100'}`}>
                           {salonInfo.status}
                         </span>
-                    </div>
+                  </div>
                     </div>
                   </div>
 
-                  <div>
+                    <div>
                     <h3 className="text-xl font-semibold mb-4">Contact Information</h3>
                     <div className="space-y-3">
                       {salonInfo.phone && (
                         <div>
                           <p className="text-sm text-muted-foreground">Phone</p>
                           <p className="font-medium">{salonInfo.phone}</p>
-                        </div>
+                    </div>
                       )}
                       {salonInfo.email && (
-                        <div>
+                    <div>
                           <p className="text-sm text-muted-foreground">Email</p>
                           <p className="font-medium">{salonInfo.email}</p>
-                        </div>
+                    </div>
                       )}
-                      <div>
+                    <div>
                         <p className="text-sm text-muted-foreground">Address</p>
                         <p className="font-medium">
                           {salonInfo.address || 'No address'}
                         </p>
-                      </div>
                     </div>
                   </div>
+                </div>
                 </div>
 
                 <div className="border-t pt-6">
@@ -800,14 +811,14 @@ export default function SalonOwnerDashboard() {
                             ? `${formatTimeTo12Hour(hours.start_time)} - ${formatTimeTo12Hour(hours.end_time)}`
                             : 'Closed'
                           }
-                        </p>
-                      </div>
-                    ))}
+                    </p>
                   </div>
-                </div>
-              </div>
-            )}
-          </div>
+                    ))}
+                        </div>
+                          </div>
+                        </div>
+                        )}
+                      </div>
         )}
 
         {activeTab === 'staff-services' && salonStatus === 'APPROVED' && (
@@ -822,9 +833,9 @@ export default function SalonOwnerDashboard() {
                   </div>
                 <Button onClick={() => setShowAddEmployeeModal(true)}>
                   <Users className="w-4 h-4 mr-2" />
-                  Add Employee
+                    Add Employee
                   </Button>
-              </div>
+                </div>
               
               {employeesLoading ? (
                 <div className="flex justify-center py-8">
@@ -841,22 +852,22 @@ export default function SalonOwnerDashboard() {
                       </div>
                     ) : (
                       employees.map((employee) => (
-                        <div key={employee.employee_id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="flex items-center space-x-4">
-                            <Avatar>
+                  <div key={employee.employee_id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <Avatar>
                               <AvatarImage src={employee.profile_picture_url} />
-                              <AvatarFallback>
+                        <AvatarFallback>
                                 {employee.full_name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
                               <h4 className="font-medium">{employee.full_name}</h4>
                               <p className="text-sm text-muted-foreground">{employee.email}</p>
                               <div className="flex items-center space-x-2 mt-1">
                                 <Badge variant="outline">{employee.title}</Badge>
                                 <Badge variant="outline" className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${employee.active ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100'}`}>
-                                  {employee.active ? 'Active' : 'Inactive'}
-                          </Badge>
+                          {employee.active ? 'Active' : 'Inactive'}
+                        </Badge>
                         </div>
                       </div>
                     </div>
@@ -887,7 +898,7 @@ export default function SalonOwnerDashboard() {
                     <div className="flex items-center justify-between mt-6 pt-4 border-t">
                       <div className="text-sm text-muted-foreground">
                         Showing {employees.length} of {pagination.total_employees} employees
-                    </div>
+                  </div>
                     <div className="flex items-center space-x-2">
                       <Button 
                         variant="outline" 
@@ -896,7 +907,7 @@ export default function SalonOwnerDashboard() {
                           disabled={!pagination.has_prev_page}
                         >
                           Previous
-                        </Button>
+                  </Button>
                         
                         <div className="flex items-center space-x-1">
                           {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
@@ -913,7 +924,7 @@ export default function SalonOwnerDashboard() {
                       </Button>
                             );
                           })}
-                        </div>
+                </div>
                         
                       <Button 
                           variant="outline"
@@ -961,7 +972,7 @@ export default function SalonOwnerDashboard() {
         {activeTab === 'customers' && salonStatus === 'APPROVED' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <div>
+                      <div>
                 <h2 className="text-2xl font-bold text-foreground">Customer Visits</h2>
                 <p className="text-muted-foreground">View your customers' visit history</p>
               </div>
@@ -1013,7 +1024,7 @@ export default function SalonOwnerDashboard() {
                                   <Clock className="w-4 h-4 text-blue-600" />
                                   <span className="text-sm font-medium text-blue-600">
                                     {customer.total_visits} visit{customer.total_visits !== 1 ? 's' : ''}
-                                  </span>
+                          </span>
                                 </div>
                                 {customer.last_visit && (
                                   <span className="text-xs text-muted-foreground">
@@ -1022,19 +1033,19 @@ export default function SalonOwnerDashboard() {
                                       day: 'numeric',
                                       year: 'numeric'
                                     })}
-                                  </span>
+                          </span>
                                 )}
-                              </div>
-                            </div>
-                          </div>
-                          <Button 
+                        </div>
+                      </div>
+                    </div>
+                      <Button 
                             onClick={() => openCustomerVisitModal(customer)}
-                            variant="outline" 
+                        variant="outline" 
                             className="flex items-center space-x-2"
-                          >
+                      >
                             <Eye className="w-4 h-4" />
                             <span>View History</span>
-                          </Button>
+                      </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -1049,7 +1060,7 @@ export default function SalonOwnerDashboard() {
                       {customerPagination.total_records} customers
                     </div>
                     <div className="flex space-x-2">
-                      <Button
+                      <Button 
                         variant="outline"
                         onClick={() => handleCustomersPagination('prev')}
                         disabled={customersLoading || customerPagination.offset === 0}
@@ -1149,7 +1160,7 @@ export default function SalonOwnerDashboard() {
               </div>
               
               <form onSubmit={handleAddEmployee} className="space-y-4">
-                <div>
+                  <div>
                   <label className="block text-sm font-medium mb-2">Employee Email</label>
                   <input
                     type="email"
@@ -1162,7 +1173,7 @@ export default function SalonOwnerDashboard() {
                   <p className="text-xs text-muted-foreground mt-1">
                     The employee must already have an account in the system
                   </p>
-                </div>
+                  </div>
                 
                 <div>
                   <label className="block text-sm font-medium mb-2">Job Title</label>
@@ -1188,7 +1199,7 @@ export default function SalonOwnerDashboard() {
                   </Button>
                 </div>
               </form>
-                    </div>
+                      </div>
                   </div>
         )}
 
@@ -1254,7 +1265,7 @@ export default function SalonOwnerDashboard() {
                 <div className="flex items-center justify-between p-6 border-b">
                   <div className="flex items-center space-x-3">
                     <Users className="w-6 h-6 text-blue-500" />
-                    <div>
+                      <div>
                       <h3 className="text-lg font-semibold text-gray-900">{selectedCustomer.full_name}'s Visit History</h3>
                       <p className="text-sm text-gray-600">
                         {visitsPagination.total_records} visit{visitsPagination.total_records !== 1 ? 's' : ''}
@@ -1303,7 +1314,7 @@ export default function SalonOwnerDashboard() {
                                     day: 'numeric',
                                     year: 'numeric'
                                   })}
-                                </span>
+                          </span>
                               </div>
                               <Badge className="bg-purple-200 text-purple-800 border-purple-200 hover:bg-purple-200">
                                 Completed
@@ -1323,14 +1334,14 @@ export default function SalonOwnerDashboard() {
                                     minute: '2-digit',
                                     hour12: true
                                   })}
-                                </span>
-                              </div>
+                          </span>
+                        </div>
                               {visit.notes && (
                                 <p className="text-sm text-muted-foreground">
                                   <span className="font-medium">Notes:</span> {visit.notes}
                                 </p>
                               )}
-                            </div>
+                      </div>
 
                             {visit.services && visit.services.length > 0 && (
                               <div className="mt-3 pt-3 border-t">
@@ -1346,7 +1357,7 @@ export default function SalonOwnerDashboard() {
                                             {service.employee.title && ` (${service.employee.title})`}
                                           </p>
                                         )}
-                                      </div>
+                    </div>
                                       <div className="text-right">
                                         <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
                                         <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
@@ -1376,15 +1387,15 @@ export default function SalonOwnerDashboard() {
                       {visitsPagination.total_records} visits
                     </div>
                     <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
+                      <Button 
+                        variant="outline" 
                         onClick={() => handleVisitsPagination('prev')}
                         disabled={visitsLoading || visitsPagination.offset === 0}
                       >
                         <ChevronLeft className="w-4 h-4 mr-1" />
                         Previous
                       </Button>
-                      <Button
+                      <Button 
                         variant="outline"
                         onClick={() => handleVisitsPagination('next')}
                         disabled={visitsLoading || !visitsPagination.has_more}

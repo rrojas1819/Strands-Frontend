@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -149,16 +149,17 @@ const CardBrandLogo = ({ brand }) => {
   );
 };
 
-export default function PaymentPage() {
+export default function ProductCheckoutPage() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const location = useLocation();
+  const { salonId } = useParams();
   
-  const bookingId = location.state?.bookingId;
-  const bookingAmount = location.state?.amount || 0;
-  const bookingDetails = location.state?.bookingDetails || {};
-  
+  const [cartItems, setCartItems] = useState([]);
+  const [subtotal, setSubtotal] = useState(0);
+  const [tax, setTax] = useState(0);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [salonName, setSalonName] = useState('');
   const [editingAddress, setEditingAddress] = useState(false);
   const [enteringNewCard, setEnteringNewCard] = useState(false);
   
@@ -221,15 +222,70 @@ export default function PaymentPage() {
       return;
     }
     
-    if (!bookingId) {
-      notifyError('No booking found. Please start over.');
+    if (!salonId) {
+      notifyError('No salon selected. Please start over.');
       navigate('/dashboard');
       return;
     }
     
+    fetchSalonName();
+    fetchCart();
     fetchBillingAddress();
     fetchSavedCards();
-  }, [user, bookingId]);
+  }, [user, salonId]);
+
+  const fetchSalonName = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const salons = data.data || [];
+        const salon = salons.find(s => s.salon_id == salonId);
+        if (salon) {
+          setSalonName(salon.name);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching salon name:', err);
+    }
+  };
+  
+  const fetchCart = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${apiUrl}/products/customer/view-cart/${salonId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const items = data.items || [];
+        setCartItems(items);
+        const calculatedSubtotal = items.reduce((sum, item) => {
+          return sum + (parseFloat(item.price || 0) * (item.quantity || 0));
+        }, 0);
+        setSubtotal(calculatedSubtotal);
+        const calculatedTax = calculatedSubtotal * 0.06625;
+        setTax(calculatedTax);
+        setTotal(calculatedSubtotal + calculatedTax);
+      } else if (response.status === 404) {
+        setCartItems([]);
+        setSubtotal(0);
+        setTax(0);
+        setTotal(0);
+      } else {
+        const errorData = await response.json();
+        notifyError(errorData.message || 'Failed to load cart');
+      }
+    } catch (err) {
+      console.error('Error fetching cart:', err);
+      notifyError('Failed to load cart');
+    }
+  };
   
   const fetchBillingAddress = async () => {
     try {
@@ -621,75 +677,56 @@ export default function PaymentPage() {
         creditCardId = selectedCardId;
       }
       
-      // Process payment
-      const paymentResponse = await fetch(`${apiUrl}/payments/process`, {
+      // Process checkout
+      const checkoutResponse = await fetch(`${apiUrl}/products/customer/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
+          salon_id: parseInt(salonId),
           credit_card_id: creditCardId,
-          billing_address_id: billingAddressId,
-          amount: bookingAmount,
-          booking_id: bookingId
+          billing_address_id: billingAddressId
         })
       });
       
-      const paymentData = await paymentResponse.json();
+      const checkoutData = await checkoutResponse.json();
       
-      if (paymentResponse.ok) {
-        notifySuccess('Payment processed successfully! Booking confirmed.');
-        navigate('/appointments');
+      if (checkoutResponse.ok) {
+        notifySuccess('Order placed successfully!');
+        navigate('/order-history');
       } else {
-        // Provide specific error messages for payment failures
-        let errorMessage = paymentData.message || 'Payment failed';
-        if (paymentResponse.status === 404) {
-          if (paymentData.message && paymentData.message.includes('card')) {
+        // Provide specific error messages for checkout failures
+        let errorMessage = checkoutData.message || 'Checkout failed';
+        if (checkoutResponse.status === 404) {
+          if (checkoutData.message && checkoutData.message.includes('card')) {
             errorMessage = 'Credit card not found. Please try a different card.';
-          } else if (paymentData.message && paymentData.message.includes('address')) {
+          } else if (checkoutData.message && checkoutData.message.includes('address')) {
             errorMessage = 'Billing address not found. Please update your billing address.';
-          } else if (paymentData.message && paymentData.message.includes('booking')) {
-            errorMessage = 'Booking not found. Please start over.';
+          } else if (checkoutData.message && checkoutData.message.includes('cart')) {
+            errorMessage = 'Cart not found. Please add items to your cart.';
           }
-        } else if (paymentResponse.status === 400) {
-          if (paymentData.message && paymentData.message.includes('amount')) {
-            errorMessage = 'Invalid payment amount. Please contact support.';
-          } else if (paymentData.message && paymentData.message.includes('status')) {
-            errorMessage = 'This booking can no longer be paid. Please start a new booking.';
+        } else if (checkoutResponse.status === 400) {
+          if (checkoutData.message && checkoutData.message.includes('insufficient')) {
+            errorMessage = 'Insufficient stock. Some items may no longer be available.';
+          } else if (checkoutData.message && checkoutData.message.includes('stock')) {
+            errorMessage = 'Some products are out of stock. Please update your cart.';
           }
         }
         throw new Error(errorMessage);
       }
     } catch (err) {
-      console.error('Payment error:', err);
-      notifyError(err.message || 'Payment processing failed');
-      // Don't delete booking on error - user should be able to retry
-      // Booking will only be deleted if user backs out of payment page
+      console.error('Checkout error:', err);
+      notifyError(err.message || 'Checkout processing failed');
     } finally {
       setLoading(false);
     }
   };
   
   const handleBack = () => {
-    handleDeletePendingBooking();
-    navigate(-1);
+    navigate(`/cart/${salonId}`);
   };
-  
-  const handleDeletePendingBooking = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      await fetch(`${apiUrl}/bookings/${bookingId}/deletePendingBooking`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-    } catch (err) {
-      console.error('Error deleting pending booking:', err);
-    }
-  };
-  
   
   const handleDeleteCreditCardClick = (creditCardId, e) => {
     e.stopPropagation(); // Prevent card selection when clicking delete
@@ -802,67 +839,50 @@ export default function PaymentPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-2xl font-semibold text-gray-900">Complete payment</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Complete Order</h1>
+          {salonName && (
+            <p className="text-sm text-gray-600 mt-1">Ordering from {salonName}</p>
+          )}
         </div>
 
-        {/* Booking Details Summary */}
-        {bookingDetails && (bookingDetails.salon || bookingDetails.stylist || bookingDetails.date) && (
+        {/* Cart Summary */}
+        {cartItems.length > 0 && (
           <Card className="mb-4 shadow-lg border-gray-200">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Booking Summary</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Order Summary</CardTitle>
+                {salonName && (
+                  <span className="text-xs text-gray-500">{salonName}</span>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {bookingDetails.salon && (
-                  <div>
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Salon</Label>
-                    <p className="text-sm font-medium text-gray-900">{bookingDetails.salon}</p>
-                  </div>
-                )}
-                {bookingDetails.stylist && (
-                  <div>
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Stylist</Label>
-                    <p className="text-sm font-medium text-gray-900">{bookingDetails.stylist}</p>
-                  </div>
-                )}
-                {bookingDetails.date && (
-                  <div>
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Date</Label>
-                    <p className="text-sm font-medium text-gray-900">
-                      {new Date(bookingDetails.date + 'T00:00:00').toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </p>
-                  </div>
-                )}
-                {bookingDetails.time && (
-                  <div>
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Time</Label>
-                    <p className="text-sm font-medium text-gray-900">
-                      {bookingDetails.time.includes(':') 
-                        ? new Date(`2000-01-01T${bookingDetails.time}`).toLocaleTimeString('en-US', { 
-                            hour: 'numeric', 
-                            minute: '2-digit' 
-                          })
-                        : bookingDetails.time}
-                    </p>
-                  </div>
-                )}
-                {bookingDetails.services && bookingDetails.services.length > 0 && (
-                  <div className="md:col-span-2">
-                    <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Services</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {bookingDetails.services.map((service, idx) => (
-                        <span key={idx} className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm font-medium">
-                          {service}
-                        </span>
-                      ))}
+              <div className="space-y-3">
+                {cartItems.map((item) => (
+                  <div key={item.product_id} className="flex justify-between items-center py-2">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                      <p className="text-xs text-gray-500">Qty: {item.quantity} × ${typeof item.price === 'number' ? item.price.toFixed(2) : parseFloat(item.price || 0).toFixed(2)}</p>
                     </div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      ${(parseFloat(item.price || 0) * (item.quantity || 0)).toFixed(2)}
+                    </p>
                   </div>
-                )}
+                ))}
+                <div className="pt-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="font-medium">${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Tax (6.625%)</span>
+                    <span className="font-medium">${tax.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold pt-2">
+                    <span>Total</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1291,13 +1311,21 @@ export default function PaymentPage() {
                 )}
                 
                 {/* Total Amount Display */}
-                {bookingAmount > 0 && (
+                {total > 0 && (
                   <div className="border-t pt-3 mt-auto">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-base font-medium text-gray-700">Total</span>
-                      <span className="text-xl font-bold text-gray-900">
-                        ${typeof bookingAmount === 'number' ? bookingAmount.toFixed(2) : parseFloat(bookingAmount || 0).toFixed(2)}
-                      </span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Subtotal</span>
+                        <span className="text-sm font-medium">${subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Tax</span>
+                        <span className="text-sm font-medium">${tax.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className="text-base font-medium text-gray-700">Total</span>
+                        <span className="text-xl font-bold text-gray-900">${total.toFixed(2)}</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1306,11 +1334,11 @@ export default function PaymentPage() {
                 <Button 
                   type="submit" 
                   className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm disabled:opacity-50 mt-3" 
-                  disabled={loading || (!selectedCardId && !enteringNewCard) || !billingAddress}
-                  title={!billingAddress ? 'Please save your billing address first' : ''}
+                  disabled={loading || (!selectedCardId && !enteringNewCard) || !billingAddress || cartItems.length === 0}
+                  title={!billingAddress ? 'Please save your billing address first' : cartItems.length === 0 ? 'Your cart is empty' : ''}
                 >
                   <Lock className="h-4 w-4 mr-2" />
-                  {loading ? 'Processing...' : `Process Payment & Book`}
+                  {loading ? 'Processing...' : `Complete Order`}
                 </Button>
                 
                 {/* Security Notice */}
