@@ -16,6 +16,12 @@ import HairstylistDashboard from './pages/HairstylistDashboard';
 import BookingPage from './pages/BookingPage';
 import Appointments from './pages/Appointments';
 import PaymentPage from './pages/PaymentPage';
+import ProductsPage from './pages/ProductsPage';
+import CartPage from './pages/CartPage';
+import ProductCheckoutPage from './pages/ProductCheckoutPage';
+import OrderHistoryPage from './pages/OrderHistoryPage';
+import OwnerOrderHistoryPage from './pages/OwnerOrderHistoryPage';
+import SettingsPage from './pages/SettingsPage';
 
 // Context
 import { AuthContext, RewardsContext } from './context/AuthContext';
@@ -371,6 +377,30 @@ export default function App() {
             <Route 
               path="/payment" 
               element={user ? <PaymentPage /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/products/:salonId" 
+              element={user && user.role === 'CUSTOMER' ? <ProductsPage /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/cart/:salonId" 
+              element={user && user.role === 'CUSTOMER' ? <CartPage /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/products/checkout/:salonId" 
+              element={user && user.role === 'CUSTOMER' ? <ProductCheckoutPage /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/order-history" 
+              element={user && user.role === 'CUSTOMER' ? <OrderHistoryPage /> : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/owner/order-history" 
+              element={user && user.role === 'OWNER' ? <OwnerOrderHistoryPage /> : <Navigate to="/dashboard" replace />} 
+            />
+            <Route 
+              path="/settings" 
+              element={user && user.role === 'CUSTOMER' ? <SettingsPage /> : <Navigate to="/login" replace />} 
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

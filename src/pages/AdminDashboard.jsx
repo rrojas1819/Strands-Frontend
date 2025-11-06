@@ -214,7 +214,7 @@ export default function AdminDashboard() {
   };
 
   if (loading) {
-    return (
+  return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
@@ -236,7 +236,7 @@ export default function AdminDashboard() {
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
                 <p className="text-sm text-muted-foreground">Platform Analytics & Insights</p>
-              </div>
+          </div>
           </div>
           <div className="flex items-center space-x-4">
               <Badge variant="secondary" className="bg-green-100 text-green-800">
@@ -394,8 +394,8 @@ export default function AdminDashboard() {
                             });
                           })()}
                         </svg>
-                      </div>
                     </div>
+                  </div>
 
                     {/* Legend */}
                     <div className="mt-4 grid grid-cols-2 gap-2">
@@ -415,17 +415,17 @@ export default function AdminDashboard() {
                             ></div>
                             <span className="capitalize">{role.toLowerCase()}</span>
                             <span className="text-muted-foreground">— {count} users ({percentage}%)</span>
-                          </div>
+                    </div>
                         );
                       })}
+                  </div>
                     </div>
                   </div>
-                </div>
               ) : (
                 <div className="text-center py-8">
                   <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No demographics data available</p>
-                </div>
+                    </div>
               )}
               </CardContent>
             </Card>
@@ -434,7 +434,7 @@ export default function AdminDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5" />
+                  <TrendingUp className="w-5 h-5" />
                 <span>Quick Stats</span>
                 </CardTitle>
               </CardHeader>
@@ -444,28 +444,28 @@ export default function AdminDashboard() {
                 <span className="text-2xl font-bold">
                   {demographics ? Object.values(demographics).reduce((sum, val) => sum + val, 0) : 0}
                 </span>
-                      </div>
+                            </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Active Salons</span>
                 <span className="text-2xl font-bold">
                   {approvedSalonsCount}
                 </span>
-                    </div>
+                          </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Staff Members</span>
                 <span className="text-2xl font-bold">
                   {demographics?.EMPLOYEE || 0}
                 </span>
-                      </div>
+                        </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Customers</span>
                 <span className="text-2xl font-bold">
                   {demographics?.CUSTOMER || 0}
                 </span>
-                </div>
+                    </div>
                 </CardContent>
               </Card>
-            </div>
+                  </div>
 
         {/* User Engagement Stats Section */}
         <div className="mt-8 mb-8">
@@ -475,13 +475,13 @@ export default function AdminDashboard() {
           <p className="text-muted-foreground mb-6">
             Monitor platform usage and user activity metrics.
           </p>
-        </div>
+                            </div>
 
         {engagementLoading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-muted-foreground">Loading engagement data...</p>
-          </div>
+                          </div>
         ) : userEngagement ? (
           <div className="space-y-6">
             {/* Login Statistics */}
@@ -494,7 +494,7 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold">{userEngagement.today_logins || 0}</div>
                     <Activity className="w-8 h-8 text-blue-500" />
-                  </div>
+                        </div>
                   {userEngagement.yesterday_logins !== undefined && (
                     <div className="flex items-center mt-2 text-sm">
                       {userEngagement.today_logins > userEngagement.yesterday_logins ? (
@@ -516,30 +516,30 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+              </CardContent>
+            </Card>
 
-              <Card>
+            <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Yesterday's Logins</CardTitle>
-                </CardHeader>
-                <CardContent>
+              </CardHeader>
+              <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold">{userEngagement.yesterday_logins || 0}</div>
                     <Activity className="w-8 h-8 text-gray-500" />
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card>
+            <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Past Week Logins</CardTitle>
-                </CardHeader>
-                <CardContent>
+              </CardHeader>
+              <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold">{userEngagement.past_week_logins || 0}</div>
                     <Users2 className="w-8 h-8 text-purple-500" />
-                  </div>
+                          </div>
                   {userEngagement.previous_week_logins !== undefined && (
                     <div className="flex items-center mt-2 text-sm">
                       {userEngagement.past_week_logins > userEngagement.previous_week_logins ? (
@@ -559,36 +559,36 @@ export default function AdminDashboard() {
                       ) : (
                         <span className="text-muted-foreground">No change</span>
                       )}
-                    </div>
+                      </div>
                   )}
-                </CardContent>
-              </Card>
+              </CardContent>
+            </Card>
 
-              <Card>
+            <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Previous Week Logins</CardTitle>
-                </CardHeader>
-                <CardContent>
+              </CardHeader>
+              <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="text-3xl font-bold">{userEngagement.previous_week_logins || 0}</div>
                     <Users2 className="w-8 h-8 text-gray-400" />
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
             </div>
 
             {/* Booking Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
                     <Calendar className="w-5 h-5" />
                     <span>Booking Statistics</span>
-                  </CardTitle>
-                  <CardDescription>
+                </CardTitle>
+                <CardDescription>
                     Overview of platform booking activity
-                  </CardDescription>
-                </CardHeader>
+                </CardDescription>
+              </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                     <div>
@@ -598,27 +598,27 @@ export default function AdminDashboard() {
                     <Calendar className="w-12 h-12 text-blue-500" />
                   </div>
                   <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
-                    <div>
+                <div>
                       <p className="text-sm font-medium text-muted-foreground">Repeat Customers</p>
                       <p className="text-3xl font-bold text-purple-600">{userEngagement.repeat_bookers || 0}</p>
-                    </div>
+                          </div>
                     <Repeat className="w-12 h-12 text-purple-500" />
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
 
               {/* Top Services */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
                     <Scissors className="w-5 h-5" />
                     <span>Top Services</span>
-                  </CardTitle>
-                  <CardDescription>
+                </CardTitle>
+                <CardDescription>
                     Most booked services on the platform
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
                   {userEngagement.top3Services && userEngagement.top3Services.length > 0 ? (
                     <div className="space-y-3">
                       {userEngagement.top3Services.map((service, index) => (
@@ -626,8 +626,8 @@ export default function AdminDashboard() {
                           <div className="flex items-center space-x-3">
                             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold">
                               {index + 1}
-                            </div>
-                            <div>
+                  </div>
+                  <div>
                               <p className="font-medium">{service.name}</p>
                               <p className="text-sm text-muted-foreground">{service.total_bookings} bookings</p>
                             </div>
@@ -639,10 +639,10 @@ export default function AdminDashboard() {
                     <div className="text-center py-8">
                       <Scissors className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground">No service data available</p>
-                    </div>
+                  </div>
                   )}
-                </CardContent>
-              </Card>
+              </CardContent>
+            </Card>
             </div>
 
             {/* Top Viewed Salons */}
@@ -664,15 +664,15 @@ export default function AdminDashboard() {
                         <div className="flex items-center space-x-3">
                           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold">
                             {index + 1}
-                          </div>
+                    </div>
                           <div>
                             <p className="font-medium">{salon.name}</p>
                             <p className="text-sm text-muted-foreground">{salon.clicks} views</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
                   </div>
+                    </div>
+                  </div>
+                    ))}
+                    </div>
                 ) : (
                   <div className="text-center py-8">
                     <Eye className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -684,15 +684,15 @@ export default function AdminDashboard() {
                 )}
               </CardContent>
             </Card>
-          </div>
+                    </div>
         ) : (
           <div className="text-center py-12 bg-white rounded-lg border">
             <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">No engagement data available</h3>
             <p className="text-sm text-muted-foreground">
               Engagement statistics will appear here once data is available.
-            </p>
-          </div>
+                    </p>
+                  </div>
         )}
 
             {/* Action Buttons */}
@@ -700,7 +700,7 @@ export default function AdminDashboard() {
               <Button onClick={() => { fetchDemographics(); fetchUserEngagement(); }} variant="outline">
                 Refresh Data
               </Button>
-            </div>
+                          </div>
           </>
         ) : activeTab === 'business-insights' ? (
           <>
@@ -712,14 +712,14 @@ export default function AdminDashboard() {
               <p className="text-muted-foreground">
                 Analyze appointment trends and peak booking times to optimize business operations.
               </p>
-            </div>
+                          </div>
 
             {/* Appointment Analytics Data */}
             {appointmentLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading appointment analytics...</p>
-              </div>
+                        </div>
             ) : appointmentAnalytics ? (() => {
               // Transform appointmentsByDay object to array with short day names
               const dayMapping = {
@@ -927,7 +927,7 @@ export default function AdminDashboard() {
                         Day
                       </text>
                     </svg>
-                  </div>
+                        </div>
                 );
               };
 
@@ -1081,19 +1081,19 @@ export default function AdminDashboard() {
               return (
                 <div className="space-y-6">
                   {/* Total Appointments Card */}
-                  <Card>
-                    <CardHeader>
+            <Card>
+              <CardHeader>
                       <div className="flex items-center justify-between">
                         <div>
-                          <CardTitle className="flex items-center space-x-2">
+                <CardTitle className="flex items-center space-x-2">
                             <Calendar className="w-5 h-5" />
                             <span>Total Appointments</span>
-                          </CardTitle>
-                          <CardDescription>
+                </CardTitle>
+                <CardDescription>
                             Appointment trends over time
-                          </CardDescription>
-                        </div>
+                </CardDescription>
                       </div>
+                    </div>
                     </CardHeader>
                     <CardContent className="px-0">
                       {renderBarChart(appointmentsByDay)}
@@ -1115,27 +1115,27 @@ export default function AdminDashboard() {
                           <CardDescription>
                             Identify peak hours and days for appointments
                           </CardDescription>
-                        </div>
+                      </div>
                         <div className="flex space-x-1 bg-muted rounded-lg p-1">
-                          <Button
+                  <Button 
                             variant={peakView === 'hours' ? 'default' : 'ghost'}
                             size="sm"
                             onClick={() => setPeakView('hours')}
                             className="px-3 py-1 text-xs"
                           >
                             Hours
-                          </Button>
-                          <Button
+                  </Button>
+                  <Button 
                             variant={peakView === 'days' ? 'default' : 'ghost'}
                             size="sm"
                             onClick={() => setPeakView('days')}
                             className="px-3 py-1 text-xs"
                           >
                             Days
-                          </Button>
-                        </div>
+                  </Button>
                       </div>
-                    </CardHeader>
+                    </div>
+                </CardHeader>
                     <CardContent className="px-0">
                       {peakView === 'hours' && renderLineChart(peakHours)}
                       {peakView === 'days' && renderLineChart(peakDays)}
@@ -1150,12 +1150,12 @@ export default function AdminDashboard() {
                           } appointments)
                         </p>
                       </div>
-                    </CardContent>
-                  </Card>
+                </CardContent>
+              </Card>
 
                   {/* Average Appointment Duration Card */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card>
+              <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center space-x-2">
                           <Clock className="w-5 h-5" />
@@ -1164,26 +1164,26 @@ export default function AdminDashboard() {
                         <CardDescription>
                           Average length of appointments across all services
                         </CardDescription>
-                      </CardHeader>
-                      <CardContent>
+                </CardHeader>
+                <CardContent>
                         <div className="text-center py-8">
                           <div className="text-5xl font-bold text-primary mb-2">{avgDuration}</div>
                           <div className="text-lg text-muted-foreground">minutes</div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  </div>
+                </CardContent>
+              </Card>
 
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
                           <TrendingUp className="w-5 h-5" />
                           <span>Trend Summary</span>
-                        </CardTitle>
-                        <CardDescription>
+                </CardTitle>
+                <CardDescription>
                           Key insights from appointment data
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
                         <div className="space-y-4">
                           <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                             <span className="text-sm font-medium">Busiest Day</span>
@@ -1197,9 +1197,9 @@ export default function AdminDashboard() {
                             <span className="text-sm font-medium">Total This Week</span>
                             <span className="text-sm font-bold text-purple-700">{totalWeek}</span>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                </div>
+              </CardContent>
+            </Card>
                   </div>
                 </div>
               );
