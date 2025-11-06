@@ -330,7 +330,7 @@ export default function SalonOwnerDashboard() {
           email: employeeEmail
         })
       });
-      
+
       const data = await response.json();
       
       if (response.ok) {
@@ -402,7 +402,7 @@ export default function SalonOwnerDashboard() {
       }
 
       const offset = 0;
-      
+
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/bookings/visits/customers?limit=${customerPagination.limit}&offset=${offset}`,
         {

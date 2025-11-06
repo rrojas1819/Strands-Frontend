@@ -7,17 +7,11 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-#Potential fix
-import { Clock, Users, Check } from 'lucide-react';
-import { notifySuccess, notifyError, notifyInfo, Notifications } from '../utils/notifications';
-import { trackSalonView, trackBooking } from '../utils/analytics';
-import StrandsModal from '../components/StrandsModal';
-import UserNavbar from '../components/UserNavbar';
-import { LogOut, Star, Clock, Users, Check, X, Menu, Eye } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Clock, Users, Check, X, Menu, Eye, Star } from 'lucide-react';
 import { notifySuccess, notifyError, notifyInfo } from '../utils/notifications';
 import { trackSalonView, trackBooking } from '../utils/analytics';
 import StrandsModal from '../components/StrandsModal';
+import UserNavbar from '../components/UserNavbar';
 import StaffReviews from '../components/StaffReviews';
 
 export default function BookingPage() {

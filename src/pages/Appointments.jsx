@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Calendar, Clock, X, Edit2 } from 'lucide-react';
+import { Calendar, Clock, X, Edit2, Star } from 'lucide-react';
 import { notifySuccess, notifyError } from '../utils/notifications';
 import StrandsModal from '../components/StrandsModal';
 import UserNavbar from '../components/UserNavbar';
