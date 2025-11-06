@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -12,6 +12,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 export default function SalonVerification() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [salons, setSalons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -220,27 +221,48 @@ export default function SalonVerification() {
           <nav className="bg-muted/50 border-b">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex space-x-8">
-                <button className="py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm">
+                <Link
+                  to="/admin/salon-verification"
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    location.pathname === '/admin/salon-verification'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
                   Salon Management
-                </button>
+                </Link>
                 <Link
                   to="/admin/loyalty-monitoring"
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    location.pathname === '/admin/loyalty-monitoring'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
                 >
                   Loyalty Monitoring
                 </Link>
                 <Link
-                  to="/admin/dashboard"
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                  to="/dashboard"
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    location.pathname === '/dashboard'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
                 >
                   User Analytics
                 </Link>
-                <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                <Link
+                  to="/dashboard"
+                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                >
                   Business Insights
-                </button>
-                <button className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm">
+                </Link>
+                <Link
+                  to="/dashboard"
+                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
+                >
                   Revenue Tracking
-                </button>
+                </Link>
               </div>
             </div>
           </nav>
