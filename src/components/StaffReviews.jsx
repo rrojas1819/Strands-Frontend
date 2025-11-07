@@ -8,7 +8,7 @@ import StrandsModal from './ui/strands-modal';
 import { Star, Users, ChevronLeft, ChevronRight, MessageSquare, Edit, Trash2, X } from 'lucide-react';
 import { notifyError, notifySuccess } from '../utils/notifications';
 
-export default function StaffReviews({ employeeId, canReply = false, canReview = false, onError, onReviewChange }) {
+export default function StaffReviews({ employeeId, canReply = false, canReview = false, forOwner = false, onError, onReviewChange }) {
   const { user } = useContext(AuthContext);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -36,29 +36,33 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
   const [deletingReplyId, setDeletingReplyId] = useState(null);
 
   useEffect(() => {
-    if (employeeId) {
+    if (forOwner || employeeId) {
       fetchReviews();
-      if (canReview) {
+      if (canReview && !forOwner) {
         fetchMyReview();
       }
     }
-  }, [employeeId, canReview]);
+  }, [employeeId, canReview, forOwner]);
 
   const fetchReviews = async (offset = 0) => {
-    if (!employeeId) return;
+    if (!forOwner && !employeeId) return;
     
     setReviewsLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const apiUrl = import.meta.env.VITE_API_URL;
       
-      const response = await fetch(`${apiUrl}/staff-reviews/employee/${employeeId}/all?limit=20&offset=${offset}`, {
+      const endpoint = forOwner 
+        ? `${apiUrl}/staff-reviews/owner/all?limit=20&offset=${offset}`
+        : `${apiUrl}/staff-reviews/employee/${employeeId}/all?limit=20&offset=${offset}`;
+      
+      const response = await fetch(endpoint, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      if (response.status === 404) {
+      if (!forOwner && response.status === 404) {
         try {
           const errorData = await response.json();
           if (errorData.message?.includes('Employee not found') || errorData.message?.includes('employee')) {
@@ -626,7 +630,9 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Staff Reviews</h2>
-          <p className="text-muted-foreground">See what customers are saying</p>
+          <p className="text-muted-foreground">
+            {forOwner ? 'See what customers are saying about your staff' : 'See what customers are saying'}
+          </p>
         </div>
       </div>
 
@@ -737,6 +743,14 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                     <p className="text-sm text-foreground mt-3">{review.message}</p>
                   )}
 
+                  {forOwner && review.employee && (
+                    <div className="mt-2">
+                      <Badge variant="outline" className="text-xs">
+                        For: {review.employee.name || 'Unknown Employee'}
+                      </Badge>
+                    </div>
+                  )}
+
                   {canReply && !review.reply && replyingTo !== review.staff_review_id && (
                     <div className="mt-3">
                       <Button
@@ -803,7 +817,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                                 {review.reply.user?.name || 'Stylist'}
                               </span>
                               <Badge variant="secondary" className="text-xs">
-                                Stylist
+                                {forOwner ? 'Staff Reply' : 'Stylist'}
                               </Badge>
                             </div>
                           </div>

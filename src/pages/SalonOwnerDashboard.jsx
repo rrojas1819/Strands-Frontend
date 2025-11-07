@@ -7,6 +7,7 @@ import OperatingHours from '../components/OperatingHours';
 import EmployeeHoursModal from '../components/EmployeeHoursModal';
 import ProductManagement from '../components/ProductManagement';
 import SalonReviews from '../components/SalonReviews';
+import StaffReviews from '../components/StaffReviews';
 import OwnerNavbar from '../components/OwnerNavbar';
 import { Button } from '../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
@@ -45,6 +46,7 @@ export default function SalonOwnerDashboard() {
   const [salonStatus, setSalonStatus] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [reviewsSubTab, setReviewsSubTab] = useState('salon');
   const [employees, setEmployees] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -1004,20 +1006,64 @@ export default function SalonOwnerDashboard() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
           ) : salonInfo?.salon_id ? (
-            <SalonReviews 
-              salonId={salonInfo.salon_id}
-              salonName={salonInfo.name}
-              canReply={true}
-              onError={(error) => {
-                setModalConfig({
-                  title: 'Error',
-                  message: error,
-                  type: 'error',
-                  onConfirm: () => setShowModal(false)
-                });
-                setShowModal(true);
-              }}
-            />
+            <div className="space-y-6">
+              <div className="border-b border-muted">
+                <div className="flex space-x-8">
+                  <button
+                    onClick={() => setReviewsSubTab('salon')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      reviewsSubTab === 'salon'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    }`}
+                  >
+                    Salon Reviews
+                  </button>
+                  <button
+                    onClick={() => setReviewsSubTab('staff')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      reviewsSubTab === 'staff'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    }`}
+                  >
+                    Staff Reviews
+                  </button>
+                </div>
+              </div>
+
+              {reviewsSubTab === 'salon' && (
+                <SalonReviews 
+                  salonId={salonInfo.salon_id}
+                  canReply={true}
+                  onError={(error) => {
+                    setModalConfig({
+                      title: 'Error',
+                      message: error,
+                      type: 'error',
+                      onConfirm: () => setShowModal(false)
+                    });
+                    setShowModal(true);
+                  }}
+                />
+              )}
+
+              {reviewsSubTab === 'staff' && (
+                <StaffReviews
+                  forOwner={true}
+                  canReply={false}
+                  onError={(error) => {
+                    setModalConfig({
+                      title: 'Error',
+                      message: error,
+                      type: 'error',
+                      onConfirm: () => setShowModal(false)
+                    });
+                    setShowModal(true);
+                  }}
+                />
+              )}
+            </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <p>Unable to load salon information</p>
