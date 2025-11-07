@@ -60,6 +60,29 @@ export default function SalonOwnerDashboard() {
   });
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
+
+  const formatStatusLabel = (status = '') => {
+    if (!status) return '';
+    const normalized = status.toString().toLowerCase();
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  };
+
+  const getStatusBadgeClass = (status = '') => {
+    const normalized = status.toString().toLowerCase();
+    switch (normalized) {
+      case 'completed':
+      case 'confirmed':
+        return 'bg-purple-200 text-purple-800 border-purple-200';
+      case 'pending':
+      case 'scheduled':
+        return 'bg-yellow-200 text-yellow-800 border-yellow-200';
+      case 'canceled':
+      case 'cancelled':
+        return 'bg-red-200 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-200 text-gray-800 border-gray-200';
+    }
+  };
   const [newEmployee, setNewEmployee] = useState({
     email: '',
     title: ''
@@ -661,8 +684,8 @@ export default function SalonOwnerDashboard() {
                     </div>
                     <div>
                         <p className="text-sm text-muted-foreground">Status</p>
-                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${salonInfo.status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' : salonInfo.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100' : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100'}`}>
-                          {salonInfo.status}
+                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${salonInfo.status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-200' : salonInfo.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
+                          {formatStatusLabel(salonInfo.status)}
                         </span>
                   </div>
                     </div>
@@ -758,7 +781,7 @@ export default function SalonOwnerDashboard() {
                               <p className="text-sm text-muted-foreground">{employee.email}</p>
                               <div className="flex items-center space-x-2 mt-1">
                                 <Badge variant="outline">{employee.title}</Badge>
-                                <Badge variant="outline" className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${employee.active ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100' : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100'}`}>
+                                <Badge variant="outline" className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${employee.active ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
                           {employee.active ? 'Active' : 'Inactive'}
                         </Badge>
                         </div>
@@ -1250,79 +1273,113 @@ export default function SalonOwnerDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {customerVisits.map((visit) => (
-                        <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
-                          <CardContent className="p-4 pt-4">
-                            <div className="flex justify-between items-start mb-3">
-                              <div className="flex items-center space-x-3">
-                                <Clock className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium text-foreground">
-                                  {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                  })}
+                      {customerVisits.map((visit) => {
+                        const originalTotal = typeof visit.total_price === 'number' ? visit.total_price : parseFloat(visit.total_price || 0);
+                        const actualPaid = visit.actual_amount_paid !== undefined && visit.actual_amount_paid !== null
+                          ? (typeof visit.actual_amount_paid === 'number' ? visit.actual_amount_paid : parseFloat(visit.actual_amount_paid))
+                          : originalTotal;
+                        const rewardInfo = visit.reward || null;
+                        const hasDiscount = rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
+                        const discountLabel = rewardInfo?.discount_percentage ? `${rewardInfo.discount_percentage}% off` : 'Discount applied';
+
+                        return (
+                          <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
+                            <CardContent className="p-4 pt-4">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center space-x-3">
+                                  <Clock className="w-4 h-4 text-muted-foreground" />
+                                  <span className="font-medium text-foreground">
+                                    {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
                           </span>
+                                </div>
+                                  <div className="flex items-center gap-2">
+                                    {hasDiscount && (
+                                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                                        Discounted
+                                      </Badge>
+                                  )}
+                                  <Badge className={getStatusBadgeClass(visit.status || 'completed')}>
+                                    {formatStatusLabel(visit.status || 'completed')}
+                                  </Badge>
+                                </div>
                               </div>
-                              <Badge className="bg-purple-200 text-purple-800 border-purple-200 hover:bg-purple-200">
-                                Completed
-                              </Badge>
-                            </div>
-                            
-                            <div className="space-y-2 mb-3">
-                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                <Clock className="w-4 h-4" />
-                                <span>
-                                  {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    hour12: true
-                                  })} - {new Date(visit.scheduled_end).toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    hour12: true
-                                  })}
+                              
+                              <div className="space-y-2 mb-3">
+                                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                  <Clock className="w-4 h-4" />
+                                  <span>
+                                    {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })} - {new Date(visit.scheduled_end).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
                           </span>
                         </div>
-                              {visit.notes && (
-                                <p className="text-sm text-muted-foreground">
-                                  <span className="font-medium">Notes:</span> {visit.notes}
-                                </p>
-                              )}
+                                {visit.notes && (
+                                  <p className="text-sm text-muted-foreground">
+                                    <span className="font-medium">Notes:</span> {visit.notes}
+                                  </p>
+                                )}
                       </div>
 
-                            {visit.services && visit.services.length > 0 && (
-                              <div className="mt-3 pt-3 border-t">
-                                <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
-                                <div className="space-y-2">
-                                  {visit.services.map((service, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                                      <div>
-                                        <span className="font-medium text-foreground">{service.service_name}</span>
-                                        {service.employee && (
-                                          <p className="text-xs text-muted-foreground">
-                                            By: {service.employee.name}
-                                            {service.employee.title && ` (${service.employee.title})`}
-                                          </p>
-                                        )}
+                              {visit.services && visit.services.length > 0 && (
+                                <div className="mt-3 pt-3 border-t">
+                                  <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
+                                  <div className="space-y-2">
+                                    {visit.services.map((service, idx) => (
+                                      <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                                        <div>
+                                          <span className="font-medium text-foreground">{service.service_name}</span>
+                                          {service.employee && (
+                                            <p className="text-xs text-muted-foreground">
+                                              By: {service.employee.name}
+                                              {service.employee.title && ` (${service.employee.title})`}
+                                            </p>
+                                          )}
                     </div>
-                                      <div className="text-right">
-                                        <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
-                                        <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
+                                        <div className="text-right">
+                                          <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
+                                          <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="flex justify-end mt-3 pt-3 border-t">
-                                  <div className="text-lg font-semibold text-green-800">
-                                    Total: ${typeof visit.total_price === 'number' ? visit.total_price.toFixed(2) : parseFloat(visit.total_price || 0).toFixed(2)}
+                                    ))}
+                                  </div>
+                                  <div className="flex justify-end mt-3 pt-3 border-t">
+                                    {hasDiscount ? (
+                                      <div className="text-right">
+                                        <div className="flex items-baseline gap-2 justify-end">
+                                          <span className="text-sm text-muted-foreground line-through">
+                                            Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                                          </span>
+                                          <span className="text-lg font-semibold text-green-800">
+                                            ${!Number.isNaN(actualPaid) ? actualPaid.toFixed(2) : '0.00'}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {discountLabel}
+                                          {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <div className="text-lg font-semibold text-green-800">
+                                        Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -11,15 +11,14 @@ import {
   Target,
   BarChart3,
   Star,
-  LogOut,
   ArrowLeft
 } from 'lucide-react';
 import { Notifications } from '../utils/notifications';
+import AdminNavbar from '../components/AdminNavbar';
 
 export default function LoyaltyMonitoring() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  const location = useLocation();
   const [loyaltyData, setLoyaltyData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -137,80 +136,12 @@ export default function LoyaltyMonitoring() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Header */}
-      <header className="bg-background border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <img 
-                src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
-                alt="Strands Logo" 
-                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20"
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Loyalty Program Monitoring</h1>
-                <p className="text-sm text-muted-foreground">Track loyalty program effectiveness and participation</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation Bar - Admin Features */}
-      <nav className="bg-muted/50 border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <Link
-              to="/admin/salon-verification"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                location.pathname === '/admin/salon-verification'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-              }`}
-            >
-              Salon Management
-            </Link>
-            <Link
-              to="/admin/loyalty-monitoring"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                location.pathname === '/admin/loyalty-monitoring'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-              }`}
-            >
-              Loyalty Monitoring
-            </Link>
-            <Link
-              to="/dashboard"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                location.pathname === '/dashboard'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-              }`}
-            >
-              User Analytics
-            </Link>
-            <Link
-              to="/dashboard"
-              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
-            >
-              Business Insights
-            </Link>
-            <Link
-              to="/dashboard"
-              className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
-            >
-              Revenue Tracking
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <AdminNavbar
+        title="Loyalty Program Monitoring"
+        subtitle="Track loyalty program effectiveness and participation"
+        activeKey="loyalty-monitoring"
+        onLogout={handleLogout}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

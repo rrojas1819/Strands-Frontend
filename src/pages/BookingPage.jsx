@@ -415,6 +415,7 @@ export default function BookingPage() {
           navigate('/payment', {
             state: {
               bookingId: data.data?.booking_id || data.booking_id,
+              salonId: salonId,
               amount: totalAmount,
               bookingDetails: {
                 salon: salon?.name || '',

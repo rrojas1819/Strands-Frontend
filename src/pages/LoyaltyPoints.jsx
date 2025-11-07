@@ -9,8 +9,53 @@ import { Star, Gift, Trophy, Clock, TrendingUp, Award, Zap } from 'lucide-react'
 import { Notifications } from '../utils/notifications';
 import UserNavbar from '../components/UserNavbar';
 
+const isRewardRedeemed = (redeemedAt) => {
+  if (!redeemedAt) return false;
+  const normalized = typeof redeemedAt === 'string' ? redeemedAt.trim().toLowerCase() : redeemedAt;
+  if (normalized === null) return false;
+  if (normalized === undefined) return false;
+  if (normalized === '') return false;
+  if (normalized === 'null') return false;
+  if (normalized === 'undefined') return false;
+  if (normalized === '0000-00-00 00:00:00') return false;
+  return true;
+};
+
+const parseTimestamp = (value) => {
+  if (!value) return null;
+  let raw = value;
+  if (typeof raw === 'string') {
+    raw = raw.trim();
+    if (!raw) return null;
+    if (raw.includes(' ') && !raw.includes('T')) {
+      raw = raw.replace(' ', 'T');
+    }
+  }
+
+  const parsed = Date.parse(raw);
+  if (!Number.isNaN(parsed)) {
+    return parsed;
+  }
+
+  return null;
+};
+
+const formatDisplayDate = (value) => {
+  if (!value) return null;
+  const parsed = typeof value === 'number' ? value : parseTimestamp(value);
+  if (parsed === null) return null;
+  const date = new Date(parsed);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+};
+
 export default function LoyaltyPoints() {
   const { user } = useContext(AuthContext);
+  const { setRewardsCount } = useContext(RewardsContext);
   const navigate = useNavigate();
   const [loyaltyData, setLoyaltyData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -80,6 +125,25 @@ export default function LoyaltyPoints() {
               console.log('Loyalty data for salon', salon.salon_id, ':', loyaltyData);
               const userData = loyaltyData.userData;
               const userRewards = loyaltyData.userRewards || [];
+              let availableRewardsForSalon = [];
+
+              try {
+                const availableResponse = await fetch(`${apiUrl}/payments/availableRewards`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ salon_id: salon.salon_id })
+                });
+
+                if (availableResponse.ok) {
+                  const availableData = await availableResponse.json();
+                  availableRewardsForSalon = Array.isArray(availableData.rewards) ? availableData.rewards : [];
+                }
+              } catch (availableErr) {
+                console.warn('Unable to fetch available rewards for salon', salon.salon_id, availableErr);
+              }
               
               if (userData) {
                 const visits = userData.visits_count || 0;
@@ -87,10 +151,9 @@ export default function LoyaltyPoints() {
                 const discountPercentage = userData.discount_percentage || 10;
                 const salonName = userData.salon_name || salon.name;
                 
-                // Count active (unredeemed) rewards
-                const activeRewards = userRewards.filter(reward => reward.active === 1);
-                const earnedRewards = activeRewards.length;
-                totalRewards += earnedRewards;
+                // Count rewards available to redeem (from dedicated endpoint)
+                const availableCount = availableRewardsForSalon.length;
+                totalRewards += availableCount;
                 totalVisits += visits;
                 if (visits >= 5) goldenSalons++;
                 
@@ -101,12 +164,14 @@ export default function LoyaltyPoints() {
                   visitsNeeded: visitsNeeded,
                   nextReward: `${discountPercentage}% off next visit`,
                   tier: visits >= 5 ? 'Gold' : 'Bronze',
-                  rewardEarned: earnedRewards > 0,
-                  availableRewards: earnedRewards
+                  rewardEarned: availableCount > 0,
+                  availableRewards: availableCount
                 });
                 
-                // Add active rewards to the global rewards list
-                activeRewards.forEach(reward => {
+                // Add available rewards to the global rewards list
+                availableRewardsForSalon.forEach(reward => {
+                  const earnedAt = reward.creationDate || reward.created_at || reward.earned_at || reward.creation_date;
+                  const redeemedAt = reward.redeemed_at || reward.redeemedAt || null;
                   allRewards.push({
                     id: reward.reward_id,
                     name: `${reward.discount_percentage}% off next visit`,
@@ -115,22 +180,51 @@ export default function LoyaltyPoints() {
                     type: 'discount',
                     description: reward.note || `${reward.discount_percentage}% off next visit`,
                     discount: `${reward.discount_percentage}% off next visit`,
-                    earnedAt: reward.earned_at,
-                    active: reward.active,
-                    redeemedAt: reward.redeemed_at
+                    earnedAt,
+                    active: true,
+                    redeemedAt
                   });
                 });
                 
+                // Track reward history for activity feed
+                (userRewards || []).forEach((reward) => {
+                  const rewardLabel = `${reward.discount_percentage}% off next visit`;
+
+                  if (isRewardRedeemed(reward.redeemed_at)) {
+                    recentActivity.push({
+                      id: `redeemed-${salon.salon_id}-${reward.reward_id}`,
+                      type: 'redeemed',
+                      description: `Redeemed ${rewardLabel}`,
+                      salon: salonName,
+                      discount: rewardLabel,
+                      timestamp: reward.redeemed_at && reward.redeemed_at !== 'null' ? reward.redeemed_at : null,
+                      redeemedAt: reward.redeemed_at && reward.redeemed_at !== 'null' ? reward.redeemed_at : null
+                    });
+                  } else if (!isRewardRedeemed(reward.redeemed_at) && reward.earned_at) {
+                    recentActivity.push({
+                      id: `earned-${salon.salon_id}-${reward.reward_id}`,
+                      type: 'earned',
+                      description: `Earned ${rewardLabel}`,
+                      salon: salonName,
+                      discount: rewardLabel,
+                      timestamp: reward.earned_at,
+                      earnedAt: reward.earned_at
+                    });
+                  }
+                });
+
                 // Add to activity if visited
                 if (visits > 0) {
+                  const visitTimestamp = userData.last_visit_at || userData.updated_at || userData.created_at || new Date().toISOString();
                   recentActivity.push({
-                    id: salon.salon_id,
+                    id: `visit-${salon.salon_id}`,
                     type: 'visit',
                     description: `Visit at ${salonName}`,
                     salon: salonName,
                     visitNumber: visits,
                     progress: `${visits}/${visitsNeeded} visits`,
-                    rewardEarned: earnedRewards > 0
+                    rewardEarned: availableCount > 0,
+                    timestamp: visitTimestamp
                   });
                 }
               }
@@ -141,16 +235,30 @@ export default function LoyaltyPoints() {
         }
 
         // Update state
+        const sortedActivity = recentActivity
+          .map((activity, index) => {
+            const parsedTimestamp = parseTimestamp(activity.timestamp);
+            const sortOrder = parsedTimestamp !== null ? parsedTimestamp : (Date.now() - index);
+            return {
+              ...activity,
+              sortOrder
+            };
+          })
+          .sort((a, b) => b.sortOrder - a.sortOrder)
+          .slice(0, 4)
+          .map(({ sortOrder, ...rest }) => rest);
+
         const finalData = {
           salonProgress: salonProgress,
           totalVisits: totalVisits,
           overallTier: goldenSalons > 0 ? 'Gold' : 'Bronze',
-          recentActivity: recentActivity.slice(0, 5),
+          recentActivity: sortedActivity,
           availableRewards: allRewards
         };
         
         console.log('Final loyalty data:', finalData);
         setLoyaltyData(finalData);
+        setRewardsCount(totalRewards);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching loyalty data:', err);
@@ -160,7 +268,7 @@ export default function LoyaltyPoints() {
     };
 
     fetchLoyaltyData();
-  }, [user, navigate]);
+  }, [user, navigate, setRewardsCount]);
 
 
   const getTierBadge = (tier) => {
@@ -181,13 +289,25 @@ export default function LoyaltyPoints() {
   };
 
   const getActivityIcon = (type) => {
-    return type === 'earned' ? 
-      <TrendingUp className="w-4 h-4 text-green-600" /> : 
-      <Gift className="w-4 h-4 text-red-600" />;
+    if (type === 'earned') {
+      return <Gift className="w-4 h-4 text-green-600" />;
+    }
+
+    if (type === 'redeemed') {
+      return <Gift className="w-4 h-4 text-red-600" />;
+    }
+
+    return <Clock className="w-4 h-4 text-blue-600" />;
   };
 
   const getActivityColor = (type) => {
-    return type === 'earned' ? 'text-green-600' : 'text-red-600';
+    if (type === 'earned') {
+      return 'text-green-600';
+    }
+    if (type === 'redeemed') {
+      return 'text-red-600';
+    }
+    return 'text-blue-600';
   };
 
   if (loading) {
@@ -348,8 +468,18 @@ export default function LoyaltyPoints() {
                         <div className="flex items-center space-x-3">
                           {getActivityIcon(activity.type)}
                           <div>
-                            <p className="font-medium text-sm">{activity.description}</p>
-                            <p className="text-xs text-muted-foreground">{activity.salon}</p>
+                              <p className="font-medium text-sm">{activity.description}</p>
+                              <p className="text-xs text-blue-600 font-medium">{activity.salon}</p>
+                            {formatDisplayDate(activity.type === 'redeemed' ? (activity.redeemedAt || activity.timestamp) : (activity.earnedAt || activity.timestamp)) && (
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-semibold text-foreground">
+                                  {activity.type === 'redeemed' ? 'Redeemed:' : activity.type === 'earned' ? 'Earned:' : 'Updated:'}
+                                </span>{' '}
+                                <span className="font-semibold text-foreground">
+                                  {formatDisplayDate(activity.type === 'redeemed' ? (activity.redeemedAt || activity.timestamp) : (activity.earnedAt || activity.timestamp))}
+                                </span>
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="text-right">
@@ -376,28 +506,44 @@ export default function LoyaltyPoints() {
                   <div className="space-y-4">
                     {loyaltyData.availableRewards && loyaltyData.availableRewards.length > 0 ? (
                       loyaltyData.availableRewards.map((reward) => (
-                        <div key={reward.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Award className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
+                        <div key={reward.id} className="p-3 border rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                <Award className="w-5 h-5 text-primary" />
+                              </div>
+                              <div>
                               <p className="font-medium text-sm">{reward.name}</p>
                               <p className="text-xs text-muted-foreground">{reward.description}</p>
                               <p className="text-xs text-blue-600 font-medium">{reward.salon}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <Button 
+                                size="sm" 
+                                className="mt-1 bg-green-600 hover:bg-green-700 text-white font-medium"
+                                onClick={() => {
+                                  // Navigate to booking page - reward will be selected during payment
+                                  navigate(`/salon/${reward.salonId}/book`);
+                                }}
+                              >
+                                Redeem
+                              </Button>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <Button 
-                              size="sm" 
-                              className="mt-1 bg-green-600 hover:bg-green-700 text-white font-medium"
-                              onClick={() => {
-                                // Navigate to salon detail page using salonId from reward
-                                navigate(`/salon/${reward.salonId}`);
-                              }}
-                            >
-                              Redeem
-                            </Button>
+                          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                            {formatDisplayDate(reward.earnedAt) && (
+                              <div>
+                                <span className="font-semibold text-foreground">Earned:</span>{' '}
+                                <span className="font-semibold text-foreground">{formatDisplayDate(reward.earnedAt)}</span>
+                              </div>
+                            )}
+                            {formatDisplayDate(reward.redeemedAt) && (
+                              <div>
+                                <span className="font-semibold text-foreground">Redeemed:</span>{' '}
+                                <span className="font-semibold text-foreground">{formatDisplayDate(reward.redeemedAt)}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))

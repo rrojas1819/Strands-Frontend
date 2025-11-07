@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext, RewardsContext } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { notifySuccess, notifyError } from '../utils/notifications';
-import { ArrowLeft, CreditCard, MapPin, Lock, Check, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, CreditCard, MapPin, Lock, Check, X, Trash2, Gift } from 'lucide-react';
 import StrandsModal from '../components/StrandsModal';
 
 // Card brand detection function - matches backend logic
@@ -151,16 +151,31 @@ const CardBrandLogo = ({ brand }) => {
 
 export default function PaymentPage() {
   const { user } = useContext(AuthContext);
+  const { setRewardsCount } = useContext(RewardsContext);
   const navigate = useNavigate();
   const location = useLocation();
   
   const bookingId = location.state?.bookingId;
+  const salonId = location.state?.salonId;
   const bookingAmount = location.state?.amount || 0;
   const bookingDetails = location.state?.bookingDetails || {};
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('PaymentPage - Location state:', location.state);
+    console.log('PaymentPage - salonId:', salonId);
+    console.log('PaymentPage - bookingId:', bookingId);
+  }, [location.state, salonId, bookingId]);
   
   const [loading, setLoading] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [enteringNewCard, setEnteringNewCard] = useState(false);
+  
+  // Loyalty rewards state
+  const [availableRewards, setAvailableRewards] = useState([]);
+  const [selectedReward, setSelectedReward] = useState(null);
+  const [rewardsLoading, setRewardsLoading] = useState(false);
+  const [discountedAmount, setDiscountedAmount] = useState(bookingAmount);
   
   // Modal states
   const [showDeleteAddressModal, setShowDeleteAddressModal] = useState(false);
@@ -229,7 +244,12 @@ export default function PaymentPage() {
     
     fetchBillingAddress();
     fetchSavedCards();
-  }, [user, bookingId]);
+    if (salonId) {
+      fetchAvailableRewards();
+    }
+    // Initialize discounted amount
+    setDiscountedAmount(bookingAmount);
+  }, [user, bookingId, salonId, bookingAmount]);
   
   const fetchBillingAddress = async () => {
     try {
@@ -293,6 +313,52 @@ export default function PaymentPage() {
       }
     } catch (err) {
       console.error('Error fetching saved cards:', err);
+    }
+  };
+  
+  const fetchAvailableRewards = async () => {
+    if (!salonId) return;
+    
+    setRewardsLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${apiUrl}/payments/availableRewards`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          salon_id: salonId
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableRewards(data.rewards || []);
+      } else {
+        console.error('Failed to fetch rewards:', response.status);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error data:', errorData);
+      }
+    } catch (err) {
+      console.error('Error fetching available rewards:', err);
+    } finally {
+      setRewardsLoading(false);
+    }
+  };
+  
+  const handleRewardSelect = (reward) => {
+    if (selectedReward?.reward_id === reward.reward_id) {
+      // Deselect if clicking the same reward
+      setSelectedReward(null);
+      setDiscountedAmount(bookingAmount);
+    } else {
+      // Select new reward and calculate discounted amount
+      setSelectedReward(reward);
+      const discount = reward.discount_percentage || 0;
+      const discountAmount = (bookingAmount * discount) / 100;
+      setDiscountedAmount(bookingAmount - discountAmount);
     }
   };
   
@@ -632,7 +698,9 @@ export default function PaymentPage() {
           credit_card_id: creditCardId,
           billing_address_id: billingAddressId,
           amount: bookingAmount,
-          booking_id: bookingId
+          booking_id: bookingId,
+          use_loyalty_discount: selectedReward ? true : false,
+          reward_id: selectedReward?.reward_id || null
         })
       });
       
@@ -640,6 +708,12 @@ export default function PaymentPage() {
       
       if (paymentResponse.ok) {
         notifySuccess('Payment processed successfully! Booking confirmed.');
+
+        if (selectedReward) {
+          setRewardsCount((prev) => Math.max((prev || 0) - 1, 0));
+          setAvailableRewards((prev) => Array.isArray(prev) ? prev.filter((reward) => reward.reward_id !== selectedReward.reward_id) : []);
+        }
+
         navigate('/appointments');
       } else {
         // Provide specific error messages for payment failures
@@ -864,6 +938,76 @@ export default function PaymentPage() {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Available Rewards Section */}
+        {salonId && (
+          <Card className="mb-4 shadow-lg border-gray-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-lg">Available Rewards</CardTitle>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">Redeem a loyalty reward to save on this booking</p>
+            </CardHeader>
+            <CardContent>
+              {rewardsLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-sm text-gray-600 mt-2">Loading rewards...</p>
+                </div>
+              ) : availableRewards.length > 0 ? (
+                <div className="space-y-3">
+                  {availableRewards.map((reward) => {
+                    const isSelected = selectedReward?.reward_id === reward.reward_id;
+                    const discountAmount = (bookingAmount * (reward.discount_percentage || 0)) / 100;
+                    return (
+                      <div
+                        key={reward.reward_id}
+                        onClick={() => handleRewardSelect(reward)}
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-blue-600 bg-blue-50 shadow-sm'
+                            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {isSelected && (
+                              <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {reward.discount_percentage}% Off
+                              </p>
+                              {reward.note && (
+                                <p className="text-sm text-gray-600 mt-0.5">{reward.note}</p>
+                              )}
+                              <p className="text-xs text-gray-500 mt-1">
+                                Save ${discountAmount.toFixed(2)} on this booking
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-blue-600">
+                              -${discountAmount.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-600">No rewards available for this salon</p>
+                  <p className="text-xs text-gray-500 mt-1">Visit salons to earn rewards!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -1293,10 +1437,28 @@ export default function PaymentPage() {
                 {/* Total Amount Display */}
                 {bookingAmount > 0 && (
                   <div className="border-t pt-3 mt-auto">
+                    {selectedReward && (
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm text-gray-600">Subtotal</span>
+                        <span className="text-sm text-gray-600">
+                          ${typeof bookingAmount === 'number' ? bookingAmount.toFixed(2) : parseFloat(bookingAmount || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    {selectedReward && (
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm text-green-600">Discount ({selectedReward.discount_percentage}% off)</span>
+                        <span className="text-sm font-medium text-green-600">
+                          -${((bookingAmount * (selectedReward.discount_percentage || 0)) / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-base font-medium text-gray-700">Total</span>
                       <span className="text-xl font-bold text-gray-900">
-                        ${typeof bookingAmount === 'number' ? bookingAmount.toFixed(2) : parseFloat(bookingAmount || 0).toFixed(2)}
+                        ${selectedReward 
+                          ? (typeof discountedAmount === 'number' ? discountedAmount.toFixed(2) : parseFloat(discountedAmount || 0).toFixed(2))
+                          : (typeof bookingAmount === 'number' ? bookingAmount.toFixed(2) : parseFloat(bookingAmount || 0).toFixed(2))}
                       </span>
                     </div>
                   </div>
