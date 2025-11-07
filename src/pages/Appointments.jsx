@@ -28,6 +28,12 @@ export default function Appointments() {
   const [selectedStylistForReview, setSelectedStylistForReview] = useState(null);
   const [stylistReviews, setStylistReviews] = useState({}); // Map of employee_id -> hasReview
 
+  const formatStatusLabel = (status = '') => {
+    if (!status) return '';
+    const normalized = status.toString().toLowerCase();
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  };
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -212,14 +218,14 @@ export default function Appointments() {
 
   const getStatusBadge = (status) => {
     const variants = {
-      'SCHEDULED': 'bg-blue-100 text-blue-800',
-      'COMPLETED': 'bg-green-100 text-green-800',
-      'CANCELLED': 'bg-red-100 text-red-800',
-      'CANCELED': 'bg-red-100 text-red-800',
-      'NOSHOW': 'bg-orange-100 text-orange-800',
+      'SCHEDULED': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'COMPLETED': 'bg-purple-100 text-purple-800 border-purple-200',
+      'CANCELLED': 'bg-red-100 text-red-800 border-red-200',
+      'CANCELED': 'bg-red-100 text-red-800 border-red-200',
+      'NOSHOW': 'bg-gray-200 text-gray-800 border-gray-300',
     };
     
-    return variants[status] || 'bg-gray-100 text-gray-800';
+    return variants[status] || 'bg-gray-200 text-gray-800 border-gray-300';
   };
 
   // Check if appointment is in the past (using end time)
@@ -366,6 +372,21 @@ export default function Appointments() {
               const isSameDay = appointmentDate.getTime() === today.getTime();
               const canCancel = canModify && !isSameDay;
               const canReschedule = canModify && !isSameDay;
+
+              const originalTotal = typeof appointment.total_price === 'number'
+                ? appointment.total_price
+                : parseFloat(appointment.total_price || 0);
+              const actualPaid = appointment.actual_amount_paid !== undefined && appointment.actual_amount_paid !== null
+                ? (typeof appointment.actual_amount_paid === 'number'
+                    ? appointment.actual_amount_paid
+                    : parseFloat(appointment.actual_amount_paid))
+                : originalTotal;
+              const rewardInfo = appointment.reward || null;
+              const hasDiscount = rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
+              const discountLabel = rewardInfo?.discount_percentage
+                ? `${rewardInfo.discount_percentage}% off`
+                : 'Discount applied';
+              const couponNote = 'Coupons are non-refundable and one-time use.';
               
               return (
               <Card key={appointment.booking_id} className="flex flex-col">
@@ -379,9 +400,16 @@ export default function Appointments() {
                           : 'No stylist assigned'}
                       </CardDescription>
                     </div>
-                    <Badge className={getStatusBadge(appointment.appointment?.status || appointment.status)}>
-                      {appointment.appointment?.status || appointment.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {hasDiscount && (
+                        <Badge className="bg-sky-100 text-sky-700 border-sky-200">
+                          Discounted
+                        </Badge>
+                      )}
+                      <Badge className={getStatusBadge(status)}>
+                        {formatStatusLabel(status)}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col flex-grow">
@@ -425,10 +453,29 @@ export default function Appointments() {
                       </Alert>
                     )}
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t mt-auto">
-                    <span className="text-lg font-semibold text-green-800">
-                      ${typeof appointment.total_price === 'number' ? appointment.total_price.toFixed(2) : (appointment.total_price || '0.00')}
-                    </span>
+                  <div className="flex items-start justify-between pt-3 border-t mt-auto">
+                    <div className="flex flex-col">
+                      {hasDiscount ? (
+                        <>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm text-muted-foreground line-through">
+                              ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                            </span>
+                            <span className="text-lg font-semibold text-green-800">
+                              ${!Number.isNaN(actualPaid) ? actualPaid.toFixed(2) : '0.00'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {discountLabel}. {couponNote}
+                            {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                          </p>
+                        </>
+                      ) : (
+                        <span className="text-lg font-semibold text-green-800">
+                          ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex space-x-2">
                       {isPast && appointment.stylists && appointment.stylists.length > 0 && (
                         <Button
@@ -497,7 +544,8 @@ export default function Appointments() {
             }
           }
           const salonName = selectedAppointment?.salon?.name || selectedAppointment?.salon_name || 'this salon';
-          return `Are you sure you want to cancel this appointment at ${salonName}?\n\n${refundNote}This action cannot be undone.`;
+          const rewardNote = selectedAppointment?.reward ? 'Loyalty rewards are non-refundable and one-time use.\n\n' : '';
+          return `Are you sure you want to cancel this appointment at ${salonName}?\n\n${refundNote}${rewardNote}This action cannot be undone.`;
         })()}
         confirmText="Cancel Appointment"
         cancelText="Keep Appointment"

@@ -139,9 +139,8 @@ export default function SalonDetail() {
   }, [user, navigate, salonId]);
 
   const handleRedeemConfirm = () => {
-    Notifications.notifySuccess(
-      `Reward redeemed! ${loyaltyData.discount_percentage || 10}% off will be applied to your next visit at ${salon.name}.`
-    );
+    // Navigate to booking page - reward will be selected during payment
+    navigate(`/salon/${salonId}/book`);
     setShowRedeemModal(false);
   };
 
@@ -486,7 +485,8 @@ export default function SalonDetail() {
               </CardHeader>
               <CardContent>
                 <SalonReviews 
-                  salonId={salonId}
+                  salonId={salon?.salon_id || salonId}
+                  salonName={salon?.name}
                   onError={(error) => {
                     setError(error);
                   }}
@@ -865,7 +865,7 @@ export default function SalonDetail() {
         onClose={() => setShowRedeemModal(false)}
         onConfirm={handleRedeemConfirm}
         title="Redeem Reward"
-        message={`Are you sure you want to redeem ${loyaltyData?.discount_percentage || 10}% off your next visit at ${salon?.name}?\n\nThis reward will be applied to your next booking.`}
+        message={`Redeem ${loyaltyData?.discount_percentage || 10}% off your next visit at ${salon?.name}?\n\nYou'll be able to apply this reward when you complete your booking.`}
         confirmText="Redeem"
         cancelText="Cancel"
         type="success"

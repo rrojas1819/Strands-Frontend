@@ -6,7 +6,7 @@ import { Textarea } from './ui/textarea';
 import StrandsModal from './ui/strands-modal';
 import { Star, Users, ChevronLeft, ChevronRight, MessageSquare, Edit, Trash2, X } from 'lucide-react';
 
-export default function SalonReviews({ salonId, canReply = false, onError }) {
+export default function SalonReviews({ salonId, salonName, canReply = false, onError }) {
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsMeta, setReviewsMeta] = useState({
@@ -210,7 +210,9 @@ export default function SalonReviews({ salonId, canReply = false, onError }) {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Salon Reviews</h2>
-          <p className="text-muted-foreground">See what customers are saying about your salon</p>
+          <p className="text-muted-foreground">
+            {salonName ? `See what customers are saying about ${salonName}` : 'See what customers are saying'}
+          </p>
         </div>
       </div>
 

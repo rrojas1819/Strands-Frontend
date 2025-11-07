@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
-import { BarChart3, Users, TrendingUp, DollarSign, Users2, LogOut, Activity, Calendar, Repeat, ArrowUp, ArrowDown, Eye, Scissors, Clock, TrendingDown, Building2, ShoppingBag, Award, Receipt, CheckCircle } from 'lucide-react';
+import { BarChart3, Users, TrendingUp, DollarSign, Users2, Activity, Calendar, Repeat, ArrowUp, ArrowDown, Eye, Scissors, Clock, TrendingDown, Building2, ShoppingBag, Award, Receipt, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import AdminNavbar from '../components/AdminNavbar';
 
 export default function AdminDashboard() {
   const [demographics, setDemographics] = useState(null);
@@ -28,6 +29,16 @@ export default function AdminDashboard() {
     fetchDemographics();
     fetchUserEngagement();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === 'business-insights' || tab === 'revenue-analytics') {
+      setActiveTab(tab);
+    } else {
+      setActiveTab('user-analytics');
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (activeTab === 'business-insights') {
@@ -210,10 +221,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    authContext.logout();
-  };
-
   if (loading) {
   return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
@@ -224,91 +231,12 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Header */}
-      <header className="bg-background border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-            <img 
-                src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
-                alt="Strands Logo" 
-                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20"
-              />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
-                <p className="text-sm text-muted-foreground">Platform Analytics & Insights</p>
-          </div>
-          </div>
-          <div className="flex items-center space-x-4">
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Admin
-              </Badge>
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-                  </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-          {/* Navigation Bar - Admin Features */}
-          <nav className="bg-muted/50 border-b">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex space-x-8">
-                <Link
-                  to="/admin/salon-verification"
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    location.pathname === '/admin/salon-verification'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Salon Management
-                </Link>
-                <Link
-                  to="/admin/loyalty-monitoring"
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    location.pathname === '/admin/loyalty-monitoring'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Loyalty Monitoring
-                </Link>
-                <Link
-                  to="/dashboard"
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    location.pathname === '/dashboard'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  User Analytics
-                </Link>
-                <button 
-                  onClick={() => setActiveTab('business-insights')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'business-insights'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Business Insights
-                </button>
-                <button 
-                  onClick={() => setActiveTab('revenue-analytics')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'revenue-analytics'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Revenue Tracking
-                </button>
-              </div>
-            </div>
-          </nav>
+      <AdminNavbar 
+        title="Admin Dashboard"
+        subtitle="Platform Analytics & Insights"
+        activeKey={activeTab}
+        onLogout={() => authContext.logout()}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1326,7 +1254,11 @@ export default function AdminDashboard() {
                                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg h-[72px]">
                                   <div className="flex flex-col justify-center">
                                     <p className="font-semibold">{topProduct.product_name}</p>
-                                    <p className="text-sm text-muted-foreground opacity-0">Placeholder</p>
+                                    {topProduct.salon_name || topProduct.salon || topProduct.salonName ? (
+                                      <p className="text-sm text-muted-foreground">
+                                        {topProduct.salon_name || topProduct.salon || topProduct.salonName}
+                                      </p>
+                                    ) : null}
                     </div>
                                   <div className="text-right flex flex-col justify-center">
                                     <p className="text-xl font-bold">

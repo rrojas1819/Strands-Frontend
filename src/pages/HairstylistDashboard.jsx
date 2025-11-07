@@ -84,6 +84,12 @@ export default function HairstylistDashboard() {
   const [showCustomerVisitModal, setShowCustomerVisitModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerVisits, setCustomerVisits] = useState([]);
+
+  const formatStatusLabel = (status = '') => {
+    if (!status) return '';
+    const normalized = status.toString().toLowerCase();
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  };
   const [visitsLoading, setVisitsLoading] = useState(false);
   const [visitsPagination, setVisitsPagination] = useState({
     limit: 20,
@@ -401,6 +407,15 @@ export default function HairstylistDashboard() {
             totalDuration = parseInt(booking.total_duration_minutes || 0);
             serviceInfo = 'Service Name Not Available';
           }
+
+          const rewardInfo = booking.reward || booking.rewardInfo || null;
+          const actualAmountPaidRaw = booking.actual_amount_paid !== undefined && booking.actual_amount_paid !== null
+            ? booking.actual_amount_paid
+            : booking.actualAmountPaid;
+          const actualAmountPaid = actualAmountPaidRaw !== undefined && actualAmountPaidRaw !== null
+            ? (typeof actualAmountPaidRaw === 'number' ? actualAmountPaidRaw : parseFloat(actualAmountPaidRaw))
+            : totalPrice;
+          const hasDiscount = rewardInfo && !Number.isNaN(actualAmountPaid) && actualAmountPaid < totalPrice;
           
           // Map backend status to frontend status - handle various possible status values
           let status = 'pending';
@@ -484,6 +499,9 @@ export default function HairstylistDashboard() {
             service: serviceInfo,
             duration: totalDuration,
             totalPrice: totalPrice,
+            actualAmountPaid: !Number.isNaN(actualAmountPaid) ? actualAmountPaid : totalPrice,
+            reward: rewardInfo,
+            hasDiscount,
             status: status,
             phone: phone
           });
@@ -1253,11 +1271,19 @@ export default function HairstylistDashboard() {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return '!bg-purple-200 !text-purple-800 border-purple-200';
-      case 'pending': return '!bg-yellow-200 !text-yellow-800 border-yellow-200';
-      case 'canceled': return '!bg-red-200 !text-red-800 border-red-200';
-      default: return '!bg-gray-200 !text-gray-800 border-gray-200';
+    const normalized = status?.toString().toLowerCase();
+    switch (normalized) {
+      case 'completed':
+      case 'confirmed':
+        return '!bg-purple-200 !text-purple-800 border-purple-200';
+      case 'pending':
+      case 'scheduled':
+        return '!bg-yellow-200 !text-yellow-800 border-yellow-200';
+      case 'canceled':
+      case 'cancelled':
+        return '!bg-red-200 !text-red-800 border-red-200';
+      default:
+        return '!bg-gray-200 !text-gray-800 border-gray-200';
     }
   };
 
@@ -1336,7 +1362,7 @@ export default function HairstylistDashboard() {
             <img 
               src={strandsLogo} 
               alt="Strands" 
-              className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
+              className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer transition-opacity" 
               onClick={() => navigate('/')}
             />
                 <div>
@@ -1388,7 +1414,7 @@ export default function HairstylistDashboard() {
               <img 
                 src={strandsLogo} 
                 alt="Strands" 
-                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
+                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer transition-opacity" 
                 onClick={() => navigate('/')}
               />
               <div>
@@ -1420,7 +1446,7 @@ export default function HairstylistDashboard() {
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab.id
                     ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    : 'border-transparent text-muted-foreground'
                 }`}
               >
                 {tab.label}
@@ -1537,7 +1563,7 @@ export default function HairstylistDashboard() {
                     className={`flex items-center space-x-2 ${
                       !canNavigatePrevious() 
                         ? 'opacity-50 cursor-not-allowed' 
-                        : 'hover:bg-muted'
+                        : ''
                     }`}
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -1561,7 +1587,7 @@ export default function HairstylistDashboard() {
                     className={`flex items-center space-x-2 ${
                       !canNavigateNext() 
                         ? 'opacity-50 cursor-not-allowed' 
-                        : 'hover:bg-muted'
+                        : ''
                     }`}
                   >
                     <span>Next Day</span>
@@ -1578,7 +1604,7 @@ export default function HairstylistDashboard() {
                     className={`flex items-center space-x-2 ${
                       !canNavigatePrevious() 
                         ? 'opacity-50 cursor-not-allowed' 
-                        : 'hover:bg-muted'
+                        : ''
                     }`}
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -1602,7 +1628,7 @@ export default function HairstylistDashboard() {
                     className={`flex items-center space-x-2 ${
                       !canNavigateNext() 
                         ? 'opacity-50 cursor-not-allowed' 
-                        : 'hover:bg-muted'
+                        : ''
                     }`}
                   >
                     <span>Next Week</span>
@@ -1753,7 +1779,7 @@ export default function HairstylistDashboard() {
                             return (
                               <div
                                 key={appointment.id}
-                                className={`absolute left-1 right-1 p-2 rounded-lg text-xs border-2 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 ${getStatusColor(appointment.status)}`}
+                                className={`absolute left-1 right-1 p-2 rounded-lg text-xs border-2 shadow-lg cursor-pointer ${getStatusColor(appointment.status)}`}
                                 style={{ 
                                   top: `${top}px`, 
                                   height: `${height}px`,
@@ -1875,60 +1901,94 @@ export default function HairstylistDashboard() {
                   </div>
                   <div className="divide-y">
                     {dayAppointments
-                      .map((appointment) => (
-                        <div key={appointment.id} className="p-4 hover:bg-gray-50 transition-colors">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-3 mb-2">
-                      <div className="flex items-center space-x-2">
-                                  <Clock className="w-4 h-4 text-muted-foreground" />
-                                  <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
-                                </div>
-                                <Badge className={getStatusColor(appointment.status)}>
-                                  {appointment.status}
-                                </Badge>
-                              </div>
-                              
-                              <h4 className="font-semibold text-foreground mb-1">
-                                {appointment.customer}
-                              </h4>
-                              
-                              <p className="text-sm text-muted-foreground mb-2">
-                                {appointment.service}
-                              </p>
-                              
-                              <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
-                                <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
-                                {appointment.totalPrice > 0 && (
-                                  <span>Total: <span className="text-green-800 font-medium">${appointment.totalPrice.toFixed(2)}</span></span>
-                                )}
-                              </div>
-                              
-                              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                                {appointment.phone && (
-                                  <div className="flex items-center space-x-1">
-                                    <Phone className="w-4 h-4" />
-                                    <span>{appointment.phone}</span>
+                      .map((appointment) => {
+                        const originalTotal = typeof appointment.totalPrice === 'number' ? appointment.totalPrice : parseFloat(appointment.totalPrice || 0);
+                        const actualPaid = appointment.actualAmountPaid !== undefined && appointment.actualAmountPaid !== null
+                          ? appointment.actualAmountPaid
+                          : originalTotal;
+                        const rewardInfo = appointment.reward || null;
+                        const hasDiscount = appointment.hasDiscount || (rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal);
+                        const discountLabel = rewardInfo?.discount_percentage ? `${rewardInfo.discount_percentage}% off` : 'Discount applied';
+
+                        return (
+                          <div key={appointment.id} className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3 mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Clock className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
                                   </div>
-                                )}
+                                  <div className="flex items-center gap-2">
+                                    {hasDiscount && (
+                                      <Badge className="bg-sky-100 text-sky-700 border-sky-200">
+                                        Discounted
+                                      </Badge>
+                                    )}
+                                    <Badge className={getStatusColor(appointment.status)}>
+                                      {formatStatusLabel(appointment.status)}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                
+                                <h4 className="font-semibold text-foreground mb-1">
+                                  {appointment.customer}
+                                </h4>
+                                
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  {appointment.service}
+                                </p>
+                                
+                                <div className="flex flex-col space-y-1 text-sm text-muted-foreground mb-2">
+                                  <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
+                                  {appointment.totalPrice > 0 && (
+                                    hasDiscount ? (
+                                      <div className="flex flex-col">
+                                        <div className="flex items-baseline gap-2">
+                                          <span className="text-xs text-muted-foreground line-through">
+                                            ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                                          </span>
+                                          <span className="text-sm font-semibold text-green-800">
+                                            ${!Number.isNaN(actualPaid) ? Number(actualPaid).toFixed(2) : '0.00'}
+                            </span>
+                          </div>
+                                        <span className="text-xs text-muted-foreground">
+                                          {discountLabel}
+                                          {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                                        </span>
+                        </div>
+                                    ) : (
+                                      <span>Total: <span className="text-green-800 font-medium">${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}</span></span>
+                                    )
+                                  )}
+                      </div>
+                                
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                  {appointment.phone && (
+                                    <div className="flex items-center space-x-1">
+                                      <Phone className="w-4 h-4" />
+                                      <span>{appointment.phone}</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                            
-                            <div className="ml-4">
+                              
+                              <div className="ml-4">
                             <Button 
                               variant="outline" 
                               size="sm"
-                                onClick={() => {
-                                  setSelectedAppointment(appointment);
-                                  setShowAppointmentPopup(true);
-                                }}
+                                  onClick={() => {
+                                    setSelectedAppointment(appointment);
+                                    setShowAppointmentPopup(true);
+                                  }}
                             >
-                                View Details
+                                  View Details
                             </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -2085,6 +2145,7 @@ export default function HairstylistDashboard() {
             {reviewsSubTab === 'salon' && (
               <SalonReviews 
                 salonId={salonData?.salon_id}
+                salonName={salonData?.name}
                 onError={(error) => {
                   setModalConfig({
                     title: 'Error',
@@ -2666,15 +2727,22 @@ export default function HairstylistDashboard() {
                       </div>
 
               <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-medium text-foreground">
-                    {selectedAppointment.startTime} - {selectedAppointment.endTime}
+                  <div className="flex items-center space-x-3">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium text-foreground">
+                      {selectedAppointment.startTime} - {selectedAppointment.endTime}
                   </span>
-                  <Badge className={getStatusColor(selectedAppointment.status)}>
-                    {selectedAppointment.status}
+                  <div className="flex items-center gap-2">
+                    {selectedAppointment.hasDiscount && (
+                      <Badge className="bg-sky-100 text-sky-700 border-sky-200">
+                        Discounted
                       </Badge>
-                    </div>
+                    )}
+                    <Badge className={getStatusColor(selectedAppointment.status)}>
+                      {formatStatusLabel(selectedAppointment.status)}
+                    </Badge>
+                  </div>
+                </div>
                 
                     <div>
                   <h4 className="font-semibold text-foreground mb-1">
@@ -2683,13 +2751,30 @@ export default function HairstylistDashboard() {
                   <p className="text-sm text-muted-foreground mb-2">
                     {selectedAppointment.service}
                   </p>
-                  <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                  <div className="flex flex-col space-y-1 text-sm text-muted-foreground mb-2">
                     <span>Duration: <span className="text-blue-600 font-medium">{selectedAppointment.duration} minutes</span></span>
                     {selectedAppointment.totalPrice > 0 && (
-                      <span>Total: <span className="text-green-800 font-medium">${selectedAppointment.totalPrice.toFixed(2)}</span></span>
+                      selectedAppointment.hasDiscount ? (
+                        <div className="flex flex-col">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-xs text-muted-foreground line-through">
+                              Total: ${selectedAppointment.totalPrice.toFixed(2)}
+                            </span>
+                            <span className="text-sm font-semibold text-green-800">
+                              ${((selectedAppointment.actualAmountPaid ?? selectedAppointment.totalPrice) || 0).toFixed(2)}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {selectedAppointment.reward?.discount_percentage ? `${selectedAppointment.reward.discount_percentage}% off` : 'Discount applied'}
+                            {selectedAppointment.reward?.note ? ` ${selectedAppointment.reward.note}` : ''}
+                          </span>
+                  </div>
+                ) : (
+                        <span>Total: <span className="text-green-800 font-medium">${selectedAppointment.totalPrice.toFixed(2)}</span></span>
+                      )
                     )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
+                  </div>
+                          <p className="text-sm text-muted-foreground">
                     Date: {selectedAppointment.date ? selectedAppointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
                     </p>
                   </div>
@@ -2700,21 +2785,21 @@ export default function HairstylistDashboard() {
                       <Phone className="w-4 h-4" />
                       <span>{selectedAppointment.phone}</span>
                   </div>
-                  )}
-                </div>
-              </div>
+                          )}
+                        </div>
+                      </div>
 
               <div className="flex justify-end mt-6">
-                <Button 
+                        <Button 
                   onClick={() => {
                     setShowAppointmentPopup(false);
                     setSelectedAppointment(null);
                   }}
-                  variant="outline"
-                >
+                          variant="outline" 
+                        >
                   Close
-                </Button>
-                </div>
+                        </Button>
+                      </div>
               </CardContent>
             </Card>
         </div>
@@ -2771,50 +2856,84 @@ export default function HairstylistDashboard() {
                           }
                           return dateB - dateA; // Most recent first
                         })
-                        .map((appointment) => (
-                          <div key={appointment.id} className="border rounded-lg p-4 bg-red-50 border-red-200">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-3 mb-2">
-                                  <div className="flex items-center space-x-2">
-                                    <Clock className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
+                        .map((appointment) => {
+                          const originalTotal = typeof appointment.totalPrice === 'number' ? appointment.totalPrice : parseFloat(appointment.totalPrice || 0);
+                          const actualPaid = appointment.actualAmountPaid !== undefined && appointment.actualAmountPaid !== null
+                            ? appointment.actualAmountPaid
+                            : originalTotal;
+                          const rewardInfo = appointment.reward || null;
+                          const hasDiscount = appointment.hasDiscount || (rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal);
+                          const discountLabel = rewardInfo?.discount_percentage ? `${rewardInfo.discount_percentage}% off` : 'Discount applied';
+
+                          return (
+                            <div key={appointment.id} className="border rounded-lg p-4 bg-red-50 border-red-200">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-3 mb-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Clock className="w-4 h-4 text-muted-foreground" />
+                                      <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
                           </div>
-                                  <Badge className="bg-red-200 text-red-800 border-red-200">
-                                    Cancelled
+                                <div className="flex items-center gap-2">
+                                       {hasDiscount && (
+                                         <Badge className="bg-sky-100 text-sky-700 border-sky-200">
+                                           Discounted
+                                         </Badge>
+                                      )}
+                                  <Badge className={getStatusColor(appointment.status)}>
+                                    {formatStatusLabel(appointment.status)}
                                   </Badge>
+                        </div>
                         <span className="text-sm text-muted-foreground">
-                                    {appointment.date ? appointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
+                                      {appointment.date ? appointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
                         </span>
                       </div>
-                                
-                                <h4 className="font-semibold text-foreground mb-1">
-                                  {appointment.customer}
-                                </h4>
-                                
-                                <p className="text-sm text-muted-foreground mb-2">
-                                  {appointment.service}
-                                </p>
-                                
-                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
-                                  <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
-                                  {appointment.totalPrice > 0 && (
-                                    <span>Total: <span className="text-green-800 font-medium">${appointment.totalPrice.toFixed(2)}</span></span>
-                                  )}
+                                  
+                                  <h4 className="font-semibold text-foreground mb-1">
+                                    {appointment.customer}
+                                  </h4>
+                                  
+                                  <p className="text-sm text-muted-foreground mb-2">
+                                    {appointment.service}
+                                  </p>
+                                  
+                                  <div className="flex flex-col space-y-1 text-sm text-muted-foreground mb-2">
+                                    <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
+                                    {appointment.totalPrice > 0 && (
+                                      hasDiscount ? (
+                                        <div className="flex flex-col">
+                                          <div className="flex items-baseline gap-2">
+                                            <span className="text-xs text-muted-foreground line-through">
+                                              Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                                            </span>
+                                            <span className="text-sm font-semibold text-green-800">
+                                              ${!Number.isNaN(actualPaid) ? Number(actualPaid).toFixed(2) : '0.00'}
+                                            </span>
                     </div>
-                                
-                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                                  {appointment.phone && (
-                                    <div className="flex items-center space-x-1">
-                                      <Phone className="w-4 h-4" />
-                                      <span>{appointment.phone}</span>
-                                    </div>
-                                  )}
+                                          <span className="text-xs text-muted-foreground">
+                                            {discountLabel}
+                                            {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <span>Total: <span className="text-green-800 font-medium">${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}</span></span>
+                                      )
+                                    )}
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                    {appointment.phone && (
+                                      <div className="flex items-center space-x-1">
+                                        <Phone className="w-4 h-4" />
+                                        <span>{appointment.phone}</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   );
                 })()}
@@ -2878,79 +2997,113 @@ export default function HairstylistDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {customerVisits.map((visit) => (
-                      <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4 pt-4">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center space-x-3">
-                              <Clock className="w-4 h-4 text-muted-foreground" />
-                              <span className="font-medium text-foreground">
-                                {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric'
-                                })}
-                              </span>
+                    {customerVisits.map((visit) => {
+                      const originalTotal = typeof visit.total_price === 'number' ? visit.total_price : parseFloat(visit.total_price || 0);
+                      const actualPaid = visit.actual_amount_paid !== undefined && visit.actual_amount_paid !== null
+                        ? (typeof visit.actual_amount_paid === 'number' ? visit.actual_amount_paid : parseFloat(visit.actual_amount_paid))
+                        : originalTotal;
+                      const rewardInfo = visit.reward || null;
+                      const hasDiscount = rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
+                      const discountLabel = rewardInfo?.discount_percentage ? `${rewardInfo.discount_percentage}% off` : 'Discount applied';
+
+                      return (
+                        <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
+                          <CardContent className="p-4 pt-4">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex items-center space-x-3">
+                                <Clock className="w-4 h-4 text-muted-foreground" />
+                                <span className="font-medium text-foreground">
+                                  {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </span>
                     </div>
-                            <Badge className="bg-purple-200 text-purple-800 border-purple-200 hover:bg-purple-200">
-                              Completed
+                                <div className="flex items-center gap-2">
+                                 {hasDiscount && (
+                                   <Badge className="bg-sky-100 text-sky-700 border-sky-200">
+                                      Discounted
+                                    </Badge>
+                                )}
+                                  <Badge className="bg-purple-200 text-purple-800 border-purple-200">
+                                  Completed
                       </Badge>
                     </div>
-                          
-                          <div className="space-y-2 mb-3">
-                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                              <Clock className="w-4 h-4" />
-                              <span>
-                                {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true
-                                })} - {new Date(visit.scheduled_end).toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true
-                                })}
-                              </span>
                             </div>
-                            {visit.notes && (
-                              <p className="text-sm text-muted-foreground">
-                                <span className="font-medium">Notes:</span> {visit.notes}
-                              </p>
-                            )}
-                          </div>
 
-                          {visit.services && visit.services.length > 0 && (
-                            <div className="mt-3 pt-3 border-t">
-                              <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
-                              <div className="space-y-2">
-                                {visit.services.map((service, idx) => (
-                                  <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                            <div className="space-y-2 mb-3">
+                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                <Clock className="w-4 h-4" />
+                                <span>
+                                  {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  })} - {new Date(visit.scheduled_end).toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  })}
+                                </span>
+                              </div>
+                              {visit.notes && (
+                                <p className="text-sm text-muted-foreground">
+                                  <span className="font-medium">Notes:</span> {visit.notes}
+                                </p>
+                              )}
+                            </div>
+
+                            {visit.services && visit.services.length > 0 && (
+                              <div className="mt-3 pt-3 border-t">
+                                <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
+                                <div className="space-y-2">
+                                  {visit.services.map((service, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
                     <div>
-                                      <span className="font-medium text-foreground">{service.service_name}</span>
-                                      {service.employee && (
-                                        <p className="text-xs text-muted-foreground">
-                                          By: {service.employee.name}
-                                          {service.employee.title && ` (${service.employee.title})`}
-                                        </p>
-                                      )}
+                                        <span className="font-medium text-foreground">{service.service_name}</span>
+                                        {service.employee && (
+                                          <p className="text-xs text-muted-foreground">
+                                            By: {service.employee.name}
+                                            {service.employee.title && ` (${service.employee.title})`}
+                                          </p>
+                                        )}
                     </div>
-                                    <div className="text-right">
-                                      <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
-                                      <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
+                                      <div className="text-right">
+                                        <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
+                                        <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
                   </div>
                 </div>
-                                ))}
-                              </div>
-                              <div className="flex justify-end mt-3 pt-3 border-t">
-                                <div className="text-lg font-semibold text-green-800">
-                                  Total: ${typeof visit.total_price === 'number' ? visit.total_price.toFixed(2) : parseFloat(visit.total_price || 0).toFixed(2)}
+                                  ))}
+                                </div>
+                                <div className="flex justify-end mt-3 pt-3 border-t">
+                                  {hasDiscount ? (
+                                    <div className="text-right">
+                                      <div className="flex items-baseline gap-2 justify-end">
+                                        <span className="text-sm text-muted-foreground line-through">
+                                          Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                                        </span>
+                                        <span className="text-lg font-semibold text-green-800">
+                                          ${!Number.isNaN(actualPaid) ? actualPaid.toFixed(2) : '0.00'}
+                                        </span>
+                                      </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {discountLabel}
+                                          {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                                        </p>
+                                    </div>
+                                  ) : (
+                                    <div className="text-lg font-semibold text-green-800">
+                                      Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                            </div>
-                          )}
+                            )}
               </CardContent>
             </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                     </div>
