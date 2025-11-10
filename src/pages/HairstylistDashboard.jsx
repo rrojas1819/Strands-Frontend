@@ -49,6 +49,12 @@ export default function HairstylistDashboard() {
   });
   const [blockedSlots, setBlockedSlots] = useState([]);
   const [blockLoading, setBlockLoading] = useState(false);
+const [blockConflictModal, setBlockConflictModal] = useState({
+  open: false,
+  conflicts: [],
+  payload: null
+});
+const [cancelConflictLoadingId, setCancelConflictLoadingId] = useState(null);
   
   // BS-1.01: Services management
   const [services, setServices] = useState([]);
@@ -71,6 +77,7 @@ export default function HairstylistDashboard() {
   const [cancelledDate, setCancelledDate] = useState(new Date());
   const [showAppointmentPopup, setShowAppointmentPopup] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   
   // UPH-1.21: Customer visit history state
   const [customers, setCustomers] = useState([]);
@@ -569,75 +576,171 @@ export default function HairstylistDashboard() {
     }
   };
 
-  // BS-1.5: Create blocked time slot
-  const handleBlockTimeSlot = async () => {
-    if (!blockFormData.weekday || !blockFormData.start_time || !blockFormData.end_time) {
-      toast.error('Please fill in all fields');
+const submitBlockTimeSlot = async (payload) => {
+  setBlockLoading(true);
+  try {
+    const token = localStorage.getItem('auth_token');
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+    const response = await fetch(`${apiUrl}/unavailability`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      toast.success('Time slot blocked successfully');
+      setShowBlockModal(false);
+      setBlockFormData({ weekday: '', start_time: '', end_time: '' });
+      setBlockConflictModal({ open: false, conflicts: [], payload: null });
+      await fetchBlockedSlots();
+      await fetchScheduleData();
       return;
     }
 
-    setBlockLoading(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      
-      const now = new Date();
-      const tzMinutes = -now.getTimezoneOffset();
-      const sign = tzMinutes >= 0 ? "+" : "-";
-      const abs = Math.abs(tzMinutes);
-      const pad = (n) => String(n).padStart(2, "0");
-      const offHours = pad(Math.floor(abs / 60));
-      const offMinutes = pad(abs % 60);
-      const timezone_offset = `${sign}${offHours}:${offMinutes}`;
-      
-      const payload = {
-        weekday: parseInt(blockFormData.weekday),
-        start_time: blockFormData.start_time,
-        end_time: blockFormData.end_time,
-        slot_interval_minutes: 30,
-        timezone_offset: timezone_offset
-      };
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/unavailability`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success('Time slot blocked successfully');
-        setShowBlockModal(false);
-        setBlockFormData({ weekday: '', start_time: '', end_time: '' });
-        fetchBlockedSlots();
-        fetchScheduleData();
-      } else {
-        if (response.status === 400) {
-          console.error('Client error (400):', {
-            errorMessage: data.message,
-            timezone_offset_sent: timezone_offset
-          });
-        } else {
-          console.error('Failed to block time slot:', {
-            httpStatus: response.status,
-            errorMessage: data.message
-          });
-        }
-        toast.error(data.message || 'Failed to block time slot');
-      }
-    } catch (err) {
-      console.error('Error blocking time slot:', err);
-      toast.error('Failed to block time slot');
-    } finally {
-      setBlockLoading(false);
+    if (
+      response.status === 409 &&
+      Array.isArray(data.conflicting_appointments) &&
+      data.conflicting_appointments.length > 0
+    ) {
+      setBlockConflictModal({
+        open: true,
+        conflicts: data.conflicting_appointments,
+        payload
+      });
+      toast.error('Conflicting appointments found. Cancel them to block this time.');
+      return;
     }
+
+    if (response.status === 400) {
+      console.error('Client error (400):', {
+        errorMessage: data.message
+      });
+    } else {
+      console.error('Failed to block time slot:', {
+        httpStatus: response.status,
+        errorMessage: data.message
+      });
+    }
+    toast.error(data.message || 'Failed to block time slot');
+  } catch (err) {
+    console.error('Error blocking time slot:', err);
+    toast.error('Failed to block time slot');
+  } finally {
+    setBlockLoading(false);
+  }
+};
+
+// BS-1.5: Create blocked time slot
+const handleBlockTimeSlot = async () => {
+  if (!blockFormData.weekday || !blockFormData.start_time || !blockFormData.end_time) {
+    toast.error('Please fill in all fields');
+    return;
+  }
+
+  const now = new Date();
+  const tzMinutes = -now.getTimezoneOffset();
+  const sign = tzMinutes >= 0 ? '+' : '-';
+  const abs = Math.abs(tzMinutes);
+  const pad = (n) => String(n).padStart(2, '0');
+  const offHours = pad(Math.floor(abs / 60));
+  const offMinutes = pad(abs % 60);
+  const timezone_offset = `${sign}${offHours}:${offMinutes}`;
+
+  const payload = {
+    weekday: parseInt(blockFormData.weekday, 10),
+    start_time: blockFormData.start_time,
+    end_time: blockFormData.end_time,
+    slot_interval_minutes: 30,
+    timezone_offset
   };
+
+  await submitBlockTimeSlot(payload);
+};
+
+const handleCloseConflictModal = () => {
+  setBlockConflictModal({ open: false, conflicts: [], payload: null });
+};
+
+const cancelBookingAsStylistRequest = async (bookingId) => {
+  const token = localStorage.getItem('auth_token');
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+  const response = await fetch(`${apiUrl}/bookings/stylist/cancel`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ booking_id: bookingId })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to cancel appointment');
+  }
+
+  return data;
+};
+
+const handleCancelConflictBooking = async (bookingId) => {
+  if (!blockConflictModal.open) return;
+
+  setCancelConflictLoadingId(bookingId);
+  try {
+    await cancelBookingAsStylistRequest(bookingId);
+    toast.success('Appointment canceled');
+    await fetchScheduleData();
+
+    const updatedConflicts = blockConflictModal.conflicts.filter(
+      (conflict) => conflict.booking_id !== bookingId
+    );
+
+    if (updatedConflicts.length === 0) {
+      const retryPayload = blockConflictModal.payload;
+      setBlockConflictModal({ open: false, conflicts: [], payload: null });
+      if (retryPayload) {
+        await submitBlockTimeSlot(retryPayload);
+      }
+    } else {
+      setBlockConflictModal((prev) => ({
+        ...prev,
+        conflicts: updatedConflicts
+      }));
+    }
+  } catch (err) {
+    console.error('Error canceling booking as stylist:', err);
+    toast.error(err.message || 'Failed to cancel appointment');
+  } finally {
+    setCancelConflictLoadingId(null);
+  }
+};
+
+const handleCancelSelectedAppointment = async () => {
+  if (!selectedAppointment || selectedAppointment.status !== 'pending') {
+    return;
+  }
+
+  setCancelAppointmentLoading(true);
+  try {
+    await cancelBookingAsStylistRequest(selectedAppointment.id);
+    toast.success('Appointment canceled');
+    setShowAppointmentPopup(false);
+    setSelectedAppointment(null);
+    await fetchScheduleData();
+  } catch (err) {
+    console.error('Error canceling appointment:', err);
+    toast.error(err.message || 'Failed to cancel appointment');
+  } finally {
+    setCancelAppointmentLoading(false);
+  }
+};
 
   // BS-1.5: Delete blocked time slot
   const handleDeleteBlockedSlot = async (slot) => {
@@ -2398,6 +2501,99 @@ export default function HairstylistDashboard() {
         </div>
       )}
 
+      {blockConflictModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl mx-auto shadow-2xl">
+            <CardContent className="pt-8 px-6 pb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3 bg-red-50 p-3 rounded-lg">
+                  <AlertCircle className="w-6 h-6 text-red-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Conflicting Appointments</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCloseConflictModal}
+                  className="text-gray-400 hover:text-gray-600"
+                  disabled={cancelConflictLoadingId !== null}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <p className="text-sm text-muted-foreground mb-4">
+                There are scheduled appointments during this time block. Cancel the appointments below or adjust the block time.
+              </p>
+
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {blockConflictModal.conflicts.length === 0 ? (
+                  <div className="text-center py-10 bg-muted/30 rounded-lg border border-dashed border-red-200">
+                    <Clock className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      No conflicts remaining. You can close this window or attempt to block again.
+                    </p>
+                  </div>
+                ) : (
+                  blockConflictModal.conflicts.map((conflict) => (
+                    <div
+                      key={conflict.booking_id}
+                      className="flex items-start justify-between p-4 bg-white border border-red-200 rounded-lg shadow-sm"
+                    >
+                      <div className="pr-4">
+                        <p className="font-semibold text-foreground">
+                          {conflict.customer_name || 'Customer'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Date:{' '}
+                          {new Date(conflict.scheduled_start).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            month: 'long',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Time:{' '}
+                          {new Date(conflict.scheduled_start).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          })}{' '}
+                          -{' '}
+                          {new Date(conflict.scheduled_end).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleCancelConflictBooking(conflict.booking_id)}
+                        disabled={cancelConflictLoadingId === conflict.booking_id}
+                        className="whitespace-nowrap"
+                      >
+                        {cancelConflictLoadingId === conflict.booking_id ? 'Canceling...' : 'Cancel Appointment'}
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseConflictModal}
+                  className="px-6 py-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                  disabled={cancelConflictLoadingId !== null}
+                >
+                  Close
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
         {/* BS-1.5: Unblock Time Slot Modal */}
         {showUnblockModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -2818,17 +3014,26 @@ export default function HairstylistDashboard() {
                         </div>
                       </div>
 
-              <div className="flex justify-end mt-6">
-                        <Button 
+              <div className="flex justify-end mt-6 gap-2">
+                {selectedAppointment.status === 'pending' && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleCancelSelectedAppointment}
+                    disabled={cancelAppointmentLoading}
+                  >
+                    {cancelAppointmentLoading ? 'Canceling...' : 'Cancel Appointment'}
+                  </Button>
+                )}
+                <Button
                   onClick={() => {
                     setShowAppointmentPopup(false);
                     setSelectedAppointment(null);
                   }}
-                          variant="outline" 
-                        >
+                  variant="outline"
+                >
                   Close
-                        </Button>
-                      </div>
+                </Button>
+              </div>
               </CardContent>
             </Card>
         </div>
