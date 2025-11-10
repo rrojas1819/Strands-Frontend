@@ -9,6 +9,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Clock, Users, Check, X, Menu, Eye, Star } from 'lucide-react';
 import { notifySuccess, notifyError, notifyInfo } from '../utils/notifications';
+import { toOffsetIso, isOffsetAwareIso } from '../lib/utils';
 import { trackSalonView, trackBooking } from '../utils/analytics';
 import StrandsModal from '../components/StrandsModal';
 import UserNavbar from '../components/UserNavbar';
@@ -256,7 +257,11 @@ export default function BookingPage() {
         setTimeSlots(data.data?.daily_slots || {});
       } else {
         const errorText = await response.text();
-        console.error('Failed to fetch time slots:', errorText);
+        console.error('Failed to fetch time slots:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
         setTimeSlots({});
       }
     } catch (err) {
@@ -308,9 +313,29 @@ export default function BookingPage() {
       
       // Validate dates are valid
       if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        console.error('Invalid date/time:', {
+          startDateTime: startDateTime.toString(),
+          endDateTime: endDateTime.toString()
+        });
         notifyError('Invalid date or time selected');
         setBookingLoading(false);
         return;
+      }
+      
+      const scheduledStartIso = toOffsetIso(startDateTime);
+      const scheduledEndIso = toOffsetIso(endDateTime);
+      
+      if (!scheduledStartIso || !isOffsetAwareIso(scheduledStartIso)) {
+        notifyError('Could not build a timezone-aware start time. Please reselect your time.');
+        setBookingLoading(false);
+        return;
+      }
+      if (!isReschedule) {
+        if (!scheduledEndIso || !isOffsetAwareIso(scheduledEndIso)) {
+          notifyError('Could not build a timezone-aware end time. Please reselect your time.');
+          setBookingLoading(false);
+          return;
+        }
       }
       
       // Validate time is not in the past (allow current time, use >= instead of >)
@@ -349,7 +374,8 @@ export default function BookingPage() {
           },
           body: JSON.stringify({
             booking_id: location.state.bookingId,
-            scheduled_start: startDateTime.toISOString(),
+            // send explicit offset/Z as per backend contract
+            scheduled_start: scheduledStartIso,
             notes: location.state?.appointment?.notes || ''
           })
         });
@@ -395,8 +421,9 @@ export default function BookingPage() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            scheduled_start: startDateTime.toISOString(),
-            scheduled_end: endDateTime.toISOString(),
+            // send explicit offset/Z as per backend contract
+            scheduled_start: scheduledStartIso,
+            scheduled_end: scheduledEndIso,
             services: selectedServices.map(s => ({ service_id: s.service_id })),
             notes: ''
           })
@@ -429,6 +456,11 @@ export default function BookingPage() {
         } else {
           // Handle booking errors
           const errorMessage = data.message || 'Booking failed';
+          console.error('Booking failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorMessage
+          });
           notifyError(errorMessage);
         }
       }
@@ -787,7 +819,9 @@ export default function BookingPage() {
                               key={`${slot.start_time}-${slot.end_time}`}
                               variant={isSelected ? 'default' : 'outline'}
                               className="w-full"
-                              onClick={() => setSelectedTimeSlot(slot)}
+                              onClick={() => {
+                                setSelectedTimeSlot(slot);
+                              }}
                             >
                               {formatTo12Hour(slot.start_time)} - {formatTo12Hour(slot.end_time)}
                             </Button>

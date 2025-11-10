@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Star, Gift, Trophy, Clock, TrendingUp, Award, Zap } from 'lucide-react';
 import { Notifications } from '../utils/notifications';
 import UserNavbar from '../components/UserNavbar';
+import { formatLocalDate } from '../lib/utils';
 
 const isRewardRedeemed = (redeemedAt) => {
   if (!redeemedAt) return false;
@@ -42,15 +43,13 @@ const parseTimestamp = (value) => {
 
 const formatDisplayDate = (value) => {
   if (!value) return null;
-  const parsed = typeof value === 'number' ? value : parseTimestamp(value);
-  if (parsed === null) return null;
-  const date = new Date(parsed);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString('en-US', {
+  // Delegate to shared helper which renders in local time
+  const formatted = formatLocalDate(value, {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
   });
+  return formatted || null;
 };
 
 export default function LoyaltyPoints() {
