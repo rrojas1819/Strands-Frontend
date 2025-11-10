@@ -13,6 +13,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import StrandsModal from '../components/ui/strands-modal';
 import { toast } from 'sonner';
+import { formatLocalDate, formatLocalTime } from '../lib/utils';
 
 export default function HairstylistDashboard() {
   const authContext = useContext(AuthContext);
@@ -280,7 +281,6 @@ export default function HairstylistDashboard() {
         },
       });
 
-      console.log('Schedule response status:', response.status);
       const data = await response.json();
       
       // Try to extract employee_id from schedule response if not found earlier
@@ -433,45 +433,23 @@ export default function HairstylistDashboard() {
           // Auto-update status: if appointment end time has passed and not cancelled, mark as completed (past visit)
           if (status !== 'canceled' && status !== 'completed' && booking.scheduled_end && booking.scheduled_start) {
             try {
-              // Parse the end time (format: "HH:MM:SS" from backend)
-              const endTimeParts = booking.scheduled_end.split(':');
-              if (endTimeParts.length >= 2) {
-                const hours = parseInt(endTimeParts[0], 10);
-                const minutes = parseInt(endTimeParts[1], 10);
-                const seconds = endTimeParts[2] ? parseInt(endTimeParts[2], 10) : 0;
-                
-                // Parse the start time (format: "HH:MM:SS" from backend)
-                const startTimeParts = booking.scheduled_start.split(':');
-                if (startTimeParts.length >= 2) {
-                  const startHours = parseInt(startTimeParts[0], 10);
-                  const startMinutes = parseInt(startTimeParts[1], 10);
-                  
-                  // Create full datetime for appointment end (use the day date from the booking)
-                  // Create new date objects to avoid mutation issues
-                  const appointmentEndDate = new Date(dayDate);
-                  appointmentEndDate.setHours(hours, minutes, seconds, 0);
-                  
-                  const appointmentStartDate = new Date(dayDate);
-                  appointmentStartDate.setHours(startHours, startMinutes, 0, 0);
-                  
-                  const now = new Date();
-                  
-                  // If appointment end time has passed, mark as completed (past visit)
-                  // Verify both dates are valid and appointment is in the past
-                  if (
-                    !isNaN(appointmentEndDate.getTime()) && 
-                    !isNaN(appointmentStartDate.getTime()) &&
-                    appointmentEndDate < now
-                  ) {
-                    status = 'completed';
-                    console.log(`Auto-updated booking ${booking.booking_id} to completed:`, {
-                      appointmentEndDate: appointmentEndDate.toISOString(),
-                      now: now.toISOString(),
-                      dateKey,
-                      dayDate: dayDate.toDateString()
-                    });
-                  }
-                }
+              const appointmentEndDate = new Date(booking.scheduled_end);
+              const appointmentStartDate = new Date(booking.scheduled_start);
+              
+              const now = new Date();
+              
+              if (
+                !isNaN(appointmentEndDate.getTime()) && 
+                !isNaN(appointmentStartDate.getTime()) &&
+                appointmentEndDate < now
+              ) {
+                status = 'completed';
+                console.log(`Auto-updated booking ${booking.booking_id} to completed:`, {
+                  appointmentEndDate: appointmentEndDate.toISOString(),
+                  now: now.toISOString(),
+                  dateKey,
+                  dayDate: dayDate.toDateString()
+                });
               }
             } catch (err) {
               console.error('Error parsing appointment time for status update:', err, {
@@ -490,11 +468,24 @@ export default function HairstylistDashboard() {
             dayDate: dayDate.toDateString()
           });
           
+          const startTimeDisplay = booking.scheduled_start 
+            ? formatLocalTime(booking.scheduled_start, {
+                hour: 'numeric',
+                minute: '2-digit'
+              })
+            : 'N/A';
+          const endTimeDisplay = booking.scheduled_end 
+            ? formatLocalTime(booking.scheduled_end, {
+                hour: 'numeric',
+                minute: '2-digit'
+              })
+            : 'N/A';
+          
           appointments.push({
             id: booking.booking_id,
             date: new Date(dayDate),
-            startTime: formatTime(booking.scheduled_start),
-            endTime: formatTime(booking.scheduled_end),
+            startTime: startTimeDisplay,
+            endTime: endTimeDisplay,
             customer: customerName,
             service: serviceInfo,
             duration: totalDuration,
@@ -562,11 +553,19 @@ export default function HairstylistDashboard() {
         const data = await response.json();
         setBlockedSlots(data.data || []);
       } else if (response.status === 404) {
-        // Employee not found or no blocks yet
+        setBlockedSlots([]);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch blocked slots:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
         setBlockedSlots([]);
       }
     } catch (err) {
-      console.error('Failed to fetch blocked slots:', err);
+      console.error('Error fetching blocked slots:', err);
+      setBlockedSlots([]);
     }
   };
 
@@ -580,6 +579,24 @@ export default function HairstylistDashboard() {
     setBlockLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
+      
+      const now = new Date();
+      const tzMinutes = -now.getTimezoneOffset();
+      const sign = tzMinutes >= 0 ? "+" : "-";
+      const abs = Math.abs(tzMinutes);
+      const pad = (n) => String(n).padStart(2, "0");
+      const offHours = pad(Math.floor(abs / 60));
+      const offMinutes = pad(abs % 60);
+      const timezone_offset = `${sign}${offHours}:${offMinutes}`;
+      
+      const payload = {
+        weekday: parseInt(blockFormData.weekday),
+        start_time: blockFormData.start_time,
+        end_time: blockFormData.end_time,
+        slot_interval_minutes: 30,
+        timezone_offset: timezone_offset
+      };
+      
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/unavailability`,
         {
@@ -588,12 +605,7 @@ export default function HairstylistDashboard() {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            weekday: parseInt(blockFormData.weekday),
-            start_time: blockFormData.start_time,
-            end_time: blockFormData.end_time,
-            slot_interval_minutes: 30
-          })
+          body: JSON.stringify(payload)
         }
       );
 
@@ -604,13 +616,23 @@ export default function HairstylistDashboard() {
         setShowBlockModal(false);
         setBlockFormData({ weekday: '', start_time: '', end_time: '' });
         fetchBlockedSlots();
-        // Refresh schedule to show new unavailability
         fetchScheduleData();
       } else {
+        if (response.status === 400) {
+          console.error('Client error (400):', {
+            errorMessage: data.message,
+            timezone_offset_sent: timezone_offset
+          });
+        } else {
+          console.error('Failed to block time slot:', {
+            httpStatus: response.status,
+            errorMessage: data.message
+          });
+        }
         toast.error(data.message || 'Failed to block time slot');
       }
     } catch (err) {
-      console.error('Failed to block time slot:', err);
+      console.error('Error blocking time slot:', err);
       toast.error('Failed to block time slot');
     } finally {
       setBlockLoading(false);
@@ -621,6 +643,12 @@ export default function HairstylistDashboard() {
   const handleDeleteBlockedSlot = async (slot) => {
     try {
       const token = localStorage.getItem('auth_token');
+      const payload = {
+        weekday: slot.weekday,
+        start_time: slot.start_time,
+        end_time: slot.end_time
+      };
+      
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/unavailability`,
         {
@@ -629,25 +657,24 @@ export default function HairstylistDashboard() {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            weekday: slot.weekday,
-            start_time: slot.start_time,
-            end_time: slot.end_time
-          })
+          body: JSON.stringify(payload)
         }
       );
+
+      const data = await response.json();
 
       if (response.ok) {
         toast.success('Time slot unblocked successfully');
         fetchBlockedSlots();
-        // Refresh schedule to update unavailability display
         fetchScheduleData();
       } else {
-        const data = await response.json();
+        console.error('Failed to unblock time slot:', {
+          errorMessage: data.message
+        });
         toast.error(data.message || 'Failed to unblock time slot');
       }
     } catch (err) {
-      console.error('Failed to unblock time slot:', err);
+      console.error('Error unblocking time slot:', err);
       toast.error('Failed to unblock time slot');
     }
   };
@@ -829,7 +856,8 @@ export default function HairstylistDashboard() {
     setShowEditServiceModal(true);
   };
 
-  // UPH-1.21: Fetch customers list
+  // UPH-1.21: Fetch customers list              // Verify both dates are valid and appointment is in the past
+
   const fetchCustomers = async () => {
     try {
       setCustomersLoading(true);
@@ -1266,7 +1294,6 @@ export default function HairstylistDashboard() {
     const year = day.getFullYear();
     const dateKey = `${month}-${dayOfMonth}-${year}`;
     
-    console.log(`Getting schedule for date ${dateKey}:`, weeklySchedule[dateKey]);
     return weeklySchedule ? weeklySchedule[dateKey] : null;
   };
 
@@ -1714,6 +1741,10 @@ export default function HairstylistDashboard() {
                      const availability = dayScheduleData?.availability;
                      const unavailabilities = dayScheduleData?.unavailability || [];
                      
+                     const dayAppointments = scheduleData.filter(apt => 
+                       apt.date && apt.date.toDateString() === day.toDateString() && apt.status !== 'canceled'
+                     );
+                     
                      return (
                        <div key={dayIndex} className="col-span-1 relative" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
                          {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => (
@@ -1746,8 +1777,7 @@ export default function HairstylistDashboard() {
                         ))}
                         
                         {/* Booked appointment backgrounds - Red background behind appointments */}
-                        {scheduleData
-                          .filter(apt => apt.date && apt.date.toDateString() === day.toDateString() && apt.status !== 'canceled')
+                        {dayAppointments
                           .map((appointment) => {
                             const startMinutes = timeToMinutes(appointment.startTime);
                             const endMinutes = timeToMinutes(appointment.endTime);
@@ -1768,8 +1798,7 @@ export default function HairstylistDashboard() {
                           })}
                         
                         {/* Appointments for this day (excluding cancelled) */}
-                        {scheduleData
-                          .filter(apt => apt.date && apt.date.toDateString() === day.toDateString() && apt.status !== 'canceled')
+                        {dayAppointments
                           .map((appointment) => {
                             const startMinutes = timeToMinutes(appointment.startTime);
                             const endMinutes = timeToMinutes(appointment.endTime);

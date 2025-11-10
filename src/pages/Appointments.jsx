@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Calendar, Clock, X, Edit2, Star } from 'lucide-react';
 import { notifySuccess, notifyError } from '../utils/notifications';
+import { formatLocalDate, formatLocalTime } from '../lib/utils';
 import StrandsModal from '../components/StrandsModal';
 import UserNavbar from '../components/UserNavbar';
 import StaffReviews from '../components/StaffReviews';
@@ -416,7 +417,7 @@ export default function Appointments() {
                   <div className="space-y-3 flex-grow">
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Calendar className="w-4 h-4 mr-2" />
-                      {new Date(appointment.appointment?.scheduled_start || appointment.scheduled_start).toLocaleDateString('en-US', {
+                      {formatLocalDate(appointment.appointment?.scheduled_start || appointment.scheduled_start, {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
@@ -425,10 +426,10 @@ export default function Appointments() {
                     </div>
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Clock className="w-4 h-4 mr-2" />
-                      {new Date(appointment.appointment?.scheduled_start || appointment.scheduled_start).toLocaleTimeString('en-US', {
+                      {formatLocalTime(appointment.appointment?.scheduled_start || appointment.scheduled_start, {
                         hour: 'numeric',
                         minute: '2-digit'
-                      })} - {new Date(appointment.appointment?.scheduled_end || appointment.scheduled_end).toLocaleTimeString('en-US', {
+                      })} - {formatLocalTime(appointment.appointment?.scheduled_end || appointment.scheduled_end, {
                         hour: 'numeric',
                         minute: '2-digit'
                       })}
