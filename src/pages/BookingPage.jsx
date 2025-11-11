@@ -9,8 +9,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Clock, Users, Check, X, Menu, Eye, Star } from 'lucide-react';
 import { notifySuccess, notifyError, notifyInfo } from '../utils/notifications';
-import { toOffsetIso, isOffsetAwareIso } from '../lib/utils';
 import { trackSalonView, trackBooking } from '../utils/analytics';
+import { localWallClockToUtcIso, cmpUtc, todayYmdInZone, isSameSalonLocalDate, formatInZone } from '../utils/time';
 import StrandsModal from '../components/StrandsModal';
 import UserNavbar from '../components/UserNavbar';
 import StaffReviews from '../components/StaffReviews';
@@ -154,7 +154,6 @@ export default function BookingPage() {
 
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching salon data:', err);
       setError(err.message || 'Failed to load booking information.');
       setLoading(false);
     }
@@ -256,12 +255,6 @@ export default function BookingPage() {
         const data = await response.json();
         setTimeSlots(data.data?.daily_slots || {});
       } else {
-        const errorText = await response.text();
-        console.error('Failed to fetch time slots:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
         setTimeSlots({});
       }
     } catch (err) {
@@ -283,7 +276,6 @@ export default function BookingPage() {
       }
       setShowConfirmModal(true);
     } catch (error) {
-      console.error('Error in handleBookClick:', error);
       notifyError('An error occurred. Please try again.');
     }
   };
@@ -301,48 +293,25 @@ export default function BookingPage() {
         return;
       }
 
-      // Create the booking dates from selectedDate and slot times
-      // Parse date components to ensure local time interpretation
-      const [year, month, day] = selectedDate.split('-').map(Number);
-      const [startHours, startMinutes] = selectedTimeSlot.start_time.split(':').map(Number);
-      const [endHours, endMinutes] = selectedTimeSlot.end_time.split(':').map(Number);
+      // Get salon timezone (default to America/New_York if not set)
+      const salonTimezone = salon?.timezone || 'America/New_York';
       
-      // Create dates in local time explicitly
-      const startDateTime = new Date(year, month - 1, day, startHours, startMinutes, 0);
-      const endDateTime = new Date(year, month - 1, day, endHours, endMinutes, 0);
+      // Check if slot has UTC ISO strings (from backend) or HH:MM strings (legacy)
+      let scheduledStartIso, scheduledEndIso;
       
-      // Validate dates are valid
-      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
-        console.error('Invalid date/time:', {
-          startDateTime: startDateTime.toString(),
-          endDateTime: endDateTime.toString()
-        });
-        notifyError('Invalid date or time selected');
-        setBookingLoading(false);
-        return;
+      if (selectedTimeSlot.start_time.includes('T') && selectedTimeSlot.start_time.includes('Z')) {
+        // Backend provided UTC ISO strings - use directly
+        scheduledStartIso = selectedTimeSlot.start_time;
+        scheduledEndIso = selectedTimeSlot.end_time;
+      } else {
+        // Legacy HH:MM format - convert to UTC using salon timezone
+        scheduledStartIso = localWallClockToUtcIso(selectedDate, selectedTimeSlot.start_time, salonTimezone);
+        scheduledEndIso = localWallClockToUtcIso(selectedDate, selectedTimeSlot.end_time, salonTimezone);
       }
       
-      const scheduledStartIso = toOffsetIso(startDateTime);
-      const scheduledEndIso = toOffsetIso(endDateTime);
-      
-      if (!scheduledStartIso || !isOffsetAwareIso(scheduledStartIso)) {
-        notifyError('Could not build a timezone-aware start time. Please reselect your time.');
-        setBookingLoading(false);
-        return;
-      }
-      if (!isReschedule) {
-        if (!scheduledEndIso || !isOffsetAwareIso(scheduledEndIso)) {
-          notifyError('Could not build a timezone-aware end time. Please reselect your time.');
-          setBookingLoading(false);
-          return;
-        }
-      }
-      
-      // Validate time is not in the past (allow current time, use >= instead of >)
-      const now = new Date();
-      // If booking for today, ensure start time is >= current time (allow booking at current time)
-      const isToday = selectedDate === now.toISOString().split('T')[0];
-      if (isToday && startDateTime < now) {
+      // Validate time is not in the past using UTC comparison
+      const nowUtcIso = new Date().toISOString();
+      if (cmpUtc(scheduledStartIso, nowUtcIso) < 0) {
         notifyError('Cannot book appointments in the past. Please select a time that is at or after the current time.');
         setBookingLoading(false);
         return;
@@ -353,13 +322,12 @@ export default function BookingPage() {
 
       // Use the new reschedule endpoint if rescheduling
       if (isReschedule && location.state?.bookingId) {
-        // Double-check same-day restriction before sending request
-        const originalAppointmentDate = new Date(location.state?.appointment?.appointment?.scheduled_start || location.state?.appointment?.scheduled_start);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        originalAppointmentDate.setHours(0, 0, 0, 0);
+        // Double-check same-day restriction before sending request (in salon timezone)
+        const originalAppointmentUtc = location.state?.appointment?.appointment?.scheduled_start || location.state?.appointment?.scheduled_start;
+        const todayInSalonZone = todayYmdInZone(salonTimezone);
+        const bookingDateInSalonZone = selectedDate; // selectedDate is already in YYYY-MM-DD format
         
-        if (originalAppointmentDate.getTime() === today.getTime()) {
+        if (isSameSalonLocalDate(originalAppointmentUtc, todayInSalonZone, salonTimezone)) {
           notifyError('Cannot reschedule appointments on the day of the appointment. Please contact the salon directly.');
           setBookingLoading(false);
           return;
@@ -456,11 +424,6 @@ export default function BookingPage() {
         } else {
           // Handle booking errors
           const errorMessage = data.message || 'Booking failed';
-          console.error('Booking failed:', {
-            status: response.status,
-            statusText: response.statusText,
-            errorMessage
-          });
           notifyError(errorMessage);
         }
       }
@@ -474,9 +437,21 @@ export default function BookingPage() {
   };
 
   // Helper function to format time to 12-hour AM/PM format
-  const formatTo12Hour = (time24) => {
-    if (!time24) return '';
-    const [hours, minutes] = time24.split(':').map(Number);
+  const formatTo12Hour = (timeInput) => {
+    if (!timeInput) return '';
+    
+    if (timeInput.includes('T') && (timeInput.includes('Z') || timeInput.includes('+'))) {
+      const salonTimezone = salon?.timezone || 'America/New_York';
+      return formatInZone(timeInput, salonTimezone, {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+    
+    // Legacy HH:MM format
+    const [hours, minutes] = timeInput.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return '';
     const hours12 = hours % 12 || 12;
     const ampm = hours < 12 ? 'AM' : 'PM';
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
@@ -801,14 +776,19 @@ export default function BookingPage() {
                     timeSlots[selectedDate].available_slots?.length > 0 ? (
                       timeSlots[selectedDate].available_slots
                         .filter(slot => {
-                          // Filter out past times for today - allow current time slot (>= instead of >)
-                          const isToday = selectedDate === new Date().toISOString().split('T')[0];
+                          const salonTimezone = salon?.timezone || 'America/New_York';
+                          const todayInSalonZone = todayYmdInZone(salonTimezone);
+                          const isToday = selectedDate === todayInSalonZone;
+                          
                           if (isToday) {
-                            const [hours, minutes] = slot.start_time.split(':').map(Number);
-                            const slotTime = new Date();
-                            slotTime.setHours(hours, minutes, 0, 0);
-                            const now = new Date();
-                            return slotTime >= now; // Allow current time
+                            let slotUtcIso;
+                            if (slot.start_time && slot.start_time.includes('T') && slot.start_time.includes('Z')) {
+                              slotUtcIso = slot.start_time;
+                            } else {
+                              slotUtcIso = localWallClockToUtcIso(selectedDate, slot.start_time, salonTimezone);
+                            }
+                            const nowUtcIso = new Date().toISOString();
+                            return cmpUtc(slotUtcIso, nowUtcIso) >= 0; 
                           }
                           return true;
                         })
@@ -861,18 +841,19 @@ export default function BookingPage() {
                               const endMinutes = endDateTime.getMinutes();
                               const endTimeStr = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
                               
-                              // Validate custom time is not in the past
-                              const isToday = selectedDate === new Date().toISOString().split('T')[0];
-                              const customSlotTime = new Date();
-                              customSlotTime.setHours(hours, minutes, 0, 0);
-                              const now = new Date();
+                              const salonTimezone = salon?.timezone || 'America/New_York';
+                              const todayInSalonZone = todayYmdInZone(salonTimezone);
+                              const isToday = selectedDate === todayInSalonZone;
                               
-                              // Allow current time (>= instead of >)
-                              if (isToday && customSlotTime < now) {
-                                notifyError('Cannot book appointments in the past. Please select a time that is at or after the current time.');
-                                setSelectedTimeSlot(null);
-                                setCustomStartTime('');
-                                return;
+                              if (isToday) {
+                                const customSlotUtcIso = localWallClockToUtcIso(selectedDate, e.target.value, salonTimezone);
+                                const nowUtcIso = new Date().toISOString();
+                                if (cmpUtc(customSlotUtcIso, nowUtcIso) < 0) {
+                                  notifyError('Cannot book appointments in the past. Please select a time that is at or after the current time.');
+                                  setSelectedTimeSlot(null);
+                                  setCustomStartTime('');
+                                  return;
+                                }
                               }
                               
                               setSelectedTimeSlot({
