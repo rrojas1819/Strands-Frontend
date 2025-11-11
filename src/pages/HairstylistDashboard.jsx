@@ -14,6 +14,7 @@ import { Label } from '../components/ui/label';
 import StrandsModal from '../components/ui/strands-modal';
 import { toast } from 'sonner';
 import { formatLocalDate, formatLocalTime } from '../lib/utils';
+import { formatInZone, cmpUtc } from '../utils/time';
 
 export default function HairstylistDashboard() {
   const authContext = useContext(AuthContext);
@@ -195,7 +196,6 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
         setError(data.message || 'Failed to fetch salon data');
       }
     } catch (err) {
-      console.error('Stylist salon fetch error:', err);
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         setError('Unable to connect to server. Please check if the backend is running.');
       } else {
@@ -212,7 +212,6 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
 
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        console.error('No authentication token found');
         setScheduleData([]);
         return;
       }
@@ -271,13 +270,6 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       const startDateStr = formatDateForAPI(startDate);
       const endDateStr = formatDateForAPI(endDate);
 
-      console.log('Fetching schedule data...', {
-        startDate: startDateStr,
-        endDate: endDateStr,
-        viewType,
-        selectedDate: selectedDate.toDateString(),
-        weekStartDate: weekStartDate.toDateString()
-      });
 
       const apiUrl = `${import.meta.env.VITE_API_URL}/user/stylist/weeklySchedule?start_date=${startDateStr}&end_date=${endDateStr}`;
       const response = await fetch(apiUrl, {
@@ -297,12 +289,9 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
                                   data.data?.employee?.employee_id ||
                                   data.data?.employee?.employeeId;
         if (scheduleEmployeeId) {
-          console.log('Found employee_id from schedule response:', scheduleEmployeeId);
           setEmployeeId(scheduleEmployeeId);
         }
       }
-      console.log('Schedule response data:', data);
-      console.log('Raw schedule data:', data.data?.schedule);
 
       if (response.ok) {
         // Transform backend data to frontend format
@@ -312,16 +301,11 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
         setScheduleData(transformedData);
         setBackendSchedule(data.data.schedule); // Store raw backend schedule for availability/unavailability
       } else {
-        console.error('Failed to fetch schedule:', data.message);
         setScheduleData([]);
         setBackendSchedule(null);
       }
 
     } catch (err) {
-      console.error('Schedule fetch error:', err);
-      if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        console.error('Unable to connect to server. Please check if the backend is running.');
-      }
       setScheduleData([]);
     } finally {
       setScheduleLoading(false);
@@ -346,14 +330,12 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       try {
         const [month, day, year] = dateKey.split('-').map(Number);
         if (isNaN(month) || isNaN(day) || isNaN(year)) {
-          console.warn(`Invalid date key format: ${dateKey}`);
           return null;
         }
         const date = new Date(year, month - 1, day); // month is 0-indexed in Date
         date.setHours(0, 0, 0, 0); // Normalize to midnight
         return date;
       } catch (err) {
-        console.error(`Error parsing date key: ${dateKey}`, err);
         return null;
       }
     };
@@ -364,31 +346,13 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       const dayDate = parseDateFromKey(dateKey);
       
       if (!dayDate) {
-        console.warn(`Skipping invalid date key: ${dateKey}`);
         return;
       }
       
-      console.log(`Processing day: ${dateKey}`, {
-        hasBookings: dayData.bookings && dayData.bookings.length > 0,
-        bookingCount: dayData.bookings ? dayData.bookings.length : 0,
-        dayDate: dayDate.toDateString()
-      });
       
       // Process bookings for this day
       if (dayData.bookings && dayData.bookings.length > 0) {
         dayData.bookings.forEach(booking => {
-          console.log(`Processing booking ${booking.booking_id}:`, {
-            scheduled_start: booking.scheduled_start,
-            scheduled_end: booking.scheduled_end,
-            dateKey: dateKey,
-            dayDate: dayDate.toDateString()
-          });
-          
-          console.log('Processing booking:', booking.booking_id, {
-            customer: booking.customer,
-            customer_name: booking.customer?.name,
-            all_booking_keys: Object.keys(booking)
-          });
           
           // Get customer info from booking data - use the actual structure from backend
           const customerName = booking.customer?.name || 'Customer Name Not Available';
@@ -440,49 +404,27 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
           // Auto-update status: if appointment end time has passed and not cancelled, mark as completed (past visit)
           if (status !== 'canceled' && status !== 'completed' && booking.scheduled_end && booking.scheduled_start) {
             try {
-              const appointmentEndDate = new Date(booking.scheduled_end);
-              const appointmentStartDate = new Date(booking.scheduled_start);
+              // Use UTC comparison for past/upcoming checks
+              const appointmentEndUtc = booking.scheduled_end;
+              const nowUtcIso = new Date().toISOString();
               
-              const now = new Date();
-              
-              if (
-                !isNaN(appointmentEndDate.getTime()) && 
-                !isNaN(appointmentStartDate.getTime()) &&
-                appointmentEndDate < now
-              ) {
+              if (cmpUtc(appointmentEndUtc, nowUtcIso) < 0) {
                 status = 'completed';
-                console.log(`Auto-updated booking ${booking.booking_id} to completed:`, {
-                  appointmentEndDate: appointmentEndDate.toISOString(),
-                  now: now.toISOString(),
-                  dateKey,
-                  dayDate: dayDate.toDateString()
-                });
               }
             } catch (err) {
-              console.error('Error parsing appointment time for status update:', err, {
-                booking_id: booking.booking_id,
-                scheduled_start: booking.scheduled_start,
-                scheduled_end: booking.scheduled_end
-              });
             }
           }
           
-          console.log(`Booking ${booking.booking_id} status:`, {
-            backendStatus: booking.status,
-            normalizedStatus: backendStatus,
-            frontendStatus: status,
-            dateKey: dateKey,
-            dayDate: dayDate.toDateString()
-          });
           
+          const salonTimezone = salonData?.timezone || 'America/New_York';
           const startTimeDisplay = booking.scheduled_start 
-            ? formatLocalTime(booking.scheduled_start, {
+            ? formatInZone(booking.scheduled_start, salonTimezone, {
                 hour: 'numeric',
                 minute: '2-digit'
               })
             : 'N/A';
           const endTimeDisplay = booking.scheduled_end 
-            ? formatLocalTime(booking.scheduled_end, {
+            ? formatInZone(booking.scheduled_end, salonTimezone, {
                 hour: 'numeric',
                 minute: '2-digit'
               })
@@ -563,15 +505,9 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
         setBlockedSlots([]);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to fetch blocked slots:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData
-        });
         setBlockedSlots([]);
       }
     } catch (err) {
-      console.error('Error fetching blocked slots:', err);
       setBlockedSlots([]);
     }
   };
@@ -617,19 +553,8 @@ const submitBlockTimeSlot = async (payload) => {
       return;
     }
 
-    if (response.status === 400) {
-      console.error('Client error (400):', {
-        errorMessage: data.message
-      });
-    } else {
-      console.error('Failed to block time slot:', {
-        httpStatus: response.status,
-        errorMessage: data.message
-      });
-    }
     toast.error(data.message || 'Failed to block time slot');
   } catch (err) {
-    console.error('Error blocking time slot:', err);
     toast.error('Failed to block time slot');
   } finally {
     setBlockLoading(false);
@@ -735,7 +660,6 @@ const handleCancelSelectedAppointment = async () => {
     setSelectedAppointment(null);
     await fetchScheduleData();
   } catch (err) {
-    console.error('Error canceling appointment:', err);
     toast.error(err.message || 'Failed to cancel appointment');
   } finally {
     setCancelAppointmentLoading(false);
@@ -771,13 +695,9 @@ const handleCancelSelectedAppointment = async () => {
         fetchBlockedSlots();
         fetchScheduleData();
       } else {
-        console.error('Failed to unblock time slot:', {
-          errorMessage: data.message
-        });
         toast.error(data.message || 'Failed to unblock time slot');
       }
     } catch (err) {
-      console.error('Error unblocking time slot:', err);
       toast.error('Failed to unblock time slot');
     }
   };
@@ -789,8 +709,6 @@ const handleCancelSelectedAppointment = async () => {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      console.log('Fetching services...');
-      console.log('API URL:', `${apiUrl}/salons/stylist/myServices`);
       
       const response = await fetch(`${apiUrl}/salons/stylist/myServices`, {
         method: 'GET',
@@ -801,8 +719,6 @@ const handleCancelSelectedAppointment = async () => {
       });
 
       const data = await response.json();
-      console.log('Services response status:', response.status);
-      console.log('Services response data:', data);
       
       if (response.ok) {
         const servicesList = data.data?.services || data.services || [];
@@ -853,7 +769,6 @@ const handleCancelSelectedAppointment = async () => {
         toast.error(data.message || 'Failed to create service');
       }
     } catch (err) {
-      console.error('Failed to create service:', err);
       toast.error('Failed to create service');
     } finally {
       setServiceLoading(false);
@@ -892,7 +807,6 @@ const handleCancelSelectedAppointment = async () => {
         toast.error(data.message || 'Failed to update service');
       }
     } catch (err) {
-      console.error('Failed to update service:', err);
       toast.error('Failed to update service');
     } finally {
       setServiceLoading(false);
@@ -907,9 +821,6 @@ const handleCancelSelectedAppointment = async () => {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      console.log('Deleting service:', deletingService);
-      console.log('Service ID:', deletingService.service_id);
-      console.log('API URL:', `${apiUrl}/salons/stylist/removeService/${deletingService.service_id}`);
       
       const response = await fetch(`${apiUrl}/salons/stylist/removeService/${deletingService.service_id}`, {
         method: 'DELETE',
@@ -920,23 +831,17 @@ const handleCancelSelectedAppointment = async () => {
       });
 
       const data = await response.json();
-      console.log('Delete response status:', response.status);
-      console.log('Delete response data:', data);
       
       if (response.ok) {
         toast.success('Service removed successfully');
         setShowDeleteServiceModal(false);
         setDeletingService(null);
         // Refresh services list
-        console.log('Refreshing services list...');
         await fetchServices();
-        console.log('Service deleted successfully, services refreshed');
       } else {
-        console.error('Delete failed:', data);
         toast.error(data.message || 'Failed to remove service');
       }
     } catch (err) {
-      console.error('Failed to remove service:', err);
       toast.error('Failed to remove service. Please try again.');
     } finally {
       setServiceLoading(false);
@@ -967,7 +872,6 @@ const handleCancelSelectedAppointment = async () => {
       
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        console.error('No authentication token found');
         setCustomers([]);
         return;
       }
@@ -1061,7 +965,6 @@ const handleCancelSelectedAppointment = async () => {
         });
       }
     } catch (err) {
-      console.error('Failed to fetch customers page:', err);
       toast.error('Failed to load customers');
     } finally {
       setCustomersLoading(false);
@@ -1125,11 +1028,9 @@ const handleCancelSelectedAppointment = async () => {
           has_more: data.data.has_more || false
         });
       } else {
-        console.error('Failed to fetch customer visits:', data.message);
         setCustomerVisits([]);
       }
     } catch (err) {
-      console.error('Failed to fetch customer visits:', err);
       setCustomerVisits([]);
       toast.error('Failed to load visit history');
     } finally {
@@ -1366,17 +1267,11 @@ const handleCancelSelectedAppointment = async () => {
   };
 
   const getCancelledAppointmentsForDate = (date) => {
-    console.log('Getting cancelled appointments for date:', date.toDateString());
-    console.log('All schedule data:', scheduleData);
-    console.log('All cancelled appointments:', scheduleData.filter(apt => apt.status === 'canceled'));
-    
     const cancelledForDate = scheduleData.filter(apt => 
       apt.status === 'canceled' && 
       apt.date && 
       apt.date.toDateString() === date.toDateString()
     );
-    
-    console.log('Cancelled appointments for this date:', cancelledForDate);
     return cancelledForDate;
   };
 

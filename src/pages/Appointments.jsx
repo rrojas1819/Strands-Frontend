@@ -7,7 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Calendar, Clock, X, Edit2, Star } from 'lucide-react';
 import { notifySuccess, notifyError } from '../utils/notifications';
-import { formatLocalDate, formatLocalTime } from '../lib/utils';
+import { cmpUtc, formatLocal, todayYmdInZone } from '../utils/time';
 import StrandsModal from '../components/StrandsModal';
 import UserNavbar from '../components/UserNavbar';
 import StaffReviews from '../components/StaffReviews';
@@ -52,15 +52,12 @@ export default function Appointments() {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      console.log('Fetching appointments from:', `${apiUrl}/bookings/myAppointments`);
-      
       const response = await fetch(`${apiUrl}/bookings/myAppointments`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Appointments data received:', data);
         setAppointments(data.data || []);
         
         // Fetch reviews for stylists in past appointments
@@ -138,20 +135,6 @@ export default function Appointments() {
   };
 
   const handleCancel = async () => {
-    // Check if appointment is today - cannot cancel day of appointment
-    if (selectedAppointment?.scheduled_start) {
-      const appointmentDate = new Date(selectedAppointment.scheduled_start);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      appointmentDate.setHours(0, 0, 0, 0);
-      
-      if (appointmentDate.getTime() === today.getTime()) {
-        notifyError('Cannot cancel appointments on the day of the appointment. Please contact the salon directly.');
-        setShowCancelModal(false);
-        return;
-      }
-    }
-    
     setCanceling(true);
     try {
       const token = localStorage.getItem('auth_token');
@@ -231,9 +214,9 @@ export default function Appointments() {
 
   // Check if appointment is in the past (using end time)
   const isAppointmentPast = (appointment) => {
-    const appointmentEndTime = new Date(appointment.appointment?.scheduled_end || appointment.scheduled_end);
-    const now = new Date();
-    return appointmentEndTime < now;
+    const appointmentEndUtc = appointment.appointment?.scheduled_end || appointment.scheduled_end;
+    const nowUtcIso = new Date().toISOString();
+    return cmpUtc(appointmentEndUtc, nowUtcIso) < 0;
   };
 
   // Filter appointments based on selected filter
@@ -258,23 +241,21 @@ export default function Appointments() {
       });
     }
     
-    // Sort by date
     return filtered.sort((a, b) => {
-      const dateA = new Date(a.appointment?.scheduled_start || a.scheduled_start);
-      const dateB = new Date(b.appointment?.scheduled_start || b.scheduled_start);
-      const now = new Date();
+      const dateAUtc = a.appointment?.scheduled_start || a.scheduled_start;
+      const dateBUtc = b.appointment?.scheduled_start || b.scheduled_start;
       
       const isAPast = isAppointmentPast(a);
       const isBPast = isAppointmentPast(b);
       
       // For "scheduled" filter, all are upcoming - sort ascending (soonest first)
       if (filter === 'scheduled') {
-        return dateA - dateB;
+        return cmpUtc(dateAUtc, dateBUtc);
       }
       
       // For "past" filter, sort descending (most recent first)
       if (filter === 'past') {
-        return dateB - dateA;
+        return cmpUtc(dateBUtc, dateAUtc);
       }
       
       // For "all" filter, upcoming first (soonest first), then past (most recent first)
@@ -282,9 +263,9 @@ export default function Appointments() {
       if (!isAPast && isBPast) return -1;
       
       if (!isAPast && !isBPast) {
-        return dateA - dateB;
+        return cmpUtc(dateAUtc, dateBUtc);
       } else {
-        return dateB - dateA;
+        return cmpUtc(dateBUtc, dateAUtc);
       }
     });
   };
@@ -366,11 +347,11 @@ export default function Appointments() {
               const canModify = status === 'SCHEDULED' && !isPast;
               
               // Check if appointment is today - cannot cancel or reschedule same day
-              const appointmentDate = new Date(appointment.appointment?.scheduled_start || appointment.scheduled_start);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              appointmentDate.setHours(0, 0, 0, 0);
-              const isSameDay = appointmentDate.getTime() === today.getTime();
+              const appointmentUtc = appointment.appointment?.scheduled_start || appointment.scheduled_start;
+              const todayInViewerZone = todayYmdInZone(undefined);
+              const appointmentDateStr = formatLocal(appointmentUtc, { dateStyle: 'short' }).split(',')[0];
+              const todayFormatted = formatLocal(new Date().toISOString(), { dateStyle: 'short' }).split(',')[0];
+              const isSameDay = appointmentDateStr === todayFormatted;
               const canCancel = canModify && !isSameDay;
               const canReschedule = canModify && !isSameDay;
 
@@ -417,7 +398,7 @@ export default function Appointments() {
                   <div className="space-y-3 flex-grow">
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Calendar className="w-4 h-4 mr-2" />
-                      {formatLocalDate(appointment.appointment?.scheduled_start || appointment.scheduled_start, {
+                      {formatLocal(appointment.appointment?.scheduled_start || appointment.scheduled_start, {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
@@ -426,10 +407,10 @@ export default function Appointments() {
                     </div>
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Clock className="w-4 h-4 mr-2" />
-                      {formatLocalTime(appointment.appointment?.scheduled_start || appointment.scheduled_start, {
+                      {formatLocal(appointment.appointment?.scheduled_start || appointment.scheduled_start, {
                         hour: 'numeric',
                         minute: '2-digit'
-                      })} - {formatLocalTime(appointment.appointment?.scheduled_end || appointment.scheduled_end, {
+                      })} - {formatLocal(appointment.appointment?.scheduled_end || appointment.scheduled_end, {
                         hour: 'numeric',
                         minute: '2-digit'
                       })}
