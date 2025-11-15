@@ -11,6 +11,7 @@ import { cmpUtc, formatLocal, todayYmdInZone } from '../utils/time';
 import StrandsModal from '../components/StrandsModal';
 import UserNavbar from '../components/UserNavbar';
 import StaffReviews from '../components/StaffReviews';
+import PrivateNoteCard from '../components/PrivateNoteCard';
 
 export default function Appointments() {
   const { user } = useContext(AuthContext);
@@ -500,6 +501,15 @@ export default function Appointments() {
                       )}
                     </div>
                   </div>
+
+                  {appointment.booking_id && (
+                    <PrivateNoteCard
+                      bookingId={appointment.booking_id}
+                      className="mt-4"
+                      title="My Private Note"
+                      description="Only visible to you"
+                    />
+                  )}
                 </CardContent>
               </Card>
             );

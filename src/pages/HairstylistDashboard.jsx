@@ -12,6 +12,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import StrandsModal from '../components/ui/strands-modal';
+import PrivateNoteCard from '../components/PrivateNoteCard';
 import { toast } from 'sonner';
 import { formatLocalDate, formatLocalTime } from '../lib/utils';
 import { formatInZone, cmpUtc } from '../utils/time';
@@ -2907,6 +2908,13 @@ const handleCancelSelectedAppointment = async () => {
                   </div>
                           )}
                         </div>
+
+                {selectedAppointment?.id && (
+                  <PrivateNoteCard
+                    bookingId={selectedAppointment.id}
+                    className="mt-6"
+                  />
+                )}
                       </div>
 
               <div className="flex justify-end mt-6 gap-2">
