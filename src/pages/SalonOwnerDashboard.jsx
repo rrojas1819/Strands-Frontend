@@ -31,11 +31,16 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
-  Eye
+  Eye,
+  DollarSign,
+  TrendingUp,
+  Scissors,
+  Award,
+  Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
 import StrandsModal from '../components/ui/strands-modal';
-import { Card, CardContent } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 
 
 export default function SalonOwnerDashboard() {
@@ -116,12 +121,16 @@ export default function SalonOwnerDashboard() {
     total_records: 0,
     has_more: false
   });
+  const [revenueData, setRevenueData] = useState(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [showStylistBreakdownModal, setShowStylistBreakdownModal] = useState(false);
+  const [selectedStylist, setSelectedStylist] = useState(null);
 
   useEffect(() => {
     // Check for tab in URL params
     const searchParams = new URLSearchParams(location.search);
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && ['overview', 'staff-services', 'products', 'customers', 'reviews', 'loyalty', 'settings'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['overview', 'staff-services', 'products', 'customers', 'reviews', 'loyalty', 'settings', 'revenue'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
   }, [location.search]);
@@ -171,12 +180,17 @@ export default function SalonOwnerDashboard() {
     }
   }, [activeTab, salonStatus]);
 
-  // UPH-1.2: Fetch customers when customers tab is active
   useEffect(() => {
     if (activeTab === 'customers' && salonStatus === 'APPROVED') {
       fetchCustomers();
     }
   }, [activeTab, sortOrder, salonStatus]);
+
+  useEffect(() => {
+    if (activeTab === 'revenue' && salonStatus === 'APPROVED') {
+      fetchRevenueMetrics();
+    }
+  }, [activeTab, salonStatus]);
 
 
   const fetchEmployees = async (page = 1) => {
@@ -603,6 +617,57 @@ export default function SalonOwnerDashboard() {
     
     if (selectedCustomer) {
       fetchCustomerVisitHistory(selectedCustomer.user_id, newOffset);
+    }
+  };
+
+  const fetchRevenueMetrics = async () => {
+    try {
+      setRevenueLoading(true);
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setModalConfig({
+          title: 'Error',
+          message: 'No authentication token found',
+          type: 'error',
+          onConfirm: () => setShowModal(false)
+        });
+        setShowModal(true);
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/top-metrics`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setRevenueData(data);
+      } else {
+        setModalConfig({
+          title: 'Error',
+          message: data.message || 'Failed to fetch revenue metrics',
+          type: 'error',
+          onConfirm: () => setShowModal(false)
+        });
+        setShowModal(true);
+      }
+    } catch (error) {
+      console.error('Fetch revenue metrics error:', error);
+      setModalConfig({
+        title: 'Error',
+        message: 'Failed to fetch revenue metrics. Please try again.',
+        type: 'error',
+        onConfirm: () => setShowModal(false)
+      });
+      setShowModal(true);
+    } finally {
+      setRevenueLoading(false);
     }
   };
 
@@ -1092,6 +1157,355 @@ export default function SalonOwnerDashboard() {
               setShowModal(true);
             }}
           />
+        )}
+
+        {activeTab === 'revenue' && salonStatus === 'APPROVED' && (
+          <div className="space-y-6">
+            <div className="mb-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold text-foreground mb-2">
+                    Revenue Insights
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Track top-performing stylists, services, and product sales for your salon.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {revenueLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading revenue data...</p>
+              </div>
+            ) : revenueData ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <DollarSign className="w-5 h-5" />
+                        <span>Total Service Revenue</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Revenue from service bookings
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold text-green-800 mb-4">
+                        ${parseFloat(revenueData.totalSalonRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      {revenueData.services && revenueData.services.length > 0 && (
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm font-semibold mb-1">Top Service</p>
+                          <p className="font-semibold">{revenueData.services[0].service_name}</p>
+                          <p className="text-sm text-muted-foreground mb-2">{revenueData.services[0].times_booked || 0} bookings</p>
+                          <p className="text-lg font-bold text-green-800">
+                            ${parseFloat(revenueData.services[0].total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <DollarSign className="w-5 h-5" />
+                        <span>Total Product Revenue</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Revenue from product sales
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold text-green-800 mb-4">
+                        ${parseFloat(revenueData.totalProductRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      {revenueData.productsRevenue && revenueData.productsRevenue.length > 0 && (
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm font-semibold mb-1">Top Product</p>
+                          <p className="font-semibold">{revenueData.productsRevenue[0].product_name}</p>
+                          <p className="text-sm text-muted-foreground mb-2">{revenueData.productsRevenue[0].units_sold || 0} units</p>
+                          <p className="text-lg font-bold text-green-800">
+                            ${parseFloat(revenueData.productsRevenue[0].total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <TrendingUp className="w-5 h-5" />
+                        <span>Total Revenue</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Combined total revenue
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold text-green-800 mb-4">
+                        ${(parseFloat(revenueData.totalSalonRevenue || 0) + parseFloat(revenueData.totalProductRevenue || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      {revenueData.stylists && revenueData.stylists.length > 0 && (() => {
+                        const topStylist = revenueData.stylists.reduce((top, current) => {
+                          const currentRevenue = parseFloat(current.total_revenue || 0);
+                          const topRevenue = parseFloat(top.total_revenue || 0);
+                          return currentRevenue > topRevenue ? current : top;
+                        }, revenueData.stylists[0]);
+                        
+                        const topStylistRevenue = parseFloat(topStylist.total_revenue || 0);
+                        
+                        return (
+                          <div className="p-3 bg-green-50 rounded-lg">
+                            <p className="text-sm font-semibold mb-1">Top Stylist</p>
+                            <p className="font-semibold">{topStylist.stylist_name}</p>
+                            <p className="text-sm text-muted-foreground mb-2">{topStylist.total_bookings || 0} bookings</p>
+                            <p className="text-lg font-bold text-green-800">
+                              ${topStylistRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {revenueData.stylists && revenueData.stylists.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Scissors className="w-5 h-5" />
+                        <span>Top Performing Stylists</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Total revenue
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {revenueData.stylists.map((stylist, index) => {
+                          const totalRevenue = parseFloat(stylist.total_revenue || 0);
+                          
+                          const stylistsWithRevenue = revenueData.stylists.map(s => parseFloat(s.total_revenue || 0));
+                          const topStylistRevenue = Math.max(...stylistsWithRevenue);
+                          const isTopStylist = totalRevenue === topStylistRevenue && totalRevenue > 0 && index === revenueData.stylists.findIndex(s => parseFloat(s.total_revenue || 0) === topStylistRevenue);
+                          
+                          return (
+                            <div 
+                              key={index} 
+                              onClick={() => {
+                                setSelectedStylist(stylist);
+                                setShowStylistBreakdownModal(true);
+                              }}
+                              className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-semibold text-lg">{stylist.stylist_name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {stylist.total_bookings} booking{stylist.total_bookings !== 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xl font-bold text-green-800">
+                                    ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </p>
+                                  {isTopStylist && (
+                                    <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                      Top Performer
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {revenueData.services && revenueData.services.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Award className="w-5 h-5" />
+                        <span>Top Performing Services</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Revenue breakdown by service
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {revenueData.services.map((service, index) => {
+                          const serviceRevenue = parseFloat(service.total_revenue || 0);
+                          
+                          const servicesWithRevenue = revenueData.services.map(s => parseFloat(s.total_revenue || 0));
+                          const topServiceRevenue = Math.max(...servicesWithRevenue);
+                          const isTopService = serviceRevenue === topServiceRevenue && serviceRevenue > 0 && index === revenueData.services.findIndex(s => parseFloat(s.total_revenue || 0) === topServiceRevenue);
+                          
+                          return (
+                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div>
+                                <p className="font-semibold">{service.service_name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {service.times_booked || 0} booking{service.times_booked !== 1 ? 's' : ''}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-green-800">
+                                  ${serviceRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                {isTopService && (
+                                  <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                    Top Service
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {revenueData.productsRevenue && revenueData.productsRevenue.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Product Sales Performance</CardTitle>
+                      <CardDescription>
+                        Track product revenue and units sold.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {revenueData.productsRevenue.map((product, index) => {
+                          const productRevenue = parseFloat(product.total_revenue || 0);
+                          
+                          const productsWithRevenue = revenueData.productsRevenue.map(p => parseFloat(p.total_revenue || 0));
+                          const topProductRevenue = Math.max(...productsWithRevenue);
+                          const isTopProduct = productRevenue === topProductRevenue && productRevenue > 0 && index === revenueData.productsRevenue.findIndex(p => parseFloat(p.total_revenue || 0) === topProductRevenue);
+                          
+                          return (
+                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div>
+                                <p className="font-semibold">{product.product_name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Listed at: ${parseFloat(product.listing_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {product.units_sold || 0} units sold
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-green-800">
+                                  ${productRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                {isTopProduct && (
+                                  <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                    Top Product
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-white rounded-lg border">
+                <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No revenue data available</h3>
+                <p className="text-sm text-muted-foreground">
+                  Revenue data will appear here once you have completed appointments and product sales.
+                </p>
+              </div>
+            )}
+
+            {showStylistBreakdownModal && selectedStylist && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <Card className="w-full max-w-2xl mx-auto shadow-2xl">
+                  <CardContent className="p-6 pt-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{selectedStylist.stylist_name}'s Daily Revenue</h3>
+                        <p className="text-sm text-gray-600">Last 7 days breakdown</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowStylistBreakdownModal(false);
+                          setSelectedStylist(null);
+                        }}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-5 h-5" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total Revenue (All-Time)</p>
+                          <p className="text-2xl font-bold text-green-800">
+                            ${parseFloat(selectedStylist.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Revenue (Last 7 Days)</p>
+                          <p className="text-2xl font-bold text-green-800">
+                            ${(parseFloat(selectedStylist.monday_revenue || 0) + 
+                                parseFloat(selectedStylist.tuesday_revenue || 0) + 
+                                parseFloat(selectedStylist.wednesday_revenue || 0) + 
+                                parseFloat(selectedStylist.thursday_revenue || 0) + 
+                                parseFloat(selectedStylist.friday_revenue || 0) + 
+                                parseFloat(selectedStylist.saturday_revenue || 0) + 
+                                parseFloat(selectedStylist.sunday_revenue || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total Bookings</p>
+                          <p className="text-2xl font-bold text-purple-700">
+                            {selectedStylist.total_bookings || 0}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm text-muted-foreground mb-3">Daily Breakdown</h4>
+                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                          const dayKey = `${day}_revenue`;
+                          const revenue = parseFloat(selectedStylist[dayKey] || 0);
+                          const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
+                          
+                          return (
+                            <div key={day} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                              <span className="font-medium">{dayLabel}</span>
+                              <span className="text-lg font-bold text-green-800">
+                                ${revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
         )}
 
         {activeTab === 'settings' && salonStatus === 'APPROVED' && (

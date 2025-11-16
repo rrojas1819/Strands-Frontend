@@ -6,9 +6,9 @@ import StaffReviews from '../components/StaffReviews';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye } from 'lucide-react';
+import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye, DollarSign, TrendingUp } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
-import { Card, CardContent } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import StrandsModal from '../components/ui/strands-modal';
@@ -111,6 +111,9 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
   
+  const [revenueData, setRevenueData] = useState(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  
   useEffect(() => {
     fetchStylistSalon();
   }, []);
@@ -165,6 +168,12 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       fetchCustomers();
     }
   }, [activeTab, sortOrder]);
+  
+  useEffect(() => {
+    if (activeTab === 'schedule' && viewType === 'day') {
+      fetchStylistRevenue();
+    }
+  }, [activeTab, viewType]);
 
   const fetchStylistSalon = async () => {
     try {
@@ -979,6 +988,47 @@ const handleCancelSelectedAppointment = async () => {
     // The useEffect will trigger fetchCustomers when sortOrder changes
   };
 
+  const fetchStylistRevenue = async () => {
+    setRevenueLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      const response = await fetch(`${apiUrl}/user/stylist/metrics`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setRevenueData(data.revenueMetrics);
+      } else {
+        setModalConfig({
+          title: 'Error',
+          message: data.message || 'Failed to fetch revenue data',
+          type: 'error',
+          onConfirm: () => setShowModal(false)
+        });
+        setShowModal(true);
+      }
+    } catch (error) {
+      console.error('Fetch revenue error:', error);
+      setModalConfig({
+        title: 'Error',
+        message: 'Failed to fetch revenue data. Please try again.',
+        type: 'error',
+        onConfirm: () => setShowModal(false)
+      });
+      setShowModal(true);
+    } finally {
+      setRevenueLoading(false);
+    }
+  };
+
   // UPH-1.21: Open customer visit history modal
   const openCustomerVisitModal = async (customer) => {
     setSelectedCustomer(customer);
@@ -1663,6 +1713,61 @@ const handleCancelSelectedAppointment = async () => {
                 </div>
               )}
             </div>
+
+            {viewType === 'day' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {revenueLoading ? (
+                  <div className="col-span-full text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-xs text-muted-foreground">Loading revenue data...</p>
+                  </div>
+                ) : revenueData ? (
+                  <>
+                    <div className="bg-white rounded-lg border p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                          <DollarSign className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Total Revenue</p>
+                          <p className="text-2xl font-bold text-green-800">
+                            ${parseFloat(revenueData.revenue_all_time || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg border p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                          <TrendingUp className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Last 7 Days</p>
+                          <p className="text-2xl font-bold text-green-800">
+                            ${parseFloat(revenueData.revenue_past_week || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg border p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                          <Calendar className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Today</p>
+                          <p className="text-2xl font-bold text-green-800">
+                            ${parseFloat(revenueData.revenue_today || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            )}
 
             {/* Schedule Content */}
             {scheduleLoading ? (
