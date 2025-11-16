@@ -19,8 +19,8 @@ const emptyNoteState = {
 
 const PrivateNoteCard = ({
   bookingId,
-  title = 'Private Note',
-  description = 'Only visible to you',
+  title = 'Private note',
+  description = 'Only you can see this.',
   className = '',
   onNoteChange
 }) => {
@@ -108,7 +108,8 @@ const PrivateNoteCard = ({
       } else {
         setNoteState({
           ...emptyNoteState,
-          editing: true
+          // Keep collapsed by default when no note exists
+          editing: false
         });
       }
     } catch (err) {
@@ -291,7 +292,7 @@ const PrivateNoteCard = ({
   if (!bookingId) return null;
 
   return (
-    <div className={`border rounded-lg p-4 bg-slate-50 ${className}`}>
+    <div className={`rounded-xl border border-gray-200 bg-gray-50 p-4 ${className}`}>
       <div className="mb-2">
         <h4 className="text-sm font-semibold text-foreground">{title}</h4>
         <p className="text-xs text-muted-foreground">{description}</p>
@@ -368,15 +369,12 @@ const PrivateNoteCard = ({
         </>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Capture feedback or reminders for yourself. Customers cannot see private notes.
-          </p>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setNoteState((prev) => ({ ...prev, editing: true }))}
           >
-            Add Note
+            Add private note
           </Button>
         </div>
       )}
