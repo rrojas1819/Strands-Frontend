@@ -118,6 +118,12 @@ export default function OwnerNavbar({ salonStatus, activeTab, onTabChange, handl
                   Reviews
                 </button>
                 <button 
+                  onClick={() => handleNavClick('revenue', '/dashboard')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('revenue', '/dashboard')}`}
+                >
+                  Revenue
+                </button>
+                <button 
                   onClick={() => handleNavClick('loyalty', '/dashboard')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('loyalty', '/dashboard')}`}
                 >
