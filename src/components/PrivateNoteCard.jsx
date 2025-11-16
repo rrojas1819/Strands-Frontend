@@ -292,7 +292,7 @@ const PrivateNoteCard = ({
   if (!bookingId) return null;
 
   return (
-    <div className={`border rounded-lg p-4 bg-slate-50 ${className}`}>
+    <div className={`rounded-xl border border-gray-200 bg-gray-50 p-4 ${className}`}>
       <div className="mb-2">
         <h4 className="text-sm font-semibold text-foreground">{title}</h4>
         <p className="text-xs text-muted-foreground">{description}</p>
