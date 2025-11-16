@@ -1951,7 +1951,7 @@ const handleCancelSelectedAppointment = async () => {
                                     {hasDiscount && (
                                       <Badge className="bg-sky-100 text-sky-700 border-sky-200">
                                         Discounted
-                                      </Badge>
+                            </Badge>
                                     )}
                                     <Badge className={getStatusColor(appointment.status)}>
                                       {formatStatusLabel(appointment.status)}
@@ -2094,9 +2094,9 @@ const handleCancelSelectedAppointment = async () => {
                               </div>
                             </div>
                           </div>
-                        <Button 
+                            <Button 
                             onClick={() => openCustomerVisitModal(customer)}
-                          variant="outline" 
+                              variant="outline" 
                             className="flex items-center space-x-2"
                         >
                             <Eye className="w-4 h-4" />
@@ -2257,20 +2257,20 @@ const handleCancelSelectedAppointment = async () => {
                          <div className="flex space-x-2">
                         <Button 
                              variant="ghost"
-                          size="sm"
+                              size="sm"
                              onClick={() => openEditModal(service)}
                              className="h-10 w-10 p-0"
-                        >
+                            >
                              <Edit className="w-6 h-6" />
-                        </Button>
-                        <Button 
+                            </Button>
+                            <Button 
                              variant="ghost"
-                          size="sm"
+                              size="sm"
                              onClick={() => openDeleteModal(service)}
                              className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
-                        >
+                            >
                              <Trash2 className="w-6 h-6" />
-                        </Button>
+                            </Button>
                       </div>
                     </div>
                       <p className="text-sm text-muted-foreground mb-4 flex-grow">{service.description}</p>
@@ -2408,14 +2408,14 @@ const handleCancelSelectedAppointment = async () => {
                 </div>
                 <Button
                   variant="ghost"
-                  size="sm"
+                          size="sm"
                   onClick={handleCloseConflictModal}
                   className="text-gray-400 hover:text-gray-600"
                   disabled={cancelConflictLoadingId !== null}
-                >
+                        >
                   <X className="w-5 h-5" />
-                </Button>
-              </div>
+                        </Button>
+                      </div>
 
               <p className="text-sm text-muted-foreground mb-4">
                 There are scheduled appointments during this time block. Cancel the appointments below or adjust the block time.
@@ -2485,8 +2485,8 @@ const handleCancelSelectedAppointment = async () => {
                   Close
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
         </div>
       )}
 
@@ -2912,14 +2912,14 @@ const handleCancelSelectedAppointment = async () => {
                 {selectedAppointment?.id && (
                   <PrivateNoteCard
                     bookingId={selectedAppointment.id}
-                    className="mt-6"
+                    className="mt-4"
                   />
                 )}
                       </div>
 
               <div className="flex justify-end mt-6 gap-2">
                 {selectedAppointment.status === 'pending' && (
-                  <Button
+                        <Button 
                     variant="destructive"
                     onClick={handleCancelSelectedAppointment}
                     disabled={cancelAppointmentLoading}
@@ -2932,11 +2932,11 @@ const handleCancelSelectedAppointment = async () => {
                     setShowAppointmentPopup(false);
                     setSelectedAppointment(null);
                   }}
-                  variant="outline"
-                >
+                          variant="outline" 
+                        >
                   Close
-                </Button>
-              </div>
+                        </Button>
+                      </div>
               </CardContent>
             </Card>
         </div>

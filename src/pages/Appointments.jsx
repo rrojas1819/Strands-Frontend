@@ -341,7 +341,7 @@ export default function Appointments() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {getFilteredAppointments().map((appointment) => {
               const isPast = isAppointmentPast(appointment);
               const status = appointment.appointment?.status || appointment.status;
@@ -372,7 +372,7 @@ export default function Appointments() {
               const couponNote = 'Coupons are non-refundable and one-time use.';
               
               return (
-              <Card key={appointment.booking_id} className="flex flex-col">
+              <Card key={appointment.booking_id} className="flex flex-col h-full">
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
@@ -459,7 +459,7 @@ export default function Appointments() {
                         </span>
                       )}
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex gap-2 flex-wrap">
                       {isPast && appointment.stylists && appointment.stylists.length > 0 && (
                         <Button
                           size="sm"
