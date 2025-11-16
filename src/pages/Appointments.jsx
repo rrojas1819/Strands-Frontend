@@ -506,8 +506,8 @@ export default function Appointments() {
                     <PrivateNoteCard
                       bookingId={appointment.booking_id}
                       className="mt-4"
-                      title="My Private Note"
-                      description="Only visible to you"
+                      title="Private note"
+                      description="Only you can see this."
                     />
                   )}
                 </CardContent>
