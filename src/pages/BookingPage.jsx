@@ -293,6 +293,12 @@ export default function BookingPage() {
         return;
       }
 
+      if (selectedTimeSlot.available === false) {
+        notifyError('The selected time slot is no longer available. Please select a different time.');
+        setBookingLoading(false);
+        return;
+      }
+
       // Get salon timezone (default to America/New_York if not set)
       const salonTimezone = salon?.timezone || 'America/New_York';
       
@@ -440,7 +446,13 @@ export default function BookingPage() {
   const formatTo12Hour = (timeInput) => {
     if (!timeInput) return '';
     
-    if (timeInput.includes('T') && (timeInput.includes('Z') || timeInput.includes('+'))) {
+    // Check if it's an ISO 8601 string (has 'T' and timezone indicator: Z, +HH:MM, or -HH:MM)
+    // The regex checks for timezone offset pattern at the end: -05:00 or +05:00
+    if (timeInput.includes('T') && (
+      timeInput.includes('Z') || 
+      timeInput.includes('+') || 
+      /[+-]\d{2}:\d{2}$/.test(timeInput) // Matches timezone offset like -05:00 or +05:00 at the end
+    )) {
       const salonTimezone = salon?.timezone || 'America/New_York';
       return formatInZone(timeInput, salonTimezone, {
         hour: 'numeric',
@@ -781,11 +793,14 @@ export default function BookingPage() {
                           const isToday = selectedDate === todayInSalonZone;
                           
                           if (isToday) {
+                            // Use UTC start_time for filtering past slots
                             let slotUtcIso;
                             if (slot.start_time && slot.start_time.includes('T') && slot.start_time.includes('Z')) {
                               slotUtcIso = slot.start_time;
-                            } else {
+                            } else if (slot.start_time) {
                               slotUtcIso = localWallClockToUtcIso(selectedDate, slot.start_time, salonTimezone);
+                            } else {
+                              return true; // If no start_time, show it
                             }
                             const nowUtcIso = new Date().toISOString();
                             return cmpUtc(slotUtcIso, nowUtcIso) >= 0; 
@@ -794,16 +809,44 @@ export default function BookingPage() {
                         })
                         .map((slot) => {
                           const isSelected = selectedTimeSlot?.start_time === slot.start_time && selectedTimeSlot?.end_time === slot.end_time;
+                          const isAvailable = slot.available === true; // Explicitly check for true
+                          
+                          const displayStart = slot.display_start_time || slot.start_time;
+                          const displayEnd = slot.display_end_time || slot.end_time;
+                          
+                          const unavailableReason = slot.unavailable_reason || slot.reason || slot.status;
+                          const unavailableLabel = !isAvailable 
+                            ? (unavailableReason === 'booked' || unavailableReason === 'Booked' 
+                                ? '(Booked)' 
+                                : unavailableReason === 'blocked' || unavailableReason === 'Blocked'
+                                ? '(Blocked)'
+                                : '(Unavailable)')
+                            : '';
+                          
                           return (
                             <Button
                               key={`${slot.start_time}-${slot.end_time}`}
-                              variant={isSelected ? 'default' : 'outline'}
-                              className="w-full"
+                              variant={isSelected && isAvailable ? 'default' : 'outline'}
+                              className={`w-full ${
+                                !isAvailable 
+                                  ? 'cursor-not-allowed' 
+                                  : ''
+                              }`}
+                              style={!isAvailable ? {
+                                backgroundColor: '#e5e7eb',
+                                color: '#6b7280',
+                                borderColor: '#d1d5db',
+                                opacity: 0.7
+                              } : undefined}
+                              disabled={!isAvailable}
                               onClick={() => {
-                                setSelectedTimeSlot(slot);
+                                if (isAvailable) {
+                                  setSelectedTimeSlot(slot);
+                                }
                               }}
                             >
-                              {formatTo12Hour(slot.start_time)} - {formatTo12Hour(slot.end_time)}
+                              {formatTo12Hour(displayStart)} - {formatTo12Hour(displayEnd)}
+                              {unavailableLabel && <span className="ml-2 text-xs">{unavailableLabel}</span>}
                             </Button>
                           );
                         })
@@ -915,7 +958,7 @@ export default function BookingPage() {
                     <span>Time:</span>
                     <span className="font-semibold">
                       {selectedTimeSlot.start_time && selectedTimeSlot.end_time 
-                        ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}`
+                        ? `${formatTo12Hour(selectedTimeSlot.display_start_time || selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.display_end_time || selectedTimeSlot.end_time)}`
                         : 'N/A'}
                     </span>
                   </div>
@@ -950,7 +993,9 @@ export default function BookingPage() {
         title={isReschedule ? "Confirm Reschedule" : "Confirm Booking"}
         message={(() => {
           try {
-            return `Are you sure you want to ${isReschedule ? 'reschedule' : 'book'} this appointment?\n\nStylist: ${selectedStylist?.full_name || 'N/A'}\nServices: ${selectedServices?.map(s => s?.name || '').filter(Boolean).join(', ') || 'N/A'}\nDate: ${selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD'}\nTime: ${selectedTimeSlot?.start_time && selectedTimeSlot?.end_time ? `${formatTo12Hour(selectedTimeSlot.start_time)} - ${formatTo12Hour(selectedTimeSlot.end_time)}` : 'TBD'}`;
+            const displayStart = selectedTimeSlot?.display_start_time || selectedTimeSlot?.start_time;
+            const displayEnd = selectedTimeSlot?.display_end_time || selectedTimeSlot?.end_time;
+            return `Are you sure you want to ${isReschedule ? 'reschedule' : 'book'} this appointment?\n\nStylist: ${selectedStylist?.full_name || 'N/A'}\nServices: ${selectedServices?.map(s => s?.name || '').filter(Boolean).join(', ') || 'N/A'}\nDate: ${selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD'}\nTime: ${displayStart && displayEnd ? `${formatTo12Hour(displayStart)} - ${formatTo12Hour(displayEnd)}` : 'TBD'}`;
           } catch (e) {
             return `Are you sure you want to ${isReschedule ? 'reschedule' : 'book'} this appointment?`;
           }
