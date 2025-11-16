@@ -108,7 +108,7 @@ const PrivateNoteCard = ({
       } else {
         setNoteState({
           ...emptyNoteState,
-          editing: false
+          editing: true
         });
       }
     } catch (err) {
@@ -263,7 +263,7 @@ const PrivateNoteCard = ({
         throw new Error(data.message || 'Failed to delete note');
       }
 
-      setNoteState({ ...emptyNoteState, editing: false });
+      setNoteState({ ...emptyNoteState, editing: true });
       openModal({
         title: 'Note Deleted',
         message: 'Your private note has been removed.',
@@ -292,8 +292,8 @@ const PrivateNoteCard = ({
 
   return (
     <div className={`border rounded-lg p-4 bg-slate-50 ${className}`}>
-      <div className="mb-3">
-        <h4 className="text-sm font-semibold text-foreground mb-1">{title}</h4>
+      <div className="mb-2">
+        <h4 className="text-sm font-semibold text-foreground">{title}</h4>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
 
@@ -310,7 +310,7 @@ const PrivateNoteCard = ({
           />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{noteState.text.length}/2000 characters</span>
-            <div className="flex gap-2">
+            <div className="space-x-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -341,9 +341,9 @@ const PrivateNoteCard = ({
               Updated {formatTimestamp(noteState.updatedAt)}
             </p>
           )}
-          <div className="flex justify-end gap-2 mt-4">
+          <div className="flex justify-end gap-2 mt-3">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => setNoteState((prev) => ({ ...prev, editing: true }))}
             >
@@ -351,9 +351,9 @@ const PrivateNoteCard = ({
               Edit
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="text-red-600 hover:text-red-700"
               onClick={confirmDelete}
               disabled={noteState.deleting}
             >
@@ -367,7 +367,10 @@ const PrivateNoteCard = ({
           </div>
         </>
       ) : (
-        <div className="mt-1">
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Capture feedback or reminders for yourself. Customers cannot see private notes.
+          </p>
           <Button
             variant="outline"
             size="sm"
