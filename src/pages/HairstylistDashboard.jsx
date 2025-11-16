@@ -94,6 +94,17 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   const [showCustomerVisitModal, setShowCustomerVisitModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerVisits, setCustomerVisits] = useState([]);
+  // Mock storage for before/after photos and notes keyed by booking_service_id
+  const [visitMediaByServiceId, setVisitMediaByServiceId] = useState({});
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [photoModalState, setPhotoModalState] = useState({
+    bookingServiceId: null,
+    beforeNote: '',
+    afterNote: '',
+    beforeFiles: [],
+    afterFiles: [],
+    mode: 'upload' // 'upload' | 'view'
+  });
 
   const formatStatusLabel = (status = '') => {
     if (!status) return '';
@@ -3195,8 +3206,11 @@ const handleCancelSelectedAppointment = async () => {
                               <div className="mt-3 pt-3 border-t">
                                 <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
                                 <div className="space-y-2">
-                                  {visit.services.map((service, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                          {visit.services.map((service, idx) => {
+                            const svcId = service.booking_service_id || service.id || `${visit.booking_id}-${idx}`;
+                            const hasMedia = Boolean(visitMediaByServiceId[svcId]);
+                            return (
+                            <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
                     <div>
                                         <span className="font-medium text-foreground">{service.service_name}</span>
                                         {service.employee && (
@@ -3209,9 +3223,49 @@ const handleCancelSelectedAppointment = async () => {
                                       <div className="text-right">
                                         <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
                                         <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
+                                <div className="mt-2 flex justify-end">
+                                  {hasMedia ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        const data = visitMediaByServiceId[svcId];
+                                        setPhotoModalState({
+                                          bookingServiceId: svcId,
+                                          beforeNote: data.beforeNote || '',
+                                          afterNote: data.afterNote || '',
+                                          beforeFiles: data.beforeFiles || [],
+                                          afterFiles: data.afterFiles || [],
+                                          mode: 'view'
+                                        });
+                                        setShowPhotoModal(true);
+                                      }}
+                                    >
+                                      View Photos
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setPhotoModalState({
+                                          bookingServiceId: svcId,
+                                          beforeNote: '',
+                                          afterNote: '',
+                                          beforeFiles: [],
+                                          afterFiles: [],
+                                          mode: 'upload'
+                                        });
+                                        setShowPhotoModal(true);
+                                      }}
+                                    >
+                                      Upload Photos
+                                    </Button>
+                                  )}
+                                </div>
                   </div>
                 </div>
-                                  ))}
+                          )})}
                                 </div>
                                 <div className="flex justify-end mt-3 pt-3 border-t">
                                   {hasDiscount ? (
@@ -3275,6 +3329,146 @@ const handleCancelSelectedAppointment = async () => {
               )}
               </CardContent>
             </Card>
+        </div>
+      )}
+
+      {/* Mock Before/After Photos Modal */}
+      {showPhotoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-6 border-b">
+                <h3 className="text-lg font-semibold">
+                  {photoModalState.mode === 'upload' ? 'Upload Before/After Photos' : 'Before/After Photos'}
+                </h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-2">Before</h4>
+                    {photoModalState.mode === 'upload' ? (
+                      <>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) =>
+                            setPhotoModalState((s) => ({
+                              ...s,
+                              beforeFiles: Array.from(e.target.files || [])
+                            }))
+                          }
+                          className="block w-full text-sm"
+                        />
+                        <textarea
+                          rows={3}
+                          placeholder="Before note..."
+                          value={photoModalState.beforeNote}
+                          onChange={(e) =>
+                            setPhotoModalState((s) => ({ ...s, beforeNote: e.target.value }))
+                          }
+                          className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        {photoModalState.beforeFiles.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No before photos.</p>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            {photoModalState.beforeFiles.map((f, i) => {
+                              const url = typeof f === 'string' ? f : URL.createObjectURL(f);
+                              return <img key={i} src={url} alt="before" className="rounded-md object-cover aspect-square" />;
+                            })}
+                          </div>
+                        )}
+                        {photoModalState.beforeNote && (
+                          <p className="text-sm"><span className="font-medium">Note:</span> {photoModalState.beforeNote}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">After</h4>
+                    {photoModalState.mode === 'upload' ? (
+                      <>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) =>
+                            setPhotoModalState((s) => ({
+                              ...s,
+                              afterFiles: Array.from(e.target.files || [])
+                            }))
+                          }
+                          className="block w-full text-sm"
+                        />
+                        <textarea
+                          rows={3}
+                          placeholder="After note..."
+                          value={photoModalState.afterNote}
+                          onChange={(e) =>
+                            setPhotoModalState((s) => ({ ...s, afterNote: e.target.value }))
+                          }
+                          className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        {photoModalState.afterFiles.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No after photos.</p>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            {photoModalState.afterFiles.map((f, i) => {
+                              const url = typeof f === 'string' ? f : URL.createObjectURL(f);
+                              return <img key={i} src={url} alt="after" className="rounded-md object-cover aspect-square" />;
+                            })}
+                          </div>
+                        )}
+                        {photoModalState.afterNote && (
+                          <p className="text-sm"><span className="font-medium">Note:</span> {photoModalState.afterNote}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {photoModalState.mode === 'upload' && (
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowPhotoModal(false)}>Cancel</Button>
+                    <Button
+                      onClick={() => {
+                        const id = photoModalState.bookingServiceId;
+                        const beforeUrls = (photoModalState.beforeFiles || []).map((f) =>
+                          typeof f === 'string' ? f : URL.createObjectURL(f)
+                        );
+                        const afterUrls = (photoModalState.afterFiles || []).map((f) =>
+                          typeof f === 'string' ? f : URL.createObjectURL(f)
+                        );
+                        setVisitMediaByServiceId((prev) => ({
+                          ...prev,
+                          [id]: {
+                            beforeNote: photoModalState.beforeNote,
+                            afterNote: photoModalState.afterNote,
+                            beforeFiles: beforeUrls,
+                            afterFiles: afterUrls
+                          }
+                        }));
+                        setShowPhotoModal(false);
+                      }}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
