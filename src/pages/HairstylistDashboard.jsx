@@ -105,6 +105,8 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
     afterFile: null,
     beforePreview: null,
     afterPreview: null,
+    originalBeforeUrl: null, // Original URL from backend when modal opened (for tracking existing photos)
+    originalAfterUrl: null, // Original URL from backend when modal opened (for tracking existing photos)
     beforeFileToCrop: null, // File selected but not yet cropped
     afterFileToCrop: null, // File selected but not yet cropped
     beforeDelete: false, // Marked for deletion (only in view mode)
@@ -1086,25 +1088,48 @@ const handleCancelSelectedAppointment = async () => {
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Fetch both photo URLs in parallel - backend returns presigned URLs
-      const [beforeResponse, afterResponse] = await Promise.all([
-        fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}&type=BEFORE&presigned=true`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).catch(() => ({ ok: false })),
-        fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}&type=AFTER&presigned=true`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).catch(() => ({ ok: false }))
-      ]);
+      // Fetch all photos - backend returns { before: "...", after: "..." } format
+      const response = await fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-      const [beforeData, afterData] = await Promise.all([
-        beforeResponse.ok ? beforeResponse.json().catch(() => null) : Promise.resolve(null),
-        afterResponse.ok ? afterResponse.json().catch(() => null) : Promise.resolve(null)
-      ]);
+      if (!response.ok) {
+        const errorData = { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
+        setVisitPhotosByBookingId((prev) => ({
+          ...prev,
+          [bookingId]: errorData
+        }));
+        return errorData;
+      }
 
-      const beforeUrl = beforeData?.url || null;
-      const afterUrl = afterData?.url || null;
+      const data = await response.json();
+      
+      // Backend returns { before: "...", after: "..." } format
+      // Empty strings mean no photo for that type
+      // Handle both new format and legacy format for safety
+      let beforeUrl = null;
+      let afterUrl = null;
+      
+      if (data.before !== undefined || data.after !== undefined) {
+        // New format: { before: "...", after: "..." }
+        beforeUrl = (data.before && data.before.trim()) || null;
+        afterUrl = (data.after && data.after.trim()) || null;
+      } else if (data.urls && Array.isArray(data.urls)) {
+        // Legacy format fallback: { urls: [...] } - first is before, second is after
+        beforeUrl = data.urls[0] || null;
+        afterUrl = data.urls[1] || null;
+      }
+      
+      // If both are empty/null, no photos exist
+      if (!beforeUrl && !afterUrl) {
+        const errorData = { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
+        setVisitPhotosByBookingId((prev) => ({
+          ...prev,
+          [bookingId]: errorData
+        }));
+        return errorData;
+      }
 
       const photoData = {
         beforePhotoUrl: beforeUrl,
@@ -3442,6 +3467,8 @@ const handleCancelSelectedAppointment = async () => {
                                     afterFile: null,
                                     beforePreview: photoData?.beforePhotoUrl || null,
                                     afterPreview: photoData?.afterPhotoUrl || null,
+                                    originalBeforeUrl: photoData?.beforePhotoUrl || null, // Store original to track existing photos
+                                    originalAfterUrl: photoData?.afterPhotoUrl || null, // Store original to track existing photos
                                     beforeFileToCrop: null,
                                     afterFileToCrop: null,
                                     beforeDelete: false,
@@ -3464,6 +3491,8 @@ const handleCancelSelectedAppointment = async () => {
                                     afterFile: null,
                                     beforePreview: null,
                                     afterPreview: null,
+                                    originalBeforeUrl: null, // No existing photos in upload mode
+                                    originalAfterUrl: null, // No existing photos in upload mode
                                     beforeFileToCrop: null,
                                     afterFileToCrop: null,
                                     beforeDelete: false,
@@ -4007,6 +4036,8 @@ const handleCancelSelectedAppointment = async () => {
                             afterFile: null,
                             beforePreview: photoData?.beforePhotoUrl || null,
                             afterPreview: photoData?.afterPhotoUrl || null,
+                            originalBeforeUrl: photoData?.beforePhotoUrl || null, // Update original URLs
+                            originalAfterUrl: photoData?.afterPhotoUrl || null, // Update original URLs
                             beforeFileToCrop: null,
                             afterFileToCrop: null,
                             beforeDelete: false,
@@ -4101,21 +4132,44 @@ const handleCancelSelectedAppointment = async () => {
                             setPhotoModalState((s) => ({ ...s, uploading: true }));
 
                             try {
-                              // First, handle deletions
-                              if (photoModalState.beforeDelete && !photoModalState.beforeFile) {
-                                // Only delete if not replacing with new file
+                              // Use original URLs to determine if photos existed when modal opened
+                              // This is more reliable than checking preview URLs which may be replaced with blob URLs
+                              const hadExistingBefore = !!photoModalState.originalBeforeUrl;
+                              const hadExistingAfter = !!photoModalState.originalAfterUrl;
+                              
+                              // BEFORE and AFTER are completely independent - handle each separately
+                              
+                              // Handle BEFORE photo operations
+                              if (photoModalState.beforeDelete && hadExistingBefore) {
+                                // User wants to delete the existing BEFORE photo
                                 await deleteBookingPhoto(bookingId, 'BEFORE');
                               }
-                              if (photoModalState.afterDelete && !photoModalState.afterFile) {
-                                // Only delete if not replacing with new file
-                                await deleteBookingPhoto(bookingId, 'AFTER');
-                              }
-
-                              // Then, handle uploads (this will replace deleted photos if both delete and upload are set)
                               if (photoModalState.beforeFile) {
+                                // User wants to upload a new BEFORE photo
+                                // If one existed, we already deleted it above (if beforeDelete was true)
+                                // If one existed and we're replacing (beforeFile set but beforeDelete false), delete it first
+                                if (hadExistingBefore && !photoModalState.beforeDelete) {
+                                  // Replacing existing photo - delete old one first
+                                  await deleteBookingPhoto(bookingId, 'BEFORE');
+                                }
+                                // Now upload the new file
                                 await uploadBookingPhoto(bookingId, photoModalState.beforeFile, 'BEFORE');
                               }
+                              
+                              // Handle AFTER photo operations (independent of BEFORE)
+                              if (photoModalState.afterDelete && hadExistingAfter) {
+                                // User wants to delete the existing AFTER photo
+                                await deleteBookingPhoto(bookingId, 'AFTER');
+                              }
                               if (photoModalState.afterFile) {
+                                // User wants to upload a new AFTER photo
+                                // If one existed, we already deleted it above (if afterDelete was true)
+                                // If one existed and we're replacing (afterFile set but afterDelete false), delete it first
+                                if (hadExistingAfter && !photoModalState.afterDelete) {
+                                  // Replacing existing photo - delete old one first
+                                  await deleteBookingPhoto(bookingId, 'AFTER');
+                                }
+                                // Now upload the new file
                                 await uploadBookingPhoto(bookingId, photoModalState.afterFile, 'AFTER');
                               }
 
@@ -4142,6 +4196,8 @@ const handleCancelSelectedAppointment = async () => {
                                 afterFile: null,
                                 beforePreview: photoData?.beforePhotoUrl || null,
                                 afterPreview: photoData?.afterPhotoUrl || null,
+                                originalBeforeUrl: photoData?.beforePhotoUrl || null, // Update original URLs
+                                originalAfterUrl: photoData?.afterPhotoUrl || null, // Update original URLs
                                 beforeFileToCrop: null,
                                 afterFileToCrop: null,
                                 beforeDelete: false,

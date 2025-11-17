@@ -137,7 +137,7 @@ export default function LoyaltyMonitoring() {
   return (
     <div className="min-h-screen bg-muted/30">
       <AdminNavbar
-        title="Loyalty Program Monitoring"
+        title="Admin Dashboard"
         subtitle="Track loyalty program effectiveness and participation"
         activeKey="loyalty-monitoring"
         onLogout={handleLogout}

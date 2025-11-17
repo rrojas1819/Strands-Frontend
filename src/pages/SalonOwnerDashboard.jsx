@@ -618,9 +618,9 @@ export default function SalonOwnerDashboard() {
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Check if before photo exists
-      const beforeResponse = await fetch(
-        `${apiUrl}/file/get-photo?booking_id=${bookingId}&type=BEFORE`,
+      // Check if photos exist - use new API format
+      const response = await fetch(
+        `${apiUrl}/file/get-photo?booking_id=${bookingId}`,
         {
           method: 'GET',
           headers: {
@@ -629,7 +629,25 @@ export default function SalonOwnerDashboard() {
         }
       );
 
-      const hasPhotos = beforeResponse.ok;
+      let hasPhotos = false;
+      if (response.ok) {
+        const data = await response.json();
+        // Backend returns { before: "...", after: "..." } format
+        // Handle both new format and legacy format for safety
+        let beforeUrl = null;
+        let afterUrl = null;
+        
+        if (data.before !== undefined || data.after !== undefined) {
+          // New format: { before: "...", after: "..." }
+          beforeUrl = (data.before && data.before.trim()) || null;
+          afterUrl = (data.after && data.after.trim()) || null;
+        } else if (data.urls && Array.isArray(data.urls)) {
+          // Legacy format fallback: { urls: [...] } - first is before, second is after
+          beforeUrl = data.urls[0] || null;
+          afterUrl = data.urls[1] || null;
+        }
+        hasPhotos = Boolean(beforeUrl || afterUrl);
+      }
       
       setBookingPhotos((prev) => ({
         ...prev,
@@ -650,30 +668,48 @@ export default function SalonOwnerDashboard() {
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Fetch both photo URLs in parallel - backend returns presigned URLs
-      const [beforeResponse, afterResponse] = await Promise.all([
-        fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}&type=BEFORE&presigned=true`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).catch(() => ({ ok: false })),
-        fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}&type=AFTER&presigned=true`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).catch(() => ({ ok: false }))
-      ]);
+      // CHECK FIRST: Don't open modal until we confirm photos exist
+      const response = await fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-      const [beforeData, afterData] = await Promise.all([
-        beforeResponse.ok ? beforeResponse.json().catch(() => null) : Promise.resolve(null),
-        afterResponse.ok ? afterResponse.json().catch(() => null) : Promise.resolve(null)
-      ]);
+      // Handle 204 (No Content) and 404 (Not Found) as "no photos"
+      if (response.status === 204 || response.status === 404) {
+        toast.error('Stylist has not uploaded any photos for this appointment.');
+        return;
+      }
 
-      const beforeUrl = beforeData?.url || null;
-      const afterUrl = afterData?.url || null;
+      if (!response.ok) {
+        toast.error('Failed to load photos. Please try again.');
+        return;
+      }
 
+      const data = await response.json();
+      
+      // Backend returns { before: "...", after: "..." } format
+      // Empty strings mean no photo for that type
+      // Handle both new format and legacy format for safety
+      let beforeUrl = null;
+      let afterUrl = null;
+      
+      if (data.before !== undefined || data.after !== undefined) {
+        // New format: { before: "...", after: "..." }
+        beforeUrl = (data.before && data.before.trim()) || null;
+        afterUrl = (data.after && data.after.trim()) || null;
+      } else if (data.urls && Array.isArray(data.urls)) {
+        // Legacy format fallback: { urls: [...] } - first is before, second is after
+        beforeUrl = data.urls[0] || null;
+        afterUrl = data.urls[1] || null;
+      }
+      
+      // If both are empty/null, no photos exist
       if (!beforeUrl && !afterUrl) {
         toast.error('Stylist has not uploaded any photos for this appointment.');
         return;
       }
+      
+      // Photos exist (at least one) - NOW open modal
 
       setPhotoModalState({
         bookingId,
@@ -1539,7 +1575,11 @@ export default function SalonOwnerDashboard() {
                       {photoModalState.beforePhotoUrl ? (
                         <img src={photoModalState.beforePhotoUrl} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
                       ) : (
-                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                          <p className="text-sm text-muted-foreground text-center px-4">
+                            {photoModalState.afterPhotoUrl ? 'Only after photo uploaded' : 'No before photo uploaded'}
+                          </p>
+                        </div>
                       )}
                     </div>
                     <div>
@@ -1547,7 +1587,11 @@ export default function SalonOwnerDashboard() {
                       {photoModalState.afterPhotoUrl ? (
                         <img src={photoModalState.afterPhotoUrl} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
                       ) : (
-                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                          <p className="text-sm text-muted-foreground text-center px-4">
+                            {photoModalState.beforePhotoUrl ? 'Only before photo uploaded' : 'No after photo uploaded'}
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
