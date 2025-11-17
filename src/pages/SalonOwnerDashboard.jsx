@@ -28,6 +28,7 @@ import {
   UserX,
   Clock,
   Calendar,
+  Image,
   ChevronLeft,
   ChevronRight,
   ArrowUpDown,
@@ -116,6 +117,13 @@ export default function SalonOwnerDashboard() {
     total_records: 0,
     has_more: false
   });
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [photoModalState, setPhotoModalState] = useState({
+    bookingId: null,
+    beforePhotoUrl: null,
+    afterPhotoUrl: null
+  });
+  const [bookingPhotos, setBookingPhotos] = useState({}); // Map of booking_id -> { hasPhotos: boolean }
 
   useEffect(() => {
     // Check for tab in URL params
@@ -575,12 +583,20 @@ export default function SalonOwnerDashboard() {
       const data = await response.json();
       
       if (response.ok && data.data) {
-        setCustomerVisits(data.data.visits || []);
+        const visits = data.data.visits || [];
+        setCustomerVisits(visits);
         setVisitsPagination({
           limit: data.data.limit || 20,
           offset: data.data.offset || 0,
           total_records: data.data.summary?.total_records || 0,
           has_more: data.data.has_more || false
+        });
+        
+        // Check for photos in all visits
+        visits.forEach(visit => {
+          if (visit.booking_id) {
+            checkBookingPhotos(visit.booking_id);
+          }
         });
       } else {
         console.error('Failed to fetch customer visits:', data.message);
@@ -592,6 +608,81 @@ export default function SalonOwnerDashboard() {
       toast.error('Failed to load visit history');
     } finally {
       setVisitsLoading(false);
+    }
+  };
+
+  const checkBookingPhotos = async (bookingId) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Check if before photo exists
+      const beforeResponse = await fetch(
+        `${apiUrl}/file/get-photo?booking_id=${bookingId}&type=BEFORE`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      const hasPhotos = beforeResponse.ok;
+      
+      setBookingPhotos((prev) => ({
+        ...prev,
+        [bookingId]: { hasPhotos }
+      }));
+    } catch (err) {
+      setBookingPhotos((prev) => ({
+        ...prev,
+        [bookingId]: { hasPhotos: false }
+      }));
+    }
+  };
+
+  const handleViewPhotos = async (bookingId) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Fetch both photo URLs in parallel - backend returns presigned URLs
+      const [beforeResponse, afterResponse] = await Promise.all([
+        fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}&type=BEFORE&presigned=true`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => ({ ok: false })),
+        fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}&type=AFTER&presigned=true`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => ({ ok: false }))
+      ]);
+
+      const [beforeData, afterData] = await Promise.all([
+        beforeResponse.ok ? beforeResponse.json().catch(() => null) : Promise.resolve(null),
+        afterResponse.ok ? afterResponse.json().catch(() => null) : Promise.resolve(null)
+      ]);
+
+      const beforeUrl = beforeData?.url || null;
+      const afterUrl = afterData?.url || null;
+
+      if (!beforeUrl && !afterUrl) {
+        toast.error('Stylist has not uploaded any photos for this appointment.');
+        return;
+      }
+
+      setPhotoModalState({
+        bookingId,
+        beforePhotoUrl: beforeUrl,
+        afterPhotoUrl: afterUrl
+      });
+      setShowPhotoModal(true);
+    } catch (err) {
+      toast.error('Failed to load photos. Please try again.');
     }
   };
 
@@ -1352,6 +1443,19 @@ export default function SalonOwnerDashboard() {
                                       </div>
                                     ))}
                                   </div>
+                                  {/* View Photos Button */}
+                                  {visit.booking_id && (
+                                    <div className="mt-3 flex justify-start">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleViewPhotos(visit.booking_id)}
+                                      >
+                                        <Image className="w-4 h-4 mr-1" />
+                                        View Photos
+                                      </Button>
+                                    </div>
+                                  )}
                                   <div className="flex justify-end mt-3 pt-3 border-t">
                                     {hasDiscount ? (
                                       <div className="text-right">
@@ -1411,6 +1515,49 @@ export default function SalonOwnerDashboard() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Photo View Modal */}
+        {showPhotoModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between p-6 border-b">
+                  <h3 className="text-lg font-semibold">Before/After Photos</h3>
+                  <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-medium mb-2">Before</h4>
+                      {photoModalState.beforePhotoUrl ? (
+                        <img src={photoModalState.beforePhotoUrl} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                      ) : (
+                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-2">After</h4>
+                      {photoModalState.afterPhotoUrl ? (
+                        <img src={photoModalState.afterPhotoUrl} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                      ) : (
+                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button variant="outline" onClick={() => setShowPhotoModal(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>

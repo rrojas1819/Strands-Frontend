@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Calendar, Clock, X, Edit2, Star } from 'lucide-react';
+import { Calendar, Clock, X, Edit2, Star, Image } from 'lucide-react';
 import { notifySuccess, notifyError } from '../utils/notifications';
 import { cmpUtc, formatLocal, todayYmdInZone } from '../utils/time';
 import StrandsModal from '../components/StrandsModal';
@@ -29,6 +29,12 @@ export default function Appointments() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedStylistForReview, setSelectedStylistForReview] = useState(null);
   const [stylistReviews, setStylistReviews] = useState({}); // Map of employee_id -> hasReview
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [photoModalState, setPhotoModalState] = useState({
+    bookingId: null,
+    beforePhotoUrl: null,
+    afterPhotoUrl: null
+  });
 
   const formatStatusLabel = (status = '') => {
     if (!status) return '';
@@ -59,10 +65,11 @@ export default function Appointments() {
 
       if (response.ok) {
         const data = await response.json();
-        setAppointments(data.data || []);
+        const appointmentsList = data.data || [];
+        setAppointments(appointmentsList);
         
         // Fetch reviews for stylists in past appointments
-        fetchStylistReviews(data.data || []);
+        fetchStylistReviews(appointmentsList);
       } else {
         const errorText = await response.text();
         console.error('Failed to fetch appointments:', errorText);
@@ -122,6 +129,49 @@ export default function Appointments() {
       setStylistReviews(reviewsMap);
     } catch (err) {
       // Silently fail - reviews are optional
+    }
+  };
+
+  const handleViewPhotos = async (bookingId) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Fetch both photo URLs in parallel - backend returns presigned URLs
+      const [beforeResponse, afterResponse] = await Promise.all([
+        fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}&type=BEFORE&presigned=true`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => ({ ok: false })),
+        fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}&type=AFTER&presigned=true`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => ({ ok: false }))
+      ]);
+
+      const [beforeData, afterData] = await Promise.all([
+        beforeResponse.ok ? beforeResponse.json().catch(() => null) : Promise.resolve(null),
+        afterResponse.ok ? afterResponse.json().catch(() => null) : Promise.resolve(null)
+      ]);
+
+      const beforeUrl = beforeData?.url || null;
+      const afterUrl = afterData?.url || null;
+
+      if (!beforeUrl && !afterUrl) {
+        notifyError('Stylist has not uploaded any photos for this appointment.');
+        return;
+      }
+
+      setPhotoModalState({
+        bookingId,
+        beforePhotoUrl: beforeUrl,
+        afterPhotoUrl: afterUrl
+      });
+      setShowPhotoModal(true);
+    } catch (err) {
+      notifyError('Failed to load photos. Please try again.');
     }
   };
 
@@ -478,6 +528,19 @@ export default function Appointments() {
                           {stylistReviews[appointment.stylists[0].employee_id] ? 'Edit Review' : 'Review Stylist'}
                         </Button>
                       )}
+                      {isPast && status === 'COMPLETED' && appointment.booking_id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewPhotos(appointment.booking_id);
+                          }}
+                        >
+                          <Image className="w-4 h-4 mr-1" />
+                          View Photos
+                        </Button>
+                      )}
                       {canReschedule && (
                         <Button
                           size="sm"
@@ -592,6 +655,55 @@ export default function Appointments() {
                     <p className="text-muted-foreground">Loading...</p>
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Photo View Modal */}
+      {showPhotoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-6 border-b">
+                <h3 className="text-lg font-semibold">Before/After Photos</h3>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setShowPhotoModal(false);
+                }}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-2">Before</h4>
+                    {photoModalState.beforePhotoUrl ? (
+                      <img src={photoModalState.beforePhotoUrl} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                    ) : (
+                      <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                        <p className="text-muted-foreground text-sm">No before photo</p>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">After</h4>
+                    {photoModalState.afterPhotoUrl ? (
+                      <img src={photoModalState.afterPhotoUrl} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                    ) : (
+                      <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                        <p className="text-muted-foreground text-sm">No after photo</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => setShowPhotoModal(false)}>
+                    Close
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
