@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { notifySuccess, notifyError } from '../utils/notifications';
 import { ArrowLeft, CreditCard, MapPin, Lock, Check, X, Trash2, Gift } from 'lucide-react';
 import StrandsModal from '../components/StrandsModal';
+import { formatInZone } from '../utils/time';
 
 // Card brand detection function - matches backend logic
 const detectCardBrand = (cardNumber) => {
@@ -916,12 +917,44 @@ export default function PaymentPage() {
                   <div>
                     <Label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Time</Label>
                     <p className="text-sm font-medium text-gray-900">
-                      {bookingDetails.time.includes(':') 
-                        ? new Date(`2000-01-01T${bookingDetails.time}`).toLocaleTimeString('en-US', { 
-                            hour: 'numeric', 
-                            minute: '2-digit' 
-                          })
-                        : bookingDetails.time}
+                      {(() => {
+                        const timeValue = bookingDetails.time;
+                        // Check if it's an ISO 8601 string (has 'T' and timezone indicator: Z, +HH:MM, or -HH:MM)
+                        if (timeValue.includes('T') && (
+                          timeValue.includes('Z') || 
+                          timeValue.includes('+') || 
+                          /[+-]\d{2}:\d{2}$/.test(timeValue)
+                        )) {
+                          // ISO string - format using timezone (default to America/New_York)
+                          try {
+                            return formatInZone(timeValue, 'America/New_York', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true
+                            });
+                          } catch (err) {
+                            // Fallback if formatting fails
+                            return timeValue;
+                          }
+                        } else if (timeValue.includes(':')) {
+                          // Legacy HH:MM format
+                          try {
+                            const date = new Date(`2000-01-01T${timeValue}`);
+                            if (isNaN(date.getTime())) {
+                              return timeValue; // Return as-is if invalid
+                            }
+                            return date.toLocaleTimeString('en-US', { 
+                              hour: 'numeric', 
+                              minute: '2-digit' 
+                            });
+                          } catch (err) {
+                            return timeValue;
+                          }
+                        } else {
+                          // Return as-is if format is unknown
+                          return timeValue;
+                        }
+                      })()}
                     </p>
                   </div>
                 )}
