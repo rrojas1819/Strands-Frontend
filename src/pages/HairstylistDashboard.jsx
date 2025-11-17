@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonReviews from '../components/SalonReviews';
@@ -6,6 +6,7 @@ import StaffReviews from '../components/StaffReviews';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import ImageCropper from '../components/ImageCropper';
 import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye, DollarSign, TrendingUp } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -16,6 +17,7 @@ import PrivateNoteCard from '../components/PrivateNoteCard';
 import { toast } from 'sonner';
 import { formatLocalDate, formatLocalTime } from '../lib/utils';
 import { formatInZone, cmpUtc } from '../utils/time';
+import { compressImage, hashFile, validateImageFile } from '../utils/imageUtils';
 
 export default function HairstylistDashboard() {
   const authContext = useContext(AuthContext);
@@ -94,6 +96,26 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   const [showCustomerVisitModal, setShowCustomerVisitModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerVisits, setCustomerVisits] = useState([]);
+  // Photo storage keyed by booking_id: { beforePhotoUrl, afterPhotoUrl, beforePhotoId, afterPhotoId }
+  const [visitPhotosByBookingId, setVisitPhotosByBookingId] = useState({});
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [photoModalState, setPhotoModalState] = useState({
+    bookingId: null,
+    beforeFile: null,
+    afterFile: null,
+    beforePreview: null,
+    afterPreview: null,
+    originalBeforeUrl: null, // Original URL from backend when modal opened (for tracking existing photos)
+    originalAfterUrl: null, // Original URL from backend when modal opened (for tracking existing photos)
+    beforeFileToCrop: null, // File selected but not yet cropped
+    afterFileToCrop: null, // File selected but not yet cropped
+    beforeDelete: false, // Marked for deletion (only in view mode)
+    afterDelete: false, // Marked for deletion (only in view mode)
+    mode: 'upload', // 'upload' | 'view'
+    uploading: false
+  });
+  const beforeFileInputRef = useRef(null);
+  const afterFileInputRef = useRef(null);
 
   const formatStatusLabel = (status = '') => {
     if (!status) return '';
@@ -1071,12 +1093,20 @@ const handleCancelSelectedAppointment = async () => {
       const data = await response.json();
       
       if (response.ok && data.data) {
-        setCustomerVisits(data.data.visits || []);
+        const visits = data.data.visits || [];
+        setCustomerVisits(visits);
         setVisitsPagination({
           limit: data.data.limit || 20,
           offset: data.data.offset || 0,
           total_records: data.data.summary?.total_records || 0,
           has_more: data.data.has_more || false
+        });
+        
+        // Fetch photos for all visits
+        visits.forEach(visit => {
+          if (visit.booking_id) {
+            fetchBookingPhotos(visit.booking_id);
+          }
         });
       } else {
         setCustomerVisits([]);
@@ -1097,6 +1127,208 @@ const handleCancelSelectedAppointment = async () => {
     
     if (selectedCustomer) {
       fetchCustomerVisitHistory(selectedCustomer.user_id, newOffset);
+    }
+  };
+
+  // Photo API functions
+  const fetchBookingPhotos = async (bookingId) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Fetch all photos - backend returns { before: "...", after: "..." } format
+      const response = await fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        const errorData = { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
+        setVisitPhotosByBookingId((prev) => ({
+          ...prev,
+          [bookingId]: errorData
+        }));
+        return errorData;
+      }
+
+      const data = await response.json();
+      
+      // Backend returns { before: "...", after: "..." } format
+      // Empty strings mean no photo for that type
+      // Handle both new format and legacy format for safety
+      let beforeUrl = null;
+      let afterUrl = null;
+      
+      if (data.before !== undefined || data.after !== undefined) {
+        // New format: { before: "...", after: "..." }
+        beforeUrl = (data.before && data.before.trim()) || null;
+        afterUrl = (data.after && data.after.trim()) || null;
+      } else if (data.urls && Array.isArray(data.urls)) {
+        // Legacy format fallback: { urls: [...] } - first is before, second is after
+        beforeUrl = data.urls[0] || null;
+        afterUrl = data.urls[1] || null;
+      }
+      
+      // If both are empty/null, no photos exist
+      if (!beforeUrl && !afterUrl) {
+        const errorData = { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
+        setVisitPhotosByBookingId((prev) => ({
+          ...prev,
+          [bookingId]: errorData
+        }));
+        return errorData;
+      }
+
+      const photoData = {
+        beforePhotoUrl: beforeUrl,
+        afterPhotoUrl: afterUrl,
+        hasPhotos: Boolean(beforeUrl || afterUrl)
+      };
+
+      // Update state
+      setVisitPhotosByBookingId((prev) => ({
+        ...prev,
+        [bookingId]: photoData
+      }));
+
+      return photoData;
+    } catch (err) {
+      console.error('Failed to fetch photos:', err);
+      const errorData = { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
+      setVisitPhotosByBookingId((prev) => ({
+        ...prev,
+        [bookingId]: errorData
+      }));
+      return errorData;
+    }
+  };
+
+  const uploadBookingPhoto = async (bookingId, file, type) => {
+    try {
+      const validation = validateImageFile(file);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+
+      const compressedFile = await compressImage(file);
+      const hash = await hashFile(compressedFile);
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const endpoint = type === 'BEFORE' 
+        ? `${apiUrl}/file/upload-before-photo`
+        : `${apiUrl}/file/upload-after-photo`;
+
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('booking_id', bookingId.toString());
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to upload photo';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          
+          // Handle "Photo already attached" (400) and "File already exists" (409) as success
+          const errorMsgLower = (errorMessage || '').toLowerCase();
+          if (errorMsgLower.includes('already exists') || 
+              errorMsgLower.includes('already attached') || 
+              errorMsgLower.includes('already uploaded') || 
+              errorMsgLower.includes('duplicate') ||
+              response.status === 400 && errorMsgLower.includes('photo already')) {
+            return { success: true, message: 'Photo already uploaded' };
+          }
+        } catch (e) {
+          // If response isn't JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      return { success: true, ...data };
+    } catch (err) {
+      console.error('Upload error:', err);
+      throw err;
+    }
+  };
+
+  const deleteBookingPhoto = async (bookingId, type = null) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // If type is provided, delete only that photo
+      // If type is null, delete both BEFORE and AFTER photos
+      const typesToDelete = type ? [type] : ['BEFORE', 'AFTER'];
+      
+      const deletePromises = typesToDelete.map(async (photoType) => {
+        try {
+          const response = await fetch(`${apiUrl}/file/delete-photo`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ booking_id: bookingId, type: photoType })
+          });
+
+          // If photo doesn't exist (404), that's fine - just continue
+          if (response.status === 404) {
+            return { success: true, message: `${photoType} photo not found (already deleted or never existed)` };
+          }
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || errorData.error || `Failed to delete ${photoType} photo`);
+          }
+
+          const data = await response.json();
+          return { success: true, message: `${photoType} photo deleted`, data };
+        } catch (err) {
+          // If it's a 404, that's fine - photo doesn't exist
+          if (err.message && err.message.includes('not found')) {
+            return { success: true, message: `${photoType} photo not found` };
+          }
+          // For other errors, throw to be handled by caller
+          throw err;
+        }
+      });
+
+      const results = await Promise.all(deletePromises);
+      
+      // Check if at least one deletion succeeded or was already deleted
+      const hasSuccess = results.some(r => r.success);
+      if (!hasSuccess) {
+        throw new Error('Failed to delete photo(s)');
+      }
+
+      const message = type 
+        ? `${type} photo deleted successfully` 
+        : 'Photos deleted successfully';
+      
+      return { success: true, message, results };
+    } catch (err) {
+      console.error('Delete error:', err);
+      throw err;
     }
   };
 
@@ -3300,24 +3532,86 @@ const handleCancelSelectedAppointment = async () => {
                               <div className="mt-3 pt-3 border-t">
                                 <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
                                 <div className="space-y-2">
-                                  {visit.services.map((service, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                    <div>
-                                        <span className="font-medium text-foreground">{service.service_name}</span>
-                                        {service.employee && (
-                                          <p className="text-xs text-muted-foreground">
-                                            By: {service.employee.name}
-                                            {service.employee.title && ` (${service.employee.title})`}
-                                          </p>
-                                        )}
-                    </div>
-                                      <div className="text-right">
-                                        <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
-                                        <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
-                  </div>
-                </div>
-                                  ))}
+                          {visit.services.map((service, idx) => {
+                            return (
+                              <div key={idx} className="text-sm bg-gray-50 p-3 rounded">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <span className="font-medium text-foreground">{service.service_name}</span>
+                                    {service.employee && (
+                                      <p className="text-xs text-muted-foreground">
+                                        By: {service.employee.name}
+                                        {service.employee.title && ` (${service.employee.title})`}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-medium text-green-800">
+                                      ${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}
+                                    </div>
+                                    <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
+                                  </div>
                                 </div>
+                              </div>
+                            );
+                          })}
+                                </div>
+                          {/* Booking-level upload/view (one per booking) */}
+                          <div className="mt-3 flex justify-start">
+                            {visitPhotosByBookingId[visit.booking_id]?.hasPhotos ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  const bookingId = visit.booking_id;
+                                  // Fetch latest photos and get data directly
+                                  const photoData = await fetchBookingPhotos(bookingId);
+                                  setPhotoModalState({
+                                    bookingId,
+                                    beforeFile: null,
+                                    afterFile: null,
+                                    beforePreview: photoData?.beforePhotoUrl || null,
+                                    afterPreview: photoData?.afterPhotoUrl || null,
+                                    originalBeforeUrl: photoData?.beforePhotoUrl || null, // Store original to track existing photos
+                                    originalAfterUrl: photoData?.afterPhotoUrl || null, // Store original to track existing photos
+                                    beforeFileToCrop: null,
+                                    afterFileToCrop: null,
+                                    beforeDelete: false,
+                                    afterDelete: false,
+                                    mode: 'view',
+                                    uploading: false
+                                  });
+                                  setShowPhotoModal(true);
+                                }}
+                              >
+                                View Photos
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setPhotoModalState({
+                                    bookingId: visit.booking_id,
+                                    beforeFile: null,
+                                    afterFile: null,
+                                    beforePreview: null,
+                                    afterPreview: null,
+                                    originalBeforeUrl: null, // No existing photos in upload mode
+                                    originalAfterUrl: null, // No existing photos in upload mode
+                                    beforeFileToCrop: null,
+                                    afterFileToCrop: null,
+                                    beforeDelete: false,
+                                    afterDelete: false,
+                                    mode: 'upload',
+                                    uploading: false
+                                  });
+                                  setShowPhotoModal(true);
+                                }}
+                              >
+                                Upload Photos
+                              </Button>
+                            )}
+                          </div>
                                 <div className="flex justify-end mt-3 pt-3 border-t">
                                   {hasDiscount ? (
                                     <div className="text-right">
@@ -3380,6 +3674,676 @@ const handleCancelSelectedAppointment = async () => {
               )}
               </CardContent>
             </Card>
+        </div>
+      )}
+
+      {/* Before/After Photos Modal */}
+      {showPhotoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-6 border-b">
+                <h3 className="text-lg font-semibold">
+                  {photoModalState.mode === 'upload' ? 'Upload Before/After Photos' : 'Before/After Photos'}
+                </h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-2">Before</h4>
+                    {photoModalState.mode === 'upload' ? (
+                      <>
+                        {photoModalState.beforeFileToCrop ? (
+                          <ImageCropper
+                            file={photoModalState.beforeFileToCrop}
+                            onCrop={(croppedFile) => {
+                              const preview = URL.createObjectURL(croppedFile);
+                              setPhotoModalState((s) => ({
+                                ...s,
+                                beforeFile: croppedFile,
+                                beforePreview: preview,
+                                beforeFileToCrop: null
+                              }));
+                            }}
+                            onCancel={() => {
+                              setPhotoModalState((s) => ({
+                                ...s,
+                                beforeFileToCrop: null
+                              }));
+                              // Reset file input
+                              if (beforeFileInputRef.current) {
+                                beforeFileInputRef.current.value = '';
+                              }
+                            }}
+                          />
+                        ) : (
+                          <>
+                            <div className="mb-3">
+                              {photoModalState.beforePreview ? (
+                                <img src={photoModalState.beforePreview} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                              ) : (
+                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                              )}
+                            </div>
+                            <div>
+                              <input
+                                ref={beforeFileInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const validation = validateImageFile(file);
+                                    if (!validation.valid) {
+                                      setShowModal(true);
+                                      setModalConfig({
+                                        title: 'Invalid File',
+                                        message: validation.error,
+                                        type: 'error'
+                                      });
+                                      return;
+                                    }
+                                    // Set file to crop instead of immediately using it
+                                    setPhotoModalState((s) => ({
+                                      ...s,
+                                      beforeFileToCrop: file
+                                    }));
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                              <Button 
+                                size="sm" 
+                                type="button"
+                                onClick={() => beforeFileInputRef.current?.click()}
+                              >
+                                Choose File
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        {photoModalState.beforePreview ? (
+                          <>
+                            <div className="relative">
+                              <img 
+                                src={photoModalState.beforePreview} 
+                                alt="before" 
+                                className={`w-full max-w-sm h-72 rounded-md object-cover border border-gray-200 ${photoModalState.beforeDelete ? 'opacity-50' : ''}`}
+                              />
+                              {photoModalState.beforeDelete && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-red-100/80 rounded-md">
+                                  <span className="text-red-700 font-semibold">Marked for Deletion</span>
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                // Toggle delete flag instead of calling API immediately
+                                if (photoModalState.beforeDelete) {
+                                  // Undo deletion
+                                  setPhotoModalState((s) => ({
+                                    ...s,
+                                    beforeDelete: false
+                                  }));
+                                } else {
+                                  // Mark for deletion
+                                  setPhotoModalState((s) => ({
+                                    ...s,
+                                    beforeDelete: true,
+                                    beforeFile: null, // Clear any pending upload
+                                    beforeFileToCrop: null
+                                  }));
+                                  // If there was a preview from a new file, clean it up
+                                  if (photoModalState.beforeFile && photoModalState.beforePreview) {
+                                    URL.revokeObjectURL(photoModalState.beforePreview);
+                                  }
+                                }
+                              }}
+                            >
+                              {photoModalState.beforeDelete ? 'Undo Delete' : 'Delete Before Photo'}
+                            </Button>
+                          </>
+                        ) : (
+                          <div className="space-y-3">
+                            {photoModalState.beforeFileToCrop ? (
+                              <ImageCropper
+                                file={photoModalState.beforeFileToCrop}
+                                onCrop={(croppedFile) => {
+                                  const preview = URL.createObjectURL(croppedFile);
+                                  setPhotoModalState((s) => ({
+                                    ...s,
+                                    beforeFile: croppedFile,
+                                    beforePreview: preview,
+                                    beforeFileToCrop: null,
+                                    beforeDelete: false // Clear delete flag if uploading new file
+                                  }));
+                                }}
+                                onCancel={() => {
+                                  setPhotoModalState((s) => ({
+                                    ...s,
+                                    beforeFileToCrop: null
+                                  }));
+                                  if (beforeFileInputRef.current) {
+                                    beforeFileInputRef.current.value = '';
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                                <input
+                                  ref={beforeFileInputRef}
+                                  type="file"
+                                  accept="image/png,image/jpeg,image/webp"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const validation = validateImageFile(file);
+                                      if (!validation.valid) {
+                                        setShowModal(true);
+                                        setModalConfig({
+                                          title: 'Invalid File',
+                                          message: validation.error,
+                                          type: 'error'
+                                        });
+                                        return;
+                                      }
+                                      setPhotoModalState((s) => ({
+                                        ...s,
+                                        beforeFileToCrop: file,
+                                        beforeDelete: false // Clear delete flag if selecting new file
+                                      }));
+                                    }
+                                  }}
+                                  className="hidden"
+                                />
+                                <Button 
+                                  size="sm" 
+                                  type="button"
+                                  onClick={() => beforeFileInputRef.current?.click()}
+                                >
+                                  Upload Before Photo
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">After</h4>
+                    {photoModalState.mode === 'upload' ? (
+                      <>
+                        {photoModalState.afterFileToCrop ? (
+                          <ImageCropper
+                            file={photoModalState.afterFileToCrop}
+                            onCrop={(croppedFile) => {
+                              const preview = URL.createObjectURL(croppedFile);
+                              setPhotoModalState((s) => ({
+                                ...s,
+                                afterFile: croppedFile,
+                                afterPreview: preview,
+                                afterFileToCrop: null,
+                                afterDelete: false // Clear delete flag if uploading new file
+                              }));
+                            }}
+                            onCancel={() => {
+                              setPhotoModalState((s) => ({
+                                ...s,
+                                afterFileToCrop: null
+                              }));
+                              // Reset file input
+                              if (afterFileInputRef.current) {
+                                afterFileInputRef.current.value = '';
+                              }
+                            }}
+                          />
+                        ) : (
+                          <>
+                            <div className="mb-3">
+                              {photoModalState.afterPreview ? (
+                                <img src={photoModalState.afterPreview} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                              ) : (
+                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                              )}
+                            </div>
+                            <div>
+                              <input
+                                ref={afterFileInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const validation = validateImageFile(file);
+                                    if (!validation.valid) {
+                                      setShowModal(true);
+                                      setModalConfig({
+                                        title: 'Invalid File',
+                                        message: validation.error,
+                                        type: 'error'
+                                      });
+                                      return;
+                                    }
+                                    // Set file to crop instead of immediately using it
+                                    setPhotoModalState((s) => ({
+                                      ...s,
+                                      afterFileToCrop: file,
+                                      afterDelete: false // Clear delete flag if selecting new file
+                                    }));
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                              <Button 
+                                size="sm" 
+                                type="button"
+                                onClick={() => afterFileInputRef.current?.click()}
+                              >
+                                Choose File
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        {photoModalState.afterPreview ? (
+                          <>
+                            <div className="relative">
+                              <img 
+                                src={photoModalState.afterPreview} 
+                                alt="after" 
+                                className={`w-full max-w-sm h-72 rounded-md object-cover border border-gray-200 ${photoModalState.afterDelete ? 'opacity-50' : ''}`}
+                              />
+                              {photoModalState.afterDelete && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-red-100/80 rounded-md">
+                                  <span className="text-red-700 font-semibold">Marked for Deletion</span>
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                // Toggle delete flag instead of calling API immediately
+                                if (photoModalState.afterDelete) {
+                                  // Undo deletion
+                                  setPhotoModalState((s) => ({
+                                    ...s,
+                                    afterDelete: false
+                                  }));
+                                } else {
+                                  // Mark for deletion
+                                  setPhotoModalState((s) => ({
+                                    ...s,
+                                    afterDelete: true,
+                                    afterFile: null, // Clear any pending upload
+                                    afterFileToCrop: null
+                                  }));
+                                  // If there was a preview from a new file, clean it up
+                                  if (photoModalState.afterFile && photoModalState.afterPreview) {
+                                    URL.revokeObjectURL(photoModalState.afterPreview);
+                                  }
+                                }
+                              }}
+                            >
+                              {photoModalState.afterDelete ? 'Undo Delete' : 'Delete After Photo'}
+                            </Button>
+                          </>
+                        ) : (
+                          <div className="space-y-3">
+                            {photoModalState.afterFileToCrop ? (
+                              <ImageCropper
+                                file={photoModalState.afterFileToCrop}
+                                onCrop={(croppedFile) => {
+                                  const preview = URL.createObjectURL(croppedFile);
+                                  setPhotoModalState((s) => ({
+                                    ...s,
+                                    afterFile: croppedFile,
+                                    afterPreview: preview,
+                                    afterFileToCrop: null
+                                  }));
+                                }}
+                                onCancel={() => {
+                                  setPhotoModalState((s) => ({
+                                    ...s,
+                                    afterFileToCrop: null
+                                  }));
+                                  if (afterFileInputRef.current) {
+                                    afterFileInputRef.current.value = '';
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                                <input
+                                  ref={afterFileInputRef}
+                                  type="file"
+                                  accept="image/png,image/jpeg,image/webp"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const validation = validateImageFile(file);
+                                      if (!validation.valid) {
+                                        setShowModal(true);
+                                        setModalConfig({
+                                          title: 'Invalid File',
+                                          message: validation.error,
+                                          type: 'error'
+                                        });
+                                        return;
+                                      }
+                                      setPhotoModalState((s) => ({
+                                        ...s,
+                                        afterFileToCrop: file
+                                      }));
+                                    }
+                                  }}
+                                  className="hidden"
+                                />
+                                <Button 
+                                  size="sm" 
+                                  type="button"
+                                  onClick={() => afterFileInputRef.current?.click()}
+                                >
+                                  Upload After Photo
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {photoModalState.mode === 'upload' && (
+                  <div className="flex justify-end gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        // Clean up preview URLs
+                        if (photoModalState.beforePreview && photoModalState.beforeFile) {
+                          URL.revokeObjectURL(photoModalState.beforePreview);
+                        }
+                        if (photoModalState.afterPreview && photoModalState.afterFile) {
+                          URL.revokeObjectURL(photoModalState.afterPreview);
+                        }
+                        setShowPhotoModal(false);
+                      }}
+                      disabled={photoModalState.uploading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        if (!photoModalState.beforeFile && !photoModalState.afterFile) {
+                          setShowModal(true);
+                          setModalConfig({
+                            title: 'No Photos Selected',
+                            message: 'Please select at least one photo to upload.',
+                            type: 'error'
+                          });
+                          return;
+                        }
+
+                        setPhotoModalState((s) => ({ ...s, uploading: true }));
+
+                        try {
+                          const bookingId = photoModalState.bookingId;
+                          let uploadSuccess = false;
+
+                          // Upload before photo if selected
+                          if (photoModalState.beforeFile) {
+                            await uploadBookingPhoto(bookingId, photoModalState.beforeFile, 'BEFORE');
+                            uploadSuccess = true;
+                          }
+
+                          // Upload after photo if selected
+                          if (photoModalState.afterFile) {
+                            await uploadBookingPhoto(bookingId, photoModalState.afterFile, 'AFTER');
+                            uploadSuccess = true;
+                          }
+
+                          if (!uploadSuccess) {
+                            throw new Error('No photos selected');
+                          }
+
+                          // Clean up preview URLs from file selection
+                          if (photoModalState.beforePreview && photoModalState.beforeFile) {
+                            URL.revokeObjectURL(photoModalState.beforePreview);
+                          }
+                          if (photoModalState.afterPreview && photoModalState.afterFile) {
+                            URL.revokeObjectURL(photoModalState.afterPreview);
+                          }
+
+                          // Refresh photos immediately to get the newly uploaded photos
+                          const photoData = await fetchBookingPhotos(bookingId);
+                          
+                          // Update modal state to show the newly uploaded photos in view mode
+                          setPhotoModalState({
+                            bookingId,
+                            beforeFile: null,
+                            afterFile: null,
+                            beforePreview: photoData?.beforePhotoUrl || null,
+                            afterPreview: photoData?.afterPhotoUrl || null,
+                            originalBeforeUrl: photoData?.beforePhotoUrl || null, // Update original URLs
+                            originalAfterUrl: photoData?.afterPhotoUrl || null, // Update original URLs
+                            beforeFileToCrop: null,
+                            afterFileToCrop: null,
+                            beforeDelete: false,
+                            afterDelete: false,
+                            mode: 'view',
+                            uploading: false
+                          });
+                          
+                          // Also refresh visit list to ensure UI updates
+                          if (selectedCustomer) {
+                            await fetchCustomerVisitHistory(selectedCustomer.user_id, visitsPagination.offset);
+                          }
+
+                          toast.success('Photos uploaded successfully');
+                          // Keep modal open to show the uploaded photos
+                        } catch (err) {
+                          setShowModal(true);
+                          setModalConfig({
+                            title: 'Upload Failed',
+                            message: err.message || 'Failed to upload photos. Please try again.',
+                            type: 'error'
+                          });
+                        } finally {
+                          setPhotoModalState((s) => ({ ...s, uploading: false }));
+                        }
+                      }}
+                      disabled={photoModalState.uploading}
+                    >
+                      {photoModalState.uploading ? 'Uploading...' : 'Save'}
+                    </Button>
+                  </div>
+                )}
+                {photoModalState.mode === 'view' && (
+                  <div className="flex justify-between gap-2">
+                    {(photoModalState.beforePreview && photoModalState.afterPreview) && (
+                      <Button
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => {
+                          // Toggle delete flags for both photos
+                          const bothMarked = photoModalState.beforeDelete && photoModalState.afterDelete;
+                          if (bothMarked) {
+                            // Undo both deletions
+                            setPhotoModalState((s) => ({
+                              ...s,
+                              beforeDelete: false,
+                              afterDelete: false
+                            }));
+                          } else {
+                            // Mark both for deletion
+                            setPhotoModalState((s) => ({
+                              ...s,
+                              beforeDelete: true,
+                              afterDelete: true,
+                              beforeFile: null, // Clear any pending uploads
+                              afterFile: null,
+                              beforeFileToCrop: null,
+                              afterFileToCrop: null
+                            }));
+                            // Clean up any preview URLs from new files
+                            if (photoModalState.beforeFile && photoModalState.beforePreview) {
+                              URL.revokeObjectURL(photoModalState.beforePreview);
+                            }
+                            if (photoModalState.afterFile && photoModalState.afterPreview) {
+                              URL.revokeObjectURL(photoModalState.afterPreview);
+                            }
+                          }
+                        }}
+                      >
+                        {(photoModalState.beforeDelete && photoModalState.afterDelete) ? 'Undo Delete All' : 'Delete All Photos'}
+                      </Button>
+                    )}
+                    <div className="flex gap-2">
+                      {/* Show Save button if there are pending changes (uploads or deletes) */}
+                      {(photoModalState.beforeFile || photoModalState.afterFile || photoModalState.beforeDelete || photoModalState.afterDelete) && (
+                        <Button
+                          onClick={async () => {
+                            const bookingId = photoModalState.bookingId;
+                            const hasUploads = photoModalState.beforeFile || photoModalState.afterFile;
+                            const hasDeletes = photoModalState.beforeDelete || photoModalState.afterDelete;
+
+                            if (!hasUploads && !hasDeletes) {
+                              setShowModal(true);
+                              setModalConfig({
+                                title: 'No Changes',
+                                message: 'No changes to save.',
+                                type: 'error'
+                              });
+                              return;
+                            }
+
+                            setPhotoModalState((s) => ({ ...s, uploading: true }));
+
+                            try {
+                              // Use original URLs to determine if photos existed when modal opened
+                              // This is more reliable than checking preview URLs which may be replaced with blob URLs
+                              const hadExistingBefore = !!photoModalState.originalBeforeUrl;
+                              const hadExistingAfter = !!photoModalState.originalAfterUrl;
+                              
+                              // BEFORE and AFTER are completely independent - handle each separately
+                              
+                              // Handle BEFORE photo operations
+                              if (photoModalState.beforeDelete && hadExistingBefore) {
+                                // User wants to delete the existing BEFORE photo
+                                await deleteBookingPhoto(bookingId, 'BEFORE');
+                              }
+                              if (photoModalState.beforeFile) {
+                                // User wants to upload a new BEFORE photo
+                                // If one existed, we already deleted it above (if beforeDelete was true)
+                                // If one existed and we're replacing (beforeFile set but beforeDelete false), delete it first
+                                if (hadExistingBefore && !photoModalState.beforeDelete) {
+                                  // Replacing existing photo - delete old one first
+                                  await deleteBookingPhoto(bookingId, 'BEFORE');
+                                }
+                                // Now upload the new file
+                                await uploadBookingPhoto(bookingId, photoModalState.beforeFile, 'BEFORE');
+                              }
+                              
+                              // Handle AFTER photo operations (independent of BEFORE)
+                              if (photoModalState.afterDelete && hadExistingAfter) {
+                                // User wants to delete the existing AFTER photo
+                                await deleteBookingPhoto(bookingId, 'AFTER');
+                              }
+                              if (photoModalState.afterFile) {
+                                // User wants to upload a new AFTER photo
+                                // If one existed, we already deleted it above (if afterDelete was true)
+                                // If one existed and we're replacing (afterFile set but afterDelete false), delete it first
+                                if (hadExistingAfter && !photoModalState.afterDelete) {
+                                  // Replacing existing photo - delete old one first
+                                  await deleteBookingPhoto(bookingId, 'AFTER');
+                                }
+                                // Now upload the new file
+                                await uploadBookingPhoto(bookingId, photoModalState.afterFile, 'AFTER');
+                              }
+
+                              // Clean up preview URLs from new file selections
+                              if (photoModalState.beforePreview && photoModalState.beforeFile) {
+                                URL.revokeObjectURL(photoModalState.beforePreview);
+                              }
+                              if (photoModalState.afterPreview && photoModalState.afterFile) {
+                                URL.revokeObjectURL(photoModalState.afterPreview);
+                              }
+
+                              // Refresh photos immediately to get the updated state
+                              const photoData = await fetchBookingPhotos(bookingId);
+                              
+                              // Also refresh visit list to ensure UI updates
+                              if (selectedCustomer) {
+                                await fetchCustomerVisitHistory(selectedCustomer.user_id, visitsPagination.offset);
+                              }
+
+                              // Update modal state with fresh photos
+                              setPhotoModalState({
+                                bookingId,
+                                beforeFile: null,
+                                afterFile: null,
+                                beforePreview: photoData?.beforePhotoUrl || null,
+                                afterPreview: photoData?.afterPhotoUrl || null,
+                                originalBeforeUrl: photoData?.beforePhotoUrl || null, // Update original URLs
+                                originalAfterUrl: photoData?.afterPhotoUrl || null, // Update original URLs
+                                beforeFileToCrop: null,
+                                afterFileToCrop: null,
+                                beforeDelete: false,
+                                afterDelete: false,
+                                mode: 'view',
+                                uploading: false
+                              });
+
+                              toast.success('Changes saved successfully');
+                            } catch (err) {
+                              setShowModal(true);
+                              setModalConfig({
+                                title: 'Save Failed',
+                                message: err.message || 'Failed to save changes. Please try again.',
+                                type: 'error'
+                              });
+                            } finally {
+                              setPhotoModalState((s) => ({ ...s, uploading: false }));
+                            }
+                          }}
+                          disabled={photoModalState.uploading}
+                        >
+                          {photoModalState.uploading ? 'Saving...' : 'Save'}
+                        </Button>
+                      )}
+                      <Button variant="outline" onClick={() => {
+                        // Clean up any pending preview URLs when closing
+                        if (photoModalState.beforeFile && photoModalState.beforePreview) {
+                          URL.revokeObjectURL(photoModalState.beforePreview);
+                        }
+                        if (photoModalState.afterFile && photoModalState.afterPreview) {
+                          URL.revokeObjectURL(photoModalState.afterPreview);
+                        }
+                        setShowPhotoModal(false);
+                      }}>Close</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

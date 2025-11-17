@@ -190,7 +190,7 @@ export default function SalonVerification() {
   return (
     <div className="min-h-screen bg-muted/30">
       <AdminNavbar
-        title="Salon Management"
+        title="Admin Dashboard"
         subtitle="Review and approve salon registrations"
         activeKey="salon-management"
         onLogout={handleLogout}

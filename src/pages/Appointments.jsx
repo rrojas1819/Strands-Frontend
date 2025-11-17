@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { AuthContext, RewardsContext } from '../context/AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Calendar, Clock, X, Edit2, Star } from 'lucide-react';
+import { Calendar, Clock, X, Edit2, Star, Image } from 'lucide-react';
 import { notifySuccess, notifyError } from '../utils/notifications';
 import { cmpUtc, formatLocal, todayYmdInZone } from '../utils/time';
 import StrandsModal from '../components/StrandsModal';
@@ -29,6 +29,14 @@ export default function Appointments() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedStylistForReview, setSelectedStylistForReview] = useState(null);
   const [stylistReviews, setStylistReviews] = useState({}); // Map of employee_id -> hasReview
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [photoModalState, setPhotoModalState] = useState({
+    bookingId: null,
+    beforePhotoUrl: null,
+    afterPhotoUrl: null
+  });
+  const loadingPhotosRef = useRef(false);
+  const reviewFetchAbortControllerRef = useRef(null);
 
   const formatStatusLabel = (status = '') => {
     if (!status) return '';
@@ -59,10 +67,20 @@ export default function Appointments() {
 
       if (response.ok) {
         const data = await response.json();
-        setAppointments(data.data || []);
+        const appointmentsList = data.data || [];
+        setAppointments(appointmentsList);
         
-        // Fetch reviews for stylists in past appointments
-        fetchStylistReviews(data.data || []);
+        // Defer reviews fetch - don't block page load or photo fetches
+        // Use requestIdleCallback to ensure it doesn't interfere with user actions
+        if (window.requestIdleCallback) {
+          requestIdleCallback(() => {
+            fetchStylistReviews(appointmentsList);
+          }, { timeout: 2000 });
+        } else {
+          setTimeout(() => {
+            fetchStylistReviews(appointmentsList);
+          }, 500);
+        }
       } else {
         const errorText = await response.text();
         console.error('Failed to fetch appointments:', errorText);
@@ -78,9 +96,18 @@ export default function Appointments() {
   };
 
   const fetchStylistReviews = async (appointmentsList) => {
+    // Cancel any existing review fetches if photo fetch is active
+    if (loadingPhotosRef.current) {
+      return;
+    }
+
     try {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Create abort controller for this batch of requests
+      const controller = new AbortController();
+      reviewFetchAbortControllerRef.current = controller;
       
       // Get unique employee_ids from past appointments
       const employeeIds = new Set();
@@ -94,16 +121,22 @@ export default function Appointments() {
         }
       });
 
-      // Fetch review for each employee
+      // Fetch review for each employee - but only if photo fetch is not active
       const reviewsMap = {};
       const reviewPromises = Array.from(employeeIds).map(async (employeeId) => {
+        // Skip if photo fetch started
+        if (loadingPhotosRef.current || controller.signal.aborted) {
+          return;
+        }
+
         try {
           const reviewResponse = await fetch(
             `${apiUrl}/staff-reviews/employee/${employeeId}/myReview`,
             {
               headers: {
                 'Authorization': `Bearer ${token}`
-              }
+              },
+              signal: controller.signal
             }
           );
           
@@ -114,16 +147,125 @@ export default function Appointments() {
             }
           }
         } catch (err) {
-          // Silently fail if review doesn't exist
+          // Silently fail if review doesn't exist or was aborted
+          if (err.name === 'AbortError') return;
         }
       });
 
       await Promise.allSettled(reviewPromises);
-      setStylistReviews(reviewsMap);
+      if (!controller.signal.aborted) {
+        setStylistReviews(reviewsMap);
+      }
     } catch (err) {
       // Silently fail - reviews are optional
+    } finally {
+      if (reviewFetchAbortControllerRef.current === controller) {
+        reviewFetchAbortControllerRef.current = null;
+      }
     }
   };
+
+  const handleViewPhotos = useCallback(async (bookingId, e) => {
+    if (e) e.stopPropagation();
+    
+    // Prevent multiple simultaneous calls using ref (doesn't cause re-renders)
+    if (loadingPhotosRef.current) return;
+    
+    // CRITICAL: Cancel any ongoing review fetches to free up network resources
+    if (reviewFetchAbortControllerRef.current) {
+      reviewFetchAbortControllerRef.current.abort();
+      reviewFetchAbortControllerRef.current = null;
+    }
+    
+    loadingPhotosRef.current = true;
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      loadingPhotosRef.current = false;
+      return;
+    }
+
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    
+    // Use AbortController for timeout (shorter timeout for faster failure)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout - fail fast
+    
+    try {
+      // CHECK FIRST: Don't open modal until we confirm photos exist
+      // HIGHEST PRIORITY: Fetch immediately, no delays, no queuing
+      const fetchOptions = {
+        method: 'GET',
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        },
+        signal: controller.signal,
+        keepalive: false
+      };
+      
+      // Add priority hint if supported (Chrome/Edge)
+      if ('priority' in Request.prototype) {
+        fetchOptions.priority = 'high';
+      }
+      
+      const response = await fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}`, fetchOptions);
+
+      clearTimeout(timeoutId);
+
+      // Handle 204 (No Content) and 404 (Not Found) as "no photos"
+      if (response.status === 204 || response.status === 404) {
+        loadingPhotosRef.current = false;
+        notifyError('Stylist has not uploaded any photos for this appointment.');
+        return;
+      }
+
+      if (!response.ok) {
+        loadingPhotosRef.current = false;
+        notifyError('Failed to load photos. Please try again.');
+        return;
+      }
+
+      const data = await response.json();
+      
+      // Backend returns { before: "...", after: "..." } format
+      // Empty strings mean no photo for that type
+      // Handle both new format and legacy format for safety
+      let beforeUrl = null;
+      let afterUrl = null;
+      
+      if (data.before !== undefined || data.after !== undefined) {
+        // New format: { before: "...", after: "..." }
+        beforeUrl = (data.before && data.before.trim()) || null;
+        afterUrl = (data.after && data.after.trim()) || null;
+      } else if (data.urls && Array.isArray(data.urls)) {
+        // Legacy format fallback: { urls: [...] } - first is before, second is after
+        beforeUrl = data.urls[0] || null;
+        afterUrl = data.urls[1] || null;
+      }
+      
+      // If both are empty/null, no photos exist
+      if (!beforeUrl && !afterUrl) {
+        loadingPhotosRef.current = false;
+        notifyError('Stylist has not uploaded any photos for this appointment.');
+        return;
+      }
+      
+      // Photos exist (at least one) - NOW open modal
+
+      setPhotoModalState({
+        bookingId,
+        beforePhotoUrl: beforeUrl,
+        afterPhotoUrl: afterUrl
+      });
+      setShowPhotoModal(true);
+      loadingPhotosRef.current = false;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      loadingPhotosRef.current = false;
+      if (err.name !== 'AbortError') {
+        notifyError('Failed to load photos. Please try again.');
+      }
+    }
+  }, []);
 
   const handleLogout = () => {
     Notifications.logoutSuccess();
@@ -478,6 +620,19 @@ export default function Appointments() {
                           {stylistReviews[appointment.stylists[0].employee_id] ? 'Edit Review' : 'Review Stylist'}
                         </Button>
                       )}
+                      {isPast && status === 'COMPLETED' && appointment.booking_id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewPhotos(appointment.booking_id, e);
+                          }}
+                        >
+                          <Image className="w-4 h-4 mr-1" />
+                          View Photos
+                        </Button>
+                      )}
                       {canReschedule && (
                         <Button
                           size="sm"
@@ -592,6 +747,59 @@ export default function Appointments() {
                     <p className="text-muted-foreground">Loading...</p>
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Photo View Modal */}
+      {showPhotoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-6 border-b">
+                <h3 className="text-lg font-semibold">Before/After Photos</h3>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setShowPhotoModal(false);
+                }}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-2">Before</h4>
+                    {photoModalState.beforePhotoUrl ? (
+                      <img src={photoModalState.beforePhotoUrl} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                    ) : (
+                      <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                        <p className="text-sm text-muted-foreground text-center px-4">
+                          {photoModalState.afterPhotoUrl ? 'Only after photo uploaded' : 'No before photo uploaded'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">After</h4>
+                    {photoModalState.afterPhotoUrl ? (
+                      <img src={photoModalState.afterPhotoUrl} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                    ) : (
+                      <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                        <p className="text-sm text-muted-foreground text-center px-4">
+                          {photoModalState.beforePhotoUrl ? 'Only before photo uploaded' : 'No after photo uploaded'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => setShowPhotoModal(false)}>
+                    Close
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
