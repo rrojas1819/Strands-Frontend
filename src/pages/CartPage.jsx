@@ -263,7 +263,7 @@ export default function CartPage() {
                               const val = parseInt(e.target.value) || 1;
                               handleUpdateQuantity(item.product_id, val);
                             }}
-                            className="w-16 text-center border-0 h-8"
+                            className="w-16 text-center border-0 h-8 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                             disabled={updating}
                           />
                           <Button

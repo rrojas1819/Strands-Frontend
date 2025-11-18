@@ -300,7 +300,7 @@ export default function App() {
     
     // Role-based dashboard routing
     if (user.role === 'ADMIN') {
-      return <AdminDashboard />;
+      return <Navigate to="/admin/salon-verification" replace />;
     }
     
     if (user.role === 'OWNER') {
