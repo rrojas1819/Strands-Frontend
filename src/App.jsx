@@ -304,7 +304,8 @@ export default function App() {
     }
     
     if (user.role === 'OWNER') {
-      return <SalonOwnerDashboard />;
+      // Redirect to overview by default
+      return <Navigate to="/owner/overview" replace />;
     }
     
     // UAR-1.8: Route EMPLOYEE role to HairstylistDashboard
@@ -395,8 +396,40 @@ export default function App() {
               element={user && user.role === 'CUSTOMER' ? <OrderHistoryPage /> : <Navigate to="/login" replace />} 
             />
             <Route 
+              path="/owner/overview" 
+              element={user && user.role === 'OWNER' ? <SalonOwnerDashboard /> : <Navigate to="/" replace />} 
+            />
+            <Route 
+              path="/owner/staff" 
+              element={user && user.role === 'OWNER' ? <SalonOwnerDashboard /> : <Navigate to="/" replace />} 
+            />
+            <Route 
+              path="/owner/products" 
+              element={user && user.role === 'OWNER' ? <SalonOwnerDashboard /> : <Navigate to="/" replace />} 
+            />
+            <Route 
+              path="/owner/customers" 
+              element={user && user.role === 'OWNER' ? <SalonOwnerDashboard /> : <Navigate to="/" replace />} 
+            />
+            <Route 
               path="/owner/order-history" 
               element={user && user.role === 'OWNER' ? <OwnerOrderHistoryPage /> : <Navigate to="/dashboard" replace />} 
+            />
+            <Route 
+              path="/owner/reviews" 
+              element={user && user.role === 'OWNER' ? <SalonOwnerDashboard /> : <Navigate to="/" replace />} 
+            />
+            <Route 
+              path="/owner/revenue" 
+              element={user && user.role === 'OWNER' ? <SalonOwnerDashboard /> : <Navigate to="/" replace />} 
+            />
+            <Route 
+              path="/owner/loyalty" 
+              element={user && user.role === 'OWNER' ? <SalonOwnerDashboard /> : <Navigate to="/" replace />} 
+            />
+            <Route 
+              path="/owner/settings" 
+              element={user && user.role === 'OWNER' ? <SalonOwnerDashboard /> : <Navigate to="/" replace />} 
             />
             <Route 
               path="/settings" 
