@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
 // Components
@@ -286,8 +286,12 @@ export default function App() {
     loading,
   };
 
-  // Role-based dashboard routing
-  const getDashboardComponent = () => {
+  // Dashboard wrapper component to check for tab query params
+  const DashboardWrapper = () => {
+    const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    
     if (loading) {
       return (
         <div className="min-h-screen flex items-center justify-center">
@@ -300,6 +304,11 @@ export default function App() {
     
     // Role-based dashboard routing
     if (user.role === 'ADMIN') {
+      // If there's a tab query parameter, show AdminDashboard instead of redirecting
+      if (tab === 'user-analytics' || tab === 'business-insights' || tab === 'revenue-analytics') {
+        return <AdminDashboard />;
+      }
+      // Otherwise redirect to salon verification
       return <Navigate to="/admin/salon-verification" replace />;
     }
     
@@ -349,7 +358,7 @@ export default function App() {
             />
             <Route 
               path="/dashboard" 
-              element={getDashboardComponent()} 
+              element={<DashboardWrapper />} 
             />
             <Route 
               path="/admin/salon-verification" 

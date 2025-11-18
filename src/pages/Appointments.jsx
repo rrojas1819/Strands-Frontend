@@ -559,9 +559,9 @@ export default function Appointments() {
                       })}
                     </div>
                     {appointment.services && appointment.services.length > 0 && (
-                      <div>
+                      <div className="mb-4">
                         <p className="text-sm font-medium mb-1">Services:</p>
-                        <div className="flex flex-wrap gap-2 mt-3">
+                        <div className="flex flex-wrap gap-2 mt-3 mb-2">
                           {appointment.services.map((service, idx) => (
                             <Badge key={idx} variant="secondary">
                               {service.service_name || service.name}

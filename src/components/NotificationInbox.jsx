@@ -25,6 +25,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
   const { refresh: refreshUnreadCount, setUnreadCount } = useNotifications();
   const pollingIntervalRef = useRef(null);
   const lastNotificationIdsRef = useRef(new Set());
+  const currentPageRef = useRef(1);
 
   const fetchNotifications = useCallback(async (page = 1, showToast = false) => {
     setLoading(true);
@@ -77,13 +78,16 @@ export default function NotificationInbox({ isOpen, onClose }) {
         lastNotificationIdsRef.current = new Set(newNotifications.map(n => n.notification_id));
         
         setNotifications(newNotifications);
-        setPagination({
+        const newPagination = {
           page: data.data.pagination.page,
           limit: data.data.pagination.limit,
           total: data.data.pagination.total,
           total_pages: data.data.pagination.total_pages,
           has_more: data.data.pagination.has_more
-        });
+        };
+        setPagination(newPagination);
+        // Update ref for polling
+        currentPageRef.current = newPagination.page;
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -185,19 +189,41 @@ export default function NotificationInbox({ isOpen, onClose }) {
       });
 
       if (response.ok) {
+        // Get current state before updating
+        const currentNotifications = notifications;
+        const currentPage = pagination.page;
+        const currentTotal = pagination.total;
+        
         // Remove notification from local state
         setNotifications((prev) => prev.filter((notif) => notif.notification_id !== notificationId));
         
-        // Update pagination total count
-        setPagination((prev) => ({
-          ...prev,
-          total: Math.max(0, prev.total - 1)
-        }));
+        // Update pagination - check if we need to go to previous page
+        const wasLastItemOnPage = currentNotifications.length === 1;
+        const shouldGoToPreviousPage = wasLastItemOnPage && currentPage > 1;
+        
+        if (shouldGoToPreviousPage) {
+          const previousPage = currentPage - 1;
+          currentPageRef.current = previousPage;
+          setPagination((prev) => ({
+            ...prev,
+            page: previousPage,
+            total: Math.max(0, currentTotal - 1)
+          }));
+          // Fetch previous page
+          setTimeout(() => fetchNotifications(previousPage), 100);
+        } else {
+          // Just update the total count
+          setPagination((prev) => ({
+            ...prev,
+            total: Math.max(0, currentTotal - 1)
+          }));
+        }
         
         // Refresh unread count
         await refreshUnreadCount();
         
         toast.success('Notification deleted');
+        // Note: Inbox stays open so user can continue deleting more notifications
       } else {
         // Handle different error statuses
         let errorMessage = `Failed to delete notification (${response.status})`;
@@ -212,17 +238,27 @@ export default function NotificationInbox({ isOpen, onClose }) {
     } finally {
       setDeletingId(null);
     }
-  }, [deletingId, refreshUnreadCount]);
+  }, [deletingId, refreshUnreadCount, notifications, pagination, fetchNotifications]);
 
   useEffect(() => {
     if (isOpen) {
       // Reset to page 1 when modal opens
+      currentPageRef.current = 1;
       setPagination(prev => ({ ...prev, page: 1 }));
       fetchNotifications(1);
-      
+    } else {
+      // Clear notification IDs when modal closes
+      lastNotificationIdsRef.current.clear();
+    }
+  }, [isOpen, fetchNotifications]);
+
+  // Separate effect for polling - uses ref to track current page
+  useEffect(() => {
+    if (isOpen) {
       // Start polling for new notifications every 5 seconds when inbox is open
       pollingIntervalRef.current = setInterval(() => {
-        fetchNotifications(pagination.page, false); // Don't show toast when inbox is open
+        // Use ref to get current page (avoids stale closure issues)
+        fetchNotifications(currentPageRef.current, false); // Don't show toast when inbox is open
       }, 5000); // Poll every 5 seconds
     } else {
       // Clear polling when modal closes
@@ -230,22 +266,23 @@ export default function NotificationInbox({ isOpen, onClose }) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
-      // Clear notification IDs when modal closes
-      lastNotificationIdsRef.current.clear();
     }
     
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
-  }, [isOpen, fetchNotifications, pagination.page, refreshUnreadCount]);
+  }, [isOpen, fetchNotifications]);
 
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= pagination.total_pages) {
+  const handlePageChange = useCallback((newPage) => {
+    if (newPage >= 1 && newPage <= pagination.total_pages && newPage !== pagination.page) {
+      currentPageRef.current = newPage;
+      setPagination(prev => ({ ...prev, page: newPage }));
       fetchNotifications(newPage);
     }
-  };
+  }, [pagination.page, pagination.total_pages, fetchNotifications]);
 
   const getNotificationIcon = (typeCode) => {
     switch (typeCode) {
@@ -268,7 +305,15 @@ export default function NotificationInbox({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" 
+      onClick={(e) => {
+        // Don't close inbox if delete confirmation modal is open
+        if (!showDeleteConfirm) {
+          onClose();
+        }
+      }}
+    >
       <Card className="w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-2xl font-bold text-foreground">Notifications</h2>
@@ -393,7 +438,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
                   variant="outline"
                   size="sm"
                   onClick={() => handlePageChange(pagination.page + 1)}
-                  disabled={!pagination.has_more || loading}
+                  disabled={pagination.page >= pagination.total_pages || loading}
                 >
                   Next
                 </Button>
@@ -403,25 +448,31 @@ export default function NotificationInbox({ isOpen, onClose }) {
         </CardContent>
       </Card>
       
-      {/* Delete Confirmation Modal */}
-      <StrandsModal
-        isOpen={showDeleteConfirm}
-        onClose={() => {
-          setShowDeleteConfirm(false);
-          setNotificationToDelete(null);
-        }}
-        title="Delete Notification"
-        message="Are you sure you want to delete this notification? This action cannot be undone."
-        type="warning"
-        onConfirm={() => {
-          if (notificationToDelete) {
-            deleteNotification(notificationToDelete);
-          }
-        }}
-        confirmText="Delete"
-        showCancel={true}
-        cancelText="Cancel"
-      />
+      {/* Delete Confirmation Modal - Higher z-index to be above inbox */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60]" onClick={(e) => e.stopPropagation()}>
+          <StrandsModal
+            isOpen={showDeleteConfirm}
+            onClose={() => {
+              setShowDeleteConfirm(false);
+              setNotificationToDelete(null);
+              // Keep main inbox open - don't close it
+            }}
+            title="Delete Notification"
+            message="Are you sure you want to delete this notification? This action cannot be undone."
+            type="warning"
+            onConfirm={() => {
+              if (notificationToDelete) {
+                deleteNotification(notificationToDelete);
+                // Keep main inbox open after deletion
+              }
+            }}
+            confirmText="Delete"
+            showCancel={true}
+            cancelText="Cancel"
+          />
+        </div>
+      )}
     </div>
   );
 }
