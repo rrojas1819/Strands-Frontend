@@ -261,7 +261,7 @@ export default function ProductsPage() {
                               [product.product_id]: Math.max(1, Math.min(val, max))
                             }));
                           }}
-                          className="w-16 text-center border-0 h-8"
+                          className="w-16 text-center border-0 h-8 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                         />
                         <Button
                           type="button"
