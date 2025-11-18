@@ -11,6 +11,7 @@ import { Clock, Users, Check, X, Menu, Eye, Star } from 'lucide-react';
 import { notifySuccess, notifyError, notifyInfo } from '../utils/notifications';
 import { trackSalonView, trackBooking } from '../utils/analytics';
 import { localWallClockToUtcIso, cmpUtc, todayYmdInZone, isSameSalonLocalDate, formatInZone } from '../utils/time';
+import { DateTime } from 'luxon';
 import StrandsModal from '../components/StrandsModal';
 import UserNavbar from '../components/UserNavbar';
 import StaffReviews from '../components/StaffReviews';
@@ -310,14 +311,43 @@ export default function BookingPage() {
         scheduledStartIso = selectedTimeSlot.start_time;
         scheduledEndIso = selectedTimeSlot.end_time;
       } else {
-        // Legacy HH:MM format - convert to UTC using salon timezone
-        scheduledStartIso = localWallClockToUtcIso(selectedDate, selectedTimeSlot.start_time, salonTimezone);
-        scheduledEndIso = localWallClockToUtcIso(selectedDate, selectedTimeSlot.end_time, salonTimezone);
+        // Legacy HH:MM format - convert to UTC using salon timezone with Luxon
+        const [startHours, startMinutes] = selectedTimeSlot.start_time.split(':').map(Number);
+        const [endHours, endMinutes] = selectedTimeSlot.end_time.split(':').map(Number);
+        
+        const startDateTime = DateTime.fromObject(
+          {
+            year: parseInt(selectedDate.split('-')[0]),
+            month: parseInt(selectedDate.split('-')[1]),
+            day: parseInt(selectedDate.split('-')[2]),
+            hour: startHours,
+            minute: startMinutes,
+            second: 0
+          },
+          { zone: salonTimezone }
+        );
+        
+        const endDateTime = DateTime.fromObject(
+          {
+            year: parseInt(selectedDate.split('-')[0]),
+            month: parseInt(selectedDate.split('-')[1]),
+            day: parseInt(selectedDate.split('-')[2]),
+            hour: endHours,
+            minute: endMinutes,
+            second: 0
+          },
+          { zone: salonTimezone }
+        );
+        
+        scheduledStartIso = startDateTime.toUTC().toISO();
+        scheduledEndIso = endDateTime.toUTC().toISO();
       }
       
-      // Validate time is not in the past using UTC comparison
-      const nowUtcIso = new Date().toISOString();
-      if (cmpUtc(scheduledStartIso, nowUtcIso) < 0) {
+      // Validate time is not in the past using Luxon for consistent timezone handling
+      const nowUtc = DateTime.now().toUTC();
+      const scheduledStartUtc = DateTime.fromISO(scheduledStartIso, { zone: 'utc' });
+      
+      if (scheduledStartUtc.isValid && nowUtc.isValid && scheduledStartUtc.valueOf() < nowUtc.valueOf()) {
         notifyError('Cannot book appointments in the past. Please select a time that is at or after the current time.');
         setBookingLoading(false);
         return;
@@ -873,25 +903,42 @@ export default function BookingPage() {
                             value={customStartTime}
                             onChange={(e) => {
                               setCustomStartTime(e.target.value);
-                              // Auto-calculate end time based on total duration
+                              // Auto-calculate end time based on total duration using Luxon for proper timezone handling
                               if (e.target.value && selectedServices.length > 0) {
                               const totalDuration = selectedServices.reduce((sum, service) => sum + (service.duration_minutes || 30), 0);
-                              const [hours, minutes] = e.target.value.split(':').map(Number);
-                              const startDateTime = new Date();
-                              startDateTime.setHours(hours, minutes, 0, 0);
-                              const endDateTime = new Date(startDateTime.getTime() + totalDuration * 60000);
-                              const endHours = endDateTime.getHours();
-                              const endMinutes = endDateTime.getMinutes();
-                              const endTimeStr = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
-                              
                               const salonTimezone = salon?.timezone || 'America/New_York';
+                              
+                              // Use Luxon to create DateTime in salon's timezone
+                              const [hours, minutes] = e.target.value.split(':').map(Number);
+                              const startDateTime = DateTime.fromObject(
+                                {
+                                  year: parseInt(selectedDate.split('-')[0]),
+                                  month: parseInt(selectedDate.split('-')[1]),
+                                  day: parseInt(selectedDate.split('-')[2]),
+                                  hour: hours,
+                                  minute: minutes,
+                                  second: 0
+                                },
+                                { zone: salonTimezone }
+                              );
+                              
+                              // Add duration and get end time in salon's timezone
+                              const endDateTime = startDateTime.plus({ minutes: totalDuration });
+                              const endTimeStr = `${String(endDateTime.hour).padStart(2, '0')}:${String(endDateTime.minute).padStart(2, '0')}`;
+                              
                               const todayInSalonZone = todayYmdInZone(salonTimezone);
                               const isToday = selectedDate === todayInSalonZone;
                               
+                              // Use Luxon for validation to ensure consistency with timezone handling
                               if (isToday) {
-                                const customSlotUtcIso = localWallClockToUtcIso(selectedDate, e.target.value, salonTimezone);
-                                const nowUtcIso = new Date().toISOString();
-                                if (cmpUtc(customSlotUtcIso, nowUtcIso) < 0) {
+                                // Compare using Luxon's DateTime objects directly
+                                const customSlotUtc = startDateTime.toUTC();
+                                const nowUtc = DateTime.now().toUTC();
+                                
+                                // Use Luxon's comparison
+                                if (customSlotUtc.valueOf() < nowUtc.valueOf()) {
+                                  console.log(customSlotUtc.valueOf())
+                                  console.log(nowUtc.valueOf())
                                   notifyError('Cannot book appointments in the past. Please select a time that is at or after the current time.');
                                   setSelectedTimeSlot(null);
                                   setCustomStartTime('');
