@@ -1,16 +1,20 @@
-import React, { useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { LogOut } from 'lucide-react';
+import { LogOut, Mail } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 import { toast } from 'sonner';
+import NotificationInbox from './NotificationInbox';
+import { useNotifications } from '../hooks/useNotifications';
 
 export default function OwnerNavbar({ salonStatus, activeTab, onTabChange, handleLogout }) {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { unreadCount } = useNotifications();
 
   const handleNavClick = (tab, path) => {
     if (onTabChange && location.pathname === '/dashboard') {
@@ -63,6 +67,19 @@ export default function OwnerNavbar({ salonStatus, activeTab, onTabChange, handl
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowNotifications(true)}
+                className="relative"
+              >
+                <Mail className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Badge>
+                )}
+              </Button>
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Owner
               </Badge>
@@ -146,6 +163,7 @@ export default function OwnerNavbar({ salonStatus, activeTab, onTabChange, handl
           </div>
         </div>
       </nav>
+      <NotificationInbox isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
     </>
   );
 }

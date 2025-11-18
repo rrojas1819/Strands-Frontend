@@ -3,7 +3,9 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { AuthContext, RewardsContext } from '../context/AuthContext';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { LogOut, Star, Menu, X } from 'lucide-react';
+import { LogOut, Star, Menu, X, Mail } from 'lucide-react';
+import NotificationInbox from './NotificationInbox';
+import { useNotifications } from '../hooks/useNotifications';
 
 export default function UserNavbar({ activeTab, title, subtitle }) {
   const { user, logout } = useContext(AuthContext);
@@ -11,6 +13,8 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { unreadCount } = useNotifications();
 
   const handleLogout = () => {
     logout();
@@ -48,6 +52,19 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
                 <Star className="w-4 h-4 text-yellow-600" />
                 <span className="text-xs sm:text-sm font-medium text-yellow-800">{rewardsCount} rewards</span>
               </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowNotifications(true)}
+                className="relative hidden sm:flex"
+              >
+                <Mail className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Badge>
+                )}
+              </Button>
               <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs sm:text-sm hidden sm:inline-flex">
                 {user?.role || 'User'}
               </Badge>
@@ -80,6 +97,21 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
               <Star className="w-4 h-4 text-yellow-600" />
               <span className="text-sm font-medium text-yellow-800">Loyalty Program ({rewardsCount} rewards)</span>
             </Link>
+            <Button
+              variant="outline"
+              onClick={() => { setShowNotifications(true); setIsMobileMenuOpen(false); }}
+              className="w-full flex items-center justify-between px-3 py-2"
+            >
+              <div className="flex items-center space-x-2">
+                <Mail className="w-4 h-4" />
+                <span>Notifications</span>
+              </div>
+              {unreadCount > 0 && (
+                <Badge className="bg-red-500 text-white text-xs">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Badge>
+              )}
+            </Button>
             <div className="flex items-center justify-between px-3 py-2">
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 {user?.role || 'User'}
@@ -171,6 +203,7 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
           )}
         </div>
       </nav>
+      <NotificationInbox isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
     </>
   );
 }
