@@ -50,6 +50,7 @@ export default function SalonOwnerDashboard() {
   const location = useLocation();
   const [hasSalon, setHasSalon] = useState(false);
   const [salonStatus, setSalonStatus] = useState(null);
+  const [isCheckingSalon, setIsCheckingSalon] = useState(true); // Loading state to prevent flash
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [reviewsSubTab, setReviewsSubTab] = useState('salon');
@@ -135,44 +136,74 @@ export default function SalonOwnerDashboard() {
   const [selectedStylist, setSelectedStylist] = useState(null);
 
   useEffect(() => {
-    // Check for tab in URL params
-    const searchParams = new URLSearchParams(location.search);
-    const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && ['overview', 'staff-services', 'products', 'customers', 'reviews', 'loyalty', 'settings', 'revenue'].includes(tabFromUrl)) {
-      setActiveTab(tabFromUrl);
+    // Determine active tab from route path
+    const path = location.pathname;
+    let tabFromRoute = 'overview';
+    
+    if (path === '/owner/overview' || path === '/dashboard') {
+      tabFromRoute = 'overview';
+    } else if (path === '/owner/staff') {
+      tabFromRoute = 'staff-services';
+    } else if (path === '/owner/products') {
+      tabFromRoute = 'products';
+    } else if (path === '/owner/customers') {
+      tabFromRoute = 'customers';
+    } else if (path === '/owner/reviews') {
+      tabFromRoute = 'reviews';
+    } else if (path === '/owner/revenue') {
+      tabFromRoute = 'revenue';
+    } else if (path === '/owner/loyalty') {
+      tabFromRoute = 'loyalty';
+    } else if (path === '/owner/settings') {
+      tabFromRoute = 'settings';
     }
-  }, [location.search]);
+    
+    setActiveTab(tabFromRoute);
+  }, [location.pathname]);
 
   useEffect(() => {
     const checkSalonStatus = async () => {
+      setIsCheckingSalon(true);
       try {
         const token = localStorage.getItem('auth_token');
         if (!token) {
           setHasSalon(false);
           setSalonStatus(null);
+          setIsCheckingSalon(false);
           return;
         }
 
         const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/check`, {
           headers: {
             'Authorization': `Bearer ${token}`
-          }
+          },
+          // Add cache control to prevent stale data
+          cache: 'no-cache'
         });
 
         if (response.ok) {
           const data = await response.json();
           setHasSalon(data.hasSalon);
           setSalonStatus(data.status);
+        } else {
+          // If 404 or error, no salon exists
+          setHasSalon(false);
+          setSalonStatus(null);
         }
       } catch (error) {
         console.error('Error checking salon status:', error);
         setHasSalon(false);
         setSalonStatus(null);
+      } finally {
+        setIsCheckingSalon(false);
       }
     };
 
     if (authContext?.user?.user_id) {
       checkSalonStatus();
+    } else {
+      // If no user, don't show loading
+      setIsCheckingSalon(false);
     }
   }, [authContext?.user?.user_id]);
 
@@ -802,27 +833,36 @@ export default function SalonOwnerDashboard() {
     <div className="min-h-screen bg-muted/30">
       <OwnerNavbar 
         salonStatus={salonStatus}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
         handleLogout={handleLogout}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
-            Welcome, {authContext?.user?.full_name}!
-          </h2>
-          <p className="text-muted-foreground">
-            {hasSalon 
-              ? 'Manage your salon business and grow your customer base.' 
-              : 'Register your salon to start accepting bookings and managing your business.'
-            }
-                      </p>
-                    </div>
+        {/* Show loading state while checking salon status - prevents flash of registration form */}
+        {isCheckingSalon ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <>
+            {/* Welcome message only on overview tab - only show after loading completes */}
+            {activeTab === 'overview' && (
+              <div className="mb-8">
+                <h2 className="text-3xl font-bold text-foreground mb-2">
+                  Welcome, {authContext?.user?.full_name}!
+                </h2>
+                <p className="text-muted-foreground">
+                  {hasSalon 
+                    ? 'Manage your salon business and grow your customer base.' 
+                    : 'Register your salon to start accepting bookings and managing your business.'
+                  }
+                </p>
+              </div>
+            )}
 
-        {!hasSalon && <SalonRegistrationForm />}
-        
-        {hasSalon && salonStatus !== 'APPROVED' && (
+            {/* Only show registration form if we've confirmed there's no salon */}
+            {!hasSalon && <SalonRegistrationForm />}
+            
+            {hasSalon && salonStatus !== 'APPROVED' && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-background border rounded-lg p-8 text-center">
               <div className="flex justify-center mb-6">
@@ -2019,6 +2059,8 @@ export default function SalonOwnerDashboard() {
               </CardContent>
             </Card>
           </div>
+            )}
+          </>
         )}
       </main>
     </div>

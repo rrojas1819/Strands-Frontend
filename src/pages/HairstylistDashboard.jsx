@@ -7,13 +7,15 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import ImageCropper from '../components/ImageCropper';
-import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye, DollarSign, TrendingUp } from 'lucide-react';
+import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye, DollarSign, TrendingUp, Mail, Bell } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import StrandsModal from '../components/ui/strands-modal';
 import PrivateNoteCard from '../components/PrivateNoteCard';
+import NotificationInbox from '../components/NotificationInbox';
+import { useNotifications } from '../hooks/useNotifications';
 import { toast } from 'sonner';
 import { formatLocalDate, formatLocalTime } from '../lib/utils';
 import { formatInZone, cmpUtc } from '../utils/time';
@@ -99,6 +101,9 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   // Photo storage keyed by booking_id: { beforePhotoUrl, afterPhotoUrl, beforePhotoId, afterPhotoId }
   const [visitPhotosByBookingId, setVisitPhotosByBookingId] = useState({});
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [alertLoading, setAlertLoading] = useState(false);
+  const { unreadCount } = useNotifications();
   const [photoModalState, setPhotoModalState] = useState({
     bookingId: null,
     beforeFile: null,
@@ -509,6 +514,65 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       await authContext?.logout();
     } catch (error) {
       console.error('Logout error:', error);
+    }
+  };
+
+
+  const handleAlertEveryone = async () => {
+    if (alertLoading) return;
+
+    setAlertLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Authentication required');
+        setAlertLoading(false);
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/notifications/stylist/send-reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // Handle non-JSON responses (like 404 HTML pages)
+      if (!response.ok && response.status === 404) {
+        toast.error('Reminder endpoint not found. Please check backend configuration.');
+        setAlertLoading(false);
+        return;
+      }
+
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        toast.error('Server error: Invalid response format');
+        setAlertLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message || 'Reminders sent successfully');
+      } else {
+        // Check if it's a cooldown error
+        if (response.status === 429 || (data.message && data.message.toLowerCase().includes('cooldown'))) {
+          toast.error(data.message || 'Please wait before sending another alert');
+        } else {
+          toast.error(data.message || 'Failed to send reminders');
+        }
+      }
+    } catch (err) {
+      console.error('Error sending alerts:', err);
+      toast.error('Failed to send reminders. Please try again.');
+    } finally {
+      setAlertLoading(false);
     }
   };
 
@@ -1731,6 +1795,19 @@ const handleCancelSelectedAppointment = async () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowNotifications(true)}
+                className="relative"
+              >
+                <Mail className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Badge>
+                )}
+              </Button>
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Hairstylist
               </Badge>
@@ -1812,6 +1889,16 @@ const handleCancelSelectedAppointment = async () => {
                 >
                   <Calendar className="w-4 h-4" />
                   <span>View Cancelled</span>
+                </Button>
+                <Button 
+                  onClick={handleAlertEveryone}
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center space-x-2"
+                  disabled={alertLoading}
+                >
+                  <Bell className="w-4 h-4" />
+                  <span>Alert Everyone</span>
                 </Button>
               </div>
               
@@ -4358,6 +4445,7 @@ const handleCancelSelectedAppointment = async () => {
         showCancel={modalConfig.showCancel || false}
         cancelText={modalConfig.cancelText || 'Cancel'}
       />
+      <NotificationInbox isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
     </div>
   );
 }
