@@ -440,7 +440,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
                   <Input
                     id="price"
                     type="number"
-                    step="0.01"
+                    step="1.00"
                     min="0"
                     value={formData.price}
                     onChange={(e) => setFormData({...formData, price: e.target.value})}
@@ -545,7 +545,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
                   <Input
                     id="edit-price"
                     type="number"
-                    step="0.01"
+                    step="1.00"
                     min="0"
                     value={formData.price}
                     onChange={(e) => setFormData({...formData, price: e.target.value})}
