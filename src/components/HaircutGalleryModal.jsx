@@ -207,14 +207,25 @@ export default function HaircutGalleryModal({ isOpen, onClose, salonId, salonNam
       });
     }
     
-    // Sort by date (newest first) if dates are available
-    if (paired.some(h => h.date)) {
-      paired.sort((a, b) => {
-        if (!a.date) return 1;
-        if (!b.date) return -1;
-        return new Date(b.date) - new Date(a.date);
-      });
-    }
+    // Sort by date and time (newest first) - chronological order with most recent on top
+    paired.sort((a, b) => {
+      // Items without dates go to the end
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      
+      // Sort by full datetime (date + time) descending (newest first)
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      
+      // Handle invalid dates
+      if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
+      if (isNaN(dateA.getTime())) return 1;
+      if (isNaN(dateB.getTime())) return -1;
+      
+      // Sort by full timestamp (includes time component) - newest first
+      return dateB.getTime() - dateA.getTime();
+    });
     
     return paired;
   }, [galleryData]);
