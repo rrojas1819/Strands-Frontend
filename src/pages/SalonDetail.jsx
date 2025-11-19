@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { MapPin, Phone, Mail, Star, Clock, Calendar, Users, Award, Edit, Trash2 } from 'lucide-react';
+import { MapPin, Phone, Mail, Star, Clock, Calendar, Users, Award, Edit, Trash2, Scissors } from 'lucide-react';
 import { Notifications, notifyError, notifySuccess } from '../utils/notifications';
 import { trackSalonView } from '../utils/analytics';
 import StrandsModal from '../components/StrandsModal';
 import SalonReviews from '../components/SalonReviews';
 import { Textarea } from '../components/ui/textarea';
 import UserNavbar from '../components/UserNavbar';
+import HaircutGalleryModal from '../components/HaircutGalleryModal';
 
 export default function SalonDetail() {
   const { user } = useContext(AuthContext);
@@ -31,6 +32,7 @@ export default function SalonDetail() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmModalConfig, setConfirmModalConfig] = useState({});
   const [hoverRating, setHoverRating] = useState(0);
+  const [showHaircutGallery, setShowHaircutGallery] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -520,6 +522,14 @@ export default function SalonDetail() {
                   <Calendar className="w-4 h-4 mr-2" />
                   View My Appointments
                 </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => setShowHaircutGallery(true)}
+                >
+                  <Scissors className="w-4 h-4 mr-2" />
+                  View Haircuts
+                </Button>
               </CardContent>
             </Card>
 
@@ -887,6 +897,14 @@ export default function SalonDetail() {
         confirmText="Confirm"
         cancelText="Cancel"
         type={confirmModalConfig.type || 'info'}
+      />
+
+      {/* Haircut Gallery Modal */}
+      <HaircutGalleryModal
+        isOpen={showHaircutGallery}
+        onClose={() => setShowHaircutGallery(false)}
+        salonId={salonId}
+        salonName={salon?.name}
       />
     </div>
   );
