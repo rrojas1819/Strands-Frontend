@@ -18,6 +18,8 @@ export default function AdminDashboard() {
   const [appointmentLoading, setAppointmentLoading] = useState(false);
   const [revenueAnalytics, setRevenueAnalytics] = useState(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
+  const [customerRetention, setCustomerRetention] = useState(null);
+  const [retentionLoading, setRetentionLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('user-analytics');
@@ -28,6 +30,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchDemographics();
     fetchUserEngagement();
+    fetchCustomerRetention();
   }, []);
 
   useEffect(() => {
@@ -218,6 +221,43 @@ export default function AdminDashboard() {
       toast.error('Failed to fetch revenue analytics data');
     } finally {
       setRevenueLoading(false);
+    }
+  };
+
+  const fetchCustomerRetention = async () => {
+    try {
+      setRetentionLoading(true);
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setRetentionLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/customer-retention-analytics`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Handle both { data: {...} } and direct data response
+        if (data.data) {
+          setCustomerRetention(data.data);
+        } else {
+          setCustomerRetention(data);
+        }
+      } else {
+        setCustomerRetention(null);
+      }
+    } catch (err) {
+      setCustomerRetention(null);
+    } finally {
+      setRetentionLoading(false);
     }
   };
 
@@ -630,6 +670,260 @@ export default function AdminDashboard() {
               Engagement statistics will appear here once data is available.
                     </p>
                           </div>
+        )}
+
+        {/* Customer Retention Metrics Section */}
+        <div className="mt-8 mb-8">
+          <h2 className="text-3xl font-bold text-foreground mb-2">
+            Customer Retention Metrics
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Track customer loyalty, rebooking rates, and stylist preferences.
+          </p>
+        </div>
+
+        {retentionLoading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading retention data...</p>
+          </div>
+        ) : customerRetention ? (
+          <div className="space-y-6">
+            {/* Key Metrics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Repeat className="w-5 h-5" />
+                    <span>Rebooking Rate</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Percentage of customers who return for additional appointments
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-6">
+                    <div className="text-5xl font-bold text-primary mb-2">
+                      {parseFloat(customerRetention.rebooking_rate_percent || 0).toFixed(1)}%
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Customers returning for repeat visits
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="w-5 h-5" />
+                    <span>Average Return Interval</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Average days between customer visits
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-6">
+                    <div className="text-5xl font-bold text-primary mb-2">
+                      {parseFloat(customerRetention.avg_return_interval_days || 0).toFixed(1)}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Days between appointments
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* First Time vs Returning Customers */}
+            {customerRetention.first_time_VS_return_time && customerRetention.first_time_VS_return_time.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="w-5 h-5" />
+                    <span>Customer Type Distribution</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Breakdown of first-time vs returning customers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const data = customerRetention.first_time_VS_return_time[0];
+                    const firstTime = parseInt(data.first_time_customers || 0);
+                    const returning = parseInt(data.returning_customers || 0);
+                    const total = firstTime + returning;
+                    const firstTimePercent = parseFloat(data.first_time_percentage || 0);
+                    const returningPercent = parseFloat(data.returning_percentage || 0);
+
+                    // Calculate pie chart segments
+                    const firstTimeAngle = (firstTimePercent / 100) * 360;
+                    const returningAngle = (returningPercent / 100) * 360;
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Pie Chart Visualization */}
+                        <div className="flex items-center justify-center">
+                          <div className="relative w-64 h-64">
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                              {total > 0 ? (
+                                <>
+                                  {/* First-Time Customers segment */}
+                                  {firstTime > 0 && (() => {
+                                    const radius = 40;
+                                    const centerX = 50;
+                                    const centerY = 50;
+                                    const startAngle = 0;
+                                    const endAngle = firstTimeAngle;
+                                    const startAngleRad = (startAngle * Math.PI) / 180;
+                                    const endAngleRad = (endAngle * Math.PI) / 180;
+                                    
+                                    const x1 = centerX + radius * Math.cos(startAngleRad);
+                                    const y1 = centerY + radius * Math.sin(startAngleRad);
+                                    const x2 = centerX + radius * Math.cos(endAngleRad);
+                                    const y2 = centerY + radius * Math.sin(endAngleRad);
+                                    
+                                    const largeArcFlag = firstTimeAngle > 180 ? 1 : 0;
+                                    
+                                    const pathData = [
+                                      `M ${centerX} ${centerY}`,
+                                      `L ${x1} ${y1}`,
+                                      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+                                      'Z'
+                                    ].join(' ');
+                                    
+                                    return (
+                                      <path
+                                        key="first-time"
+                                        d={pathData}
+                                        fill="#3b82f6"
+                                        stroke="white"
+                                        strokeWidth="0.5"
+                                      />
+                                    );
+                                  })()}
+                                  
+                                  {/* Returning Customers segment */}
+                                  {returning > 0 && (() => {
+                                    const radius = 40;
+                                    const centerX = 50;
+                                    const centerY = 50;
+                                    const startAngle = firstTimeAngle;
+                                    const endAngle = 360;
+                                    const startAngleRad = (startAngle * Math.PI) / 180;
+                                    const endAngleRad = (endAngle * Math.PI) / 180;
+                                    
+                                    const x1 = centerX + radius * Math.cos(startAngleRad);
+                                    const y1 = centerY + radius * Math.sin(startAngleRad);
+                                    const x2 = centerX + radius * Math.cos(endAngleRad);
+                                    const y2 = centerY + radius * Math.sin(endAngleRad);
+                                    
+                                    const largeArcFlag = returningAngle > 180 ? 1 : 0;
+                                    
+                                    const pathData = [
+                                      `M ${centerX} ${centerY}`,
+                                      `L ${x1} ${y1}`,
+                                      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+                                      'Z'
+                                    ].join(' ');
+                                    
+                                    return (
+                                      <path
+                                        key="returning"
+                                        d={pathData}
+                                        fill="#10b981"
+                                        stroke="white"
+                                        strokeWidth="0.5"
+                                      />
+                                    );
+                                  })()}
+                                </>
+                              ) : (
+                                <circle cx="50" cy="50" r="40" fill="#e5e7eb" stroke="white" strokeWidth="0.5" />
+                              )}
+                            </svg>
+                          </div>
+                        </div>
+
+                        {/* Legend */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-foreground">First-Time Customers</p>
+                              <p className="text-xs text-muted-foreground">
+                                {firstTime} ({firstTimePercent.toFixed(1)}%)
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-foreground">Returning Customers</p>
+                              <p className="text-xs text-muted-foreground">
+                                {returning} ({returningPercent.toFixed(1)}%)
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="text-left pt-2 border-t">
+                          <p className="text-sm text-muted-foreground">
+                            Total Customers: <span className="font-semibold text-foreground">{total}</span>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Favorite Stylist Loyalty */}
+            {customerRetention.favorite_stylist_loyalty && customerRetention.favorite_stylist_loyalty.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Award className="w-5 h-5" />
+                    <span>Favorite Stylist Loyalty</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Stylists with the most loyal repeat customers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {customerRetention.favorite_stylist_loyalty.map((stylist, index) => (
+                      <div key={index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{stylist.stylist_name}</p>
+                            <p className="text-sm text-muted-foreground">{stylist.salon_name}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-primary">{stylist.loyal_customers}</p>
+                          <p className="text-xs text-muted-foreground">loyal customers</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-white rounded-lg border">
+            <Repeat className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No retention data available</h3>
+            <p className="text-sm text-muted-foreground">
+              Customer retention metrics will appear here once data is available.
+            </p>
+          </div>
         )}
 
             {/* Action Buttons */}
