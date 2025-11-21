@@ -417,13 +417,14 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
           }
 
           const rewardInfo = booking.reward || booking.rewardInfo || null;
+          const promoInfo = booking.promo || null;
           const actualAmountPaidRaw = booking.actual_amount_paid !== undefined && booking.actual_amount_paid !== null
             ? booking.actual_amount_paid
             : booking.actualAmountPaid;
           const actualAmountPaid = actualAmountPaidRaw !== undefined && actualAmountPaidRaw !== null
             ? (typeof actualAmountPaidRaw === 'number' ? actualAmountPaidRaw : parseFloat(actualAmountPaidRaw))
             : totalPrice;
-          const hasDiscount = rewardInfo && !Number.isNaN(actualAmountPaid) && actualAmountPaid < totalPrice;
+          const hasDiscount = (rewardInfo || promoInfo) && !Number.isNaN(actualAmountPaid) && actualAmountPaid < totalPrice;
           
           // Map backend status to frontend status - handle various possible status values
           let status = 'pending';
@@ -478,6 +479,7 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
             totalPrice: totalPrice,
             actualAmountPaid: !Number.isNaN(actualAmountPaid) ? actualAmountPaid : totalPrice,
             reward: rewardInfo,
+            promo: promoInfo,
             hasDiscount,
             status: status,
             phone: phone
@@ -2359,8 +2361,13 @@ const handleCancelSelectedAppointment = async () => {
                           ? appointment.actualAmountPaid
                           : originalTotal;
                         const rewardInfo = appointment.reward || null;
-                        const hasDiscount = appointment.hasDiscount || (rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal);
-                        const discountLabel = rewardInfo?.discount_percentage ? `${rewardInfo.discount_percentage}% off` : 'Discount applied';
+                        const promoInfo = appointment.promo || null;
+                        const hasDiscount = appointment.hasDiscount || (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
+                        const discountLabel = rewardInfo?.discount_percentage 
+                          ? `${rewardInfo.discount_percentage}% off`
+                          : promoInfo?.discount_pct
+                          ? `${promoInfo.discount_pct}% off`
+                          : 'Discount applied';
 
                         return (
                           <div key={appointment.id} className="p-4">
@@ -2374,7 +2381,7 @@ const handleCancelSelectedAppointment = async () => {
                                   <div className="flex items-center gap-2">
                                     {hasDiscount && (
                                       <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-                                        Discounted
+                                        {promoInfo ? 'Promo Applied' : 'Discounted'}
                                       </Badge>
                                     )}
                                     <Badge className={getStatusColor(appointment.status)}>
@@ -3280,7 +3287,7 @@ const handleCancelSelectedAppointment = async () => {
                   <div className="flex items-center gap-2">
                     {selectedAppointment.hasDiscount && (
                       <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-                        Discounted
+                        {selectedAppointment.promo ? 'Promo Applied' : 'Discounted'}
                       </Badge>
                     )}
                     <Badge className={getStatusColor(selectedAppointment.status)}>
@@ -3310,8 +3317,13 @@ const handleCancelSelectedAppointment = async () => {
                             </span>
                           </div>
                           <span className="text-xs text-muted-foreground">
-                            {selectedAppointment.reward?.discount_percentage ? `${selectedAppointment.reward.discount_percentage}% off` : 'Discount applied'}
+                            {selectedAppointment.reward?.discount_percentage 
+                              ? `${selectedAppointment.reward.discount_percentage}% off`
+                              : selectedAppointment.promo?.discount_pct
+                              ? `${selectedAppointment.promo.discount_pct}% off (Promo: ${selectedAppointment.promo.promo_code})`
+                              : 'Discount applied'}
                             {selectedAppointment.reward?.note ? ` ${selectedAppointment.reward.note}` : ''}
+                            {selectedAppointment.promo?.promo_code && !selectedAppointment.reward ? ` Promo Code: ${selectedAppointment.promo.promo_code}` : ''}
                           </span>
                   </div>
                 ) : (
@@ -3423,8 +3435,13 @@ const handleCancelSelectedAppointment = async () => {
                             ? appointment.actualAmountPaid
                             : originalTotal;
                           const rewardInfo = appointment.reward || null;
-                          const hasDiscount = appointment.hasDiscount || (rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal);
-                          const discountLabel = rewardInfo?.discount_percentage ? `${rewardInfo.discount_percentage}% off` : 'Discount applied';
+                          const promoInfo = appointment.promo || null;
+                          const hasDiscount = appointment.hasDiscount || (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
+                          const discountLabel = rewardInfo?.discount_percentage 
+                            ? `${rewardInfo.discount_percentage}% off`
+                            : promoInfo?.discount_pct
+                            ? `${promoInfo.discount_pct}% off`
+                            : 'Discount applied';
 
                           return (
                             <div key={appointment.id} className="border rounded-lg p-4 bg-red-50 border-red-200">
@@ -3438,7 +3455,7 @@ const handleCancelSelectedAppointment = async () => {
                                 <div className="flex items-center gap-2">
                                        {hasDiscount && (
                                          <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-                                           Discounted
+                                           {promoInfo ? 'Promo Applied' : 'Discounted'}
                                          </Badge>
                                       )}
                                   <Badge className={getStatusColor(appointment.status)}>
@@ -3474,6 +3491,7 @@ const handleCancelSelectedAppointment = async () => {
                                           <span className="text-xs text-muted-foreground">
                                             {discountLabel}
                                             {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                                            {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
                                           </span>
                                         </div>
                                       ) : (
@@ -3564,8 +3582,13 @@ const handleCancelSelectedAppointment = async () => {
                         ? (typeof visit.actual_amount_paid === 'number' ? visit.actual_amount_paid : parseFloat(visit.actual_amount_paid))
                         : originalTotal;
                       const rewardInfo = visit.reward || null;
-                      const hasDiscount = rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
-                      const discountLabel = rewardInfo?.discount_percentage ? `${rewardInfo.discount_percentage}% off` : 'Discount applied';
+                      const promoInfo = visit.promo || null;
+                      const hasDiscount = (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
+                      const discountLabel = rewardInfo?.discount_percentage 
+                        ? `${rewardInfo.discount_percentage}% off`
+                        : promoInfo?.discount_pct
+                        ? `${promoInfo.discount_pct}% off`
+                        : 'Discount applied';
 
                       return (
                         <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
@@ -3584,7 +3607,7 @@ const handleCancelSelectedAppointment = async () => {
                                 <div className="flex items-center gap-2">
                                  {hasDiscount && (
                                    <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-                                      Discounted
+                                      {promoInfo ? 'Promo Applied' : 'Discounted'}
                                     </Badge>
                                 )}
                                   <Badge className="bg-purple-200 text-purple-800 border-purple-200">
@@ -3713,6 +3736,7 @@ const handleCancelSelectedAppointment = async () => {
                                         <p className="text-xs text-muted-foreground mt-1">
                                           {discountLabel}
                                           {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                                          {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
                                         </p>
                                     </div>
                                   ) : (

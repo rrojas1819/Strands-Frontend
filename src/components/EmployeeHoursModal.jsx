@@ -24,9 +24,22 @@ const formatTime12Hour = (time24) => {
 const formatErrorMessage = (errorMsg) => {
   if (!errorMsg) return errorMsg;
   
-  const timePattern = /(\d{2}:\d{2}:\d{2})/g;
-  return errorMsg.replace(timePattern, (match) => {
-    return formatTime12Hour(match);
+  // If message already contains AM/PM, it's already formatted - return as-is
+  if (/\d{1,2}:\d{2}\s*[AP]M/i.test(errorMsg)) {
+    return errorMsg;
+  }
+  
+  // Match 24-hour format times (HH:MM:SS or HH:MM)
+  // Only match times that look like 24-hour format (hours can be 00-23)
+  const timePattern = /\b([0-2]?\d):(\d{2})(?::(\d{2}))?\b/g;
+  return errorMsg.replace(timePattern, (match, hours, minutes) => {
+    const hour = parseInt(hours, 10);
+    // Only format valid 24-hour times (0-23)
+    if (hour >= 0 && hour <= 23) {
+      const timePart = `${hours.padStart(2, '0')}:${minutes}`;
+      return formatTime12Hour(timePart);
+    }
+    return match;
   });
 };
 
@@ -118,13 +131,20 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
     try {
       const token = localStorage.getItem('auth_token');
       
+      // Build availability object - send null for unavailable days to delete them
+      // Include all days so backend knows which ones to delete
       const cleanedAvailability = {};
-      Object.entries(weeklyAvailability).forEach(([day, availability]) => {
-        if (availability.is_available && availability.start_time && availability.end_time) {
+      WEEKDAYS.forEach(({ value: day }) => {
+        const availability = weeklyAvailability[day];
+        if (availability?.is_available && availability.start_time && availability.end_time) {
+          // Day is available - send the hours
           cleanedAvailability[day] = {
             start_time: availability.start_time,
             end_time: availability.end_time
           };
+        } else {
+          // Day is not available or missing - send null to delete it
+          cleanedAvailability[day] = null;
         }
       });
       
@@ -144,8 +164,17 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
         onClose();
       } else {
         const errorMessages = data.errors || [data.message || 'Failed to save employee hours'];
-        setErrors(errorMessages);
-        onError?.(errorMessages);
+        // Format error messages to convert 24-hour times to 12-hour format
+        const formattedErrors = Array.isArray(errorMessages) 
+          ? errorMessages.map(err => formatErrorMessage(err))
+          : [formatErrorMessage(errorMessages)];
+        setErrors(formattedErrors);
+        // Pass formatted errors as a single string or array to onError callback
+        // If it's an array, join with newlines for the modal
+        const errorForCallback = Array.isArray(formattedErrors) 
+          ? formattedErrors.join('\n')
+          : formattedErrors[0];
+        onError?.(errorForCallback);
       }
     } catch (error) {
       console.error('Employee hours error:', error);

@@ -1890,9 +1890,12 @@ export default function SalonOwnerDashboard() {
             setShowModal(true);
           }}
           onError={(error) => {
+            // Error is already formatted by EmployeeHoursModal, use it directly
+            const errorMessage = typeof error === 'string' ? error : (Array.isArray(error) ? error.join('\n') : String(error));
+            
             setModalConfig({
               title: 'Error',
-              message: error,
+              message: errorMessage,
               type: 'error',
               onConfirm: () => setShowModal(false)
             });
@@ -1951,8 +1954,13 @@ export default function SalonOwnerDashboard() {
                           ? (typeof visit.actual_amount_paid === 'number' ? visit.actual_amount_paid : parseFloat(visit.actual_amount_paid))
                           : originalTotal;
                         const rewardInfo = visit.reward || null;
-                        const hasDiscount = rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
-                        const discountLabel = rewardInfo?.discount_percentage ? `${rewardInfo.discount_percentage}% off` : 'Discount applied';
+                        const promoInfo = visit.promo || null;
+                        const hasDiscount = (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
+                        const discountLabel = rewardInfo?.discount_percentage 
+                          ? `${rewardInfo.discount_percentage}% off`
+                          : promoInfo?.discount_pct
+                          ? `${promoInfo.discount_pct}% off`
+                          : 'Discount applied';
 
                         return (
                           <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
@@ -1971,7 +1979,7 @@ export default function SalonOwnerDashboard() {
                                   <div className="flex items-center gap-2">
                                     {hasDiscount && (
                                       <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                                        Discounted
+                                        {promoInfo ? 'Promo Applied' : 'Discounted'}
                                       </Badge>
                                   )}
                                   <Badge className={getStatusBadgeClass(visit.status || 'completed')}>
@@ -2051,6 +2059,7 @@ export default function SalonOwnerDashboard() {
                                         <p className="text-xs text-muted-foreground mt-1">
                                           {discountLabel}
                                           {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                                          {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
                                         </p>
                                       </div>
                                     ) : (
