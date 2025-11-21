@@ -369,7 +369,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
                               <span className="text-xs text-muted-foreground">Deleting...</span>
                             )}
                           </div>
-                          <div className="text-sm text-foreground mb-2 whitespace-pre-line leading-relaxed">
+                          <div className="text-sm text-foreground mb-2 whitespace-pre-line break-words overflow-wrap-anywhere leading-relaxed">
                             {notification.message}
                           </div>
                           <div className="flex items-center space-x-4 text-xs text-muted-foreground">

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonRegistrationForm from '../components/SalonRegistrationForm';
 import LoyaltyConfiguration from '../components/LoyaltyConfiguration';
+import PromotionsManagement from '../components/PromotionsManagement';
 import OperatingHours from '../components/OperatingHours';
 import EmployeeHoursModal from '../components/EmployeeHoursModal';
 import ProductManagement from '../components/ProductManagement';
@@ -53,7 +54,14 @@ export default function SalonOwnerDashboard() {
   const [isCheckingSalon, setIsCheckingSalon] = useState(true); // Loading state to prevent flash
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [reviewsSubTab, setReviewsSubTab] = useState('salon');
+  const [reviewsSubTab, setReviewsSubTab] = useState(() => {
+    const saved = localStorage.getItem('reviewsSubTab');
+    return saved === 'salon' || saved === 'staff' ? saved : 'salon';
+  });
+  const [loyaltySubTab, setLoyaltySubTab] = useState(() => {
+    const saved = localStorage.getItem('loyaltySubTab');
+    return saved === 'promotions' || saved === 'loyalty-config' ? saved : 'loyalty-config';
+  });
   const [employees, setEmployees] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -159,6 +167,22 @@ export default function SalonOwnerDashboard() {
     }
     
     setActiveTab(tabFromRoute);
+    
+    // Restore reviews sub-tab from localStorage when navigating to reviews tab
+    if (tabFromRoute === 'reviews') {
+      const saved = localStorage.getItem('reviewsSubTab');
+      if (saved === 'salon' || saved === 'staff') {
+        setReviewsSubTab(saved);
+      }
+    }
+    
+    // Restore loyalty sub-tab from localStorage when navigating to loyalty tab
+    if (tabFromRoute === 'loyalty') {
+      const saved = localStorage.getItem('loyaltySubTab');
+      if (saved === 'promotions' || saved === 'loyalty-config') {
+        setLoyaltySubTab(saved);
+      }
+    }
   }, [location.pathname]);
 
   useEffect(() => {
@@ -214,7 +238,7 @@ export default function SalonOwnerDashboard() {
   }, [activeTab, salonStatus]);
 
   useEffect(() => {
-    if ((activeTab === 'overview' || activeTab === 'products' || activeTab === 'reviews') && salonStatus === 'APPROVED') {
+    if ((activeTab === 'overview' || activeTab === 'products' || activeTab === 'reviews' || activeTab === 'loyalty') && salonStatus === 'APPROVED') {
       fetchSalonInfo();
     }
   }, [activeTab, salonStatus]);
@@ -1242,7 +1266,10 @@ export default function SalonOwnerDashboard() {
               <div className="border-b border-muted">
                 <div className="flex space-x-8">
                   <button
-                    onClick={() => setReviewsSubTab('salon')}
+                    onClick={() => {
+                      setReviewsSubTab('salon');
+                      localStorage.setItem('reviewsSubTab', 'salon');
+                    }}
                     className={`py-4 px-1 border-b-2 font-medium text-sm ${
                       reviewsSubTab === 'salon'
                         ? 'border-primary text-primary'
@@ -1252,7 +1279,10 @@ export default function SalonOwnerDashboard() {
                     Salon Reviews
                   </button>
                   <button
-                    onClick={() => setReviewsSubTab('staff')}
+                    onClick={() => {
+                      setReviewsSubTab('staff');
+                      localStorage.setItem('reviewsSubTab', 'staff');
+                    }}
                     className={`py-4 px-1 border-b-2 font-medium text-sm ${
                       reviewsSubTab === 'staff'
                         ? 'border-primary text-primary'
@@ -1304,26 +1334,87 @@ export default function SalonOwnerDashboard() {
         )}
 
         {activeTab === 'loyalty' && salonStatus === 'APPROVED' && (
-          <LoyaltyConfiguration 
-            onSuccess={(message) => {
-              setModalConfig({
-                title: 'Success',
-                message: message,
-                type: 'success',
-                onConfirm: () => setShowModal(false)
-              });
-              setShowModal(true);
-            }}
-            onError={(error) => {
-              setModalConfig({
-                title: 'Error',
-                message: error,
-                type: 'error',
-                onConfirm: () => setShowModal(false)
-              });
-              setShowModal(true);
-            }}
-          />
+          <div className="space-y-6">
+            <div className="border-b border-muted">
+              <div className="flex space-x-8">
+                <button
+                  onClick={() => {
+                    setLoyaltySubTab('loyalty-config');
+                    localStorage.setItem('loyaltySubTab', 'loyalty-config');
+                  }}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    loyaltySubTab === 'loyalty-config'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
+                  Loyalty Program
+                </button>
+                <button
+                  onClick={() => {
+                    setLoyaltySubTab('promotions');
+                    localStorage.setItem('loyaltySubTab', 'promotions');
+                  }}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    loyaltySubTab === 'promotions'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
+                  Promotions
+                </button>
+              </div>
+            </div>
+
+            {loyaltySubTab === 'loyalty-config' && (
+              <LoyaltyConfiguration 
+                onSuccess={(message) => {
+                  setModalConfig({
+                    title: 'Success',
+                    message: message,
+                    type: 'success',
+                    onConfirm: () => setShowModal(false)
+                  });
+                  setShowModal(true);
+                }}
+                onError={(error) => {
+                  setModalConfig({
+                    title: 'Error',
+                    message: error,
+                    type: 'error',
+                    onConfirm: () => setShowModal(false)
+                  });
+                  setShowModal(true);
+                }}
+              />
+            )}
+
+            {loyaltySubTab === 'promotions' && salonInfo && (
+              <PromotionsManagement 
+                salonId={salonInfo.salon_id}
+                salonName={salonInfo.name}
+                salonTimezone={salonInfo.timezone}
+                onSuccess={(message) => {
+                  setModalConfig({
+                    title: 'Success',
+                    message: message,
+                    type: 'success',
+                    onConfirm: () => setShowModal(false)
+                  });
+                  setShowModal(true);
+                }}
+                onError={(error) => {
+                  setModalConfig({
+                    title: 'Error',
+                    message: error,
+                    type: 'error',
+                    onConfirm: () => setShowModal(false)
+                  });
+                  setShowModal(true);
+                }}
+              />
+            )}
+          </div>
         )}
 
         {activeTab === 'revenue' && salonStatus === 'APPROVED' && (
