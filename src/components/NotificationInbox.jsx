@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Mail, Clock, CheckCircle, Eye, Trash2 } from 'lucide-react';
+import { X, Mail, Clock, CheckCircle, Eye, Trash2, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
+import { Input } from './ui/input';
 import StrandsModal from './ui/strands-modal';
 import { useNotifications } from '../hooks/useNotifications';
 import { toast } from 'sonner';
@@ -15,6 +16,8 @@ export default function NotificationInbox({ isOpen, onClose }) {
   const [deletingId, setDeletingId] = useState(null); // Track which notification is being deleted
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [notificationToDelete, setNotificationToDelete] = useState(null);
+  const [copiedPromoCode, setCopiedPromoCode] = useState(null);
+  const [pageInputValue, setPageInputValue] = useState('1');
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 5,
@@ -284,6 +287,34 @@ export default function NotificationInbox({ isOpen, onClose }) {
     }
   }, [pagination.page, pagination.total_pages, fetchNotifications]);
 
+  // Sync page input with pagination state
+  useEffect(() => {
+    setPageInputValue(pagination.page.toString());
+  }, [pagination.page]);
+
+  const handlePageInputChange = (e) => {
+    setPageInputValue(e.target.value);
+  };
+
+  const handlePageInputSubmit = (e) => {
+    e.preventDefault();
+    const pageNum = parseInt(pageInputValue, 10);
+    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= pagination.total_pages) {
+      handlePageChange(pageNum);
+    } else {
+      setPageInputValue(pagination.page.toString());
+    }
+  };
+
+  const handlePageInputBlur = () => {
+    const pageNum = parseInt(pageInputValue, 10);
+    if (isNaN(pageNum) || pageNum < 1 || pageNum > pagination.total_pages) {
+      setPageInputValue(pagination.page.toString());
+    } else if (pageNum !== pagination.page) {
+      handlePageChange(pageNum);
+    }
+  };
+
   const getNotificationIcon = (typeCode) => {
     switch (typeCode) {
       case 'APPOINTMENT_REMINDER':
@@ -300,6 +331,30 @@ export default function NotificationInbox({ isOpen, onClose }) {
       return <Badge variant="default" className="bg-blue-500 text-white text-xs">New</Badge>;
     }
     return null;
+  };
+
+  // Extract all promo codes from notification message
+  const extractPromoCodes = (message) => {
+    if (!message) return [];
+    // Look for patterns like "XXX-XXXX", "ABC-123", etc.
+    const promoPattern = /([A-Z0-9]{3,4}-[A-Z0-9]{3,4})/gi;
+    const matches = message.match(promoPattern);
+    if (matches) {
+      // Return unique codes in uppercase
+      return [...new Set(matches.map(m => m.toUpperCase()))];
+    }
+    return [];
+  };
+
+  const handleCopyPromoCode = async (promoCode) => {
+    try {
+      await navigator.clipboard.writeText(promoCode);
+      setCopiedPromoCode(promoCode);
+      toast.success('Promo code copied to clipboard!');
+      setTimeout(() => setCopiedPromoCode(null), 2000);
+    } catch (err) {
+      toast.error('Failed to copy promo code');
+    }
   };
 
   if (!isOpen) return null;
@@ -369,9 +424,62 @@ export default function NotificationInbox({ isOpen, onClose }) {
                               <span className="text-xs text-muted-foreground">Deleting...</span>
                             )}
                           </div>
-                          <div className="text-sm text-foreground mb-2 whitespace-pre-line leading-relaxed">
+                          <div className="text-sm text-foreground mb-2 whitespace-pre-line break-words overflow-wrap-anywhere leading-relaxed">
                             {notification.message}
                           </div>
+                          {/* Promo Code Copy Section - Only show if not already redeemed */}
+                          {(() => {
+                            // Don't show copy section for redeemed promo codes
+                            if (notification.type_code === 'PROMO_REDEEMED') {
+                              return null;
+                            }
+                            
+                            // Extract all promo codes from message
+                            const messagePromoCodes = extractPromoCodes(notification.message);
+                            // Also check if notification has a promo_code field
+                            const notificationPromoCode = notification.promo_code ? [notification.promo_code.toUpperCase()] : [];
+                            // Combine and get unique codes
+                            const allPromoCodes = [...new Set([...messagePromoCodes, ...notificationPromoCode])];
+                            
+                            if (allPromoCodes.length > 0) {
+                              return (
+                                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                                  <p className="text-xs font-medium text-blue-900 mb-2">
+                                    {allPromoCodes.length === 1 ? 'Promo Code:' : 'Promo Codes:'}
+                                  </p>
+                                  {allPromoCodes.map((promoCode, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                      <Input
+                                        value={promoCode}
+                                        readOnly
+                                        className="font-mono font-bold text-lg bg-white border-0 text-blue-900 cursor-pointer flex-1"
+                                        onClick={(e) => e.target.select()}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleCopyPromoCode(promoCode)}
+                                        className="flex items-center gap-1"
+                                      >
+                                        {copiedPromoCode === promoCode ? (
+                                          <>
+                                            <Check className="w-4 h-4 text-green-600" />
+                                            <span className="text-green-600">Copied!</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Copy className="w-4 h-4" />
+                                            <span>Copy</span>
+                                          </>
+                                        )}
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                             {notification.sent && (
                               <span>Sent: {notification.sent}</span>
@@ -423,7 +531,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
           {pagination.total_pages > 1 && (
             <div className="flex items-center justify-between mt-6 pt-6 border-t">
               <div className="text-sm text-muted-foreground">
-                Page {pagination.page} of {pagination.total_pages} ({pagination.total} total)
+                Showing {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} notifications
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -431,16 +539,45 @@ export default function NotificationInbox({ isOpen, onClose }) {
                   size="sm"
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page === 1 || loading}
+                  className="h-9 px-3"
                 >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
                   Previous
                 </Button>
+                
+                {/* Page Number Input */}
+                <form onSubmit={handlePageInputSubmit} className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">Page</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={pagination.total_pages}
+                    value={pageInputValue}
+                    onChange={handlePageInputChange}
+                    onBlur={handlePageInputBlur}
+                    onWheel={(e) => e.target.blur()} // Disable scroll wheel
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handlePageInputSubmit(e);
+                      }
+                    }}
+                    className="w-16 h-9 text-center text-sm font-medium border-gray-300 focus:border-primary focus:ring-primary [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                    style={{ WebkitAppearance: 'textfield' }}
+                    disabled={loading}
+                  />
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">of {pagination.total_pages}</span>
+                </form>
+                
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page >= pagination.total_pages || loading}
+                  className="h-9 px-3"
                 >
                   Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
             </div>

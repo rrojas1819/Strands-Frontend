@@ -5,7 +5,6 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { LogOut, Mail } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
-import { toast } from 'sonner';
 import NotificationInbox from './NotificationInbox';
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -122,13 +121,7 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
                   onClick={() => navigate('/owner/loyalty')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/loyalty')}`}
                 >
-                  Loyalty
-                </button>
-                <button 
-                  onClick={() => toast.info('Promotions coming soon!')}
-                  className="py-4 px-1 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium text-sm"
-                >
-                  Promotions
+                  Loyalty & Promotions
                 </button>
                 <button 
                   onClick={() => navigate('/owner/settings')}

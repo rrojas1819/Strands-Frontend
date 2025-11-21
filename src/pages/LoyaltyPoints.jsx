@@ -145,7 +145,7 @@ export default function LoyaltyPoints() {
               }
               
               if (userData) {
-                const visits = userData.visits_count || 0;
+                const visits = userData.visits_count || 0;  
                 const visitsNeeded = userData.target_visits || 5;
                 const discountPercentage = userData.discount_percentage || 10;
                 const salonName = userData.salon_name || salon.name;
@@ -162,7 +162,7 @@ export default function LoyaltyPoints() {
                   visits: visits,
                   visitsNeeded: visitsNeeded,
                   nextReward: `${discountPercentage}% off next visit`,
-                  tier: visits >= 5 ? 'Gold' : 'Bronze',
+                  tier: userData.total_visits_count >= 5 ? 'Gold' : 'Bronze',
                   rewardEarned: availableCount > 0,
                   availableRewards: availableCount
                 });
@@ -269,7 +269,7 @@ export default function LoyaltyPoints() {
     fetchLoyaltyData();
   }, [user, navigate, setRewardsCount]);
 
-
+// Dead code
   const getTierBadge = (tier) => {
     const tierColors = {
       'Bronze': 'bg-orange-100 text-orange-800',
