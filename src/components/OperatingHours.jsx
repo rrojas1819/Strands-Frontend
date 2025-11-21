@@ -94,13 +94,20 @@ const OperatingHours = ({ onSuccess, onError }) => {
     try {
       const token = localStorage.getItem('auth_token');
       
+      // Build hours object - send null for closed days to delete them
+      // Include all days so backend knows which ones to delete
       const cleanedHours = {};
-      Object.entries(weeklyHours).forEach(([day, hours]) => {
-        if (hours.is_open && hours.start_time && hours.end_time) {
+      WEEKDAYS.forEach(({ value: day }) => {
+        const hours = weeklyHours[day];
+        if (hours?.is_open && hours.start_time && hours.end_time) {
+          // Day is open - send the hours
           cleanedHours[day] = {
             start_time: hours.start_time,
             end_time: hours.end_time
           };
+        } else {
+          // Day is closed or missing - send null to delete it
+          cleanedHours[day] = null;
         }
       });
       

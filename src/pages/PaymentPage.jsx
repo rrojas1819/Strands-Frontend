@@ -178,6 +178,13 @@ export default function PaymentPage() {
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const [discountedAmount, setDiscountedAmount] = useState(bookingAmount);
   
+  // Promo code state
+  const [promoCode, setPromoCode] = useState('');
+  const [promoCodeValidating, setPromoCodeValidating] = useState(false);
+  const [promoCodeError, setPromoCodeError] = useState('');
+  const [promoCodeData, setPromoCodeData] = useState(null);
+  const [promoDiscountAmount, setPromoDiscountAmount] = useState(0);
+  
   // Modal states
   const [showDeleteAddressModal, setShowDeleteAddressModal] = useState(false);
   const [showDeleteCardModal, setShowDeleteCardModal] = useState(false);
@@ -355,11 +362,105 @@ export default function PaymentPage() {
       setSelectedReward(null);
       setDiscountedAmount(bookingAmount);
     } else {
+      // Clear promo code when selecting reward (mutual exclusivity)
+      setPromoCode('');
+      setPromoCodeData(null);
+      setPromoCodeError('');
+      setPromoDiscountAmount(0);
+      
       // Select new reward and calculate discounted amount
       setSelectedReward(reward);
       const discount = reward.discount_percentage || 0;
       const discountAmount = (bookingAmount * discount) / 100;
       setDiscountedAmount(bookingAmount - discountAmount);
+    }
+  };
+
+  const validatePromoCode = async (code) => {
+    if (!code || !code.trim()) {
+      setPromoCodeData(null);
+      setPromoCodeError('');
+      setPromoDiscountAmount(0);
+      setDiscountedAmount(bookingAmount);
+      return;
+    }
+
+    setPromoCodeValidating(true);
+    setPromoCodeError('');
+    
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${apiUrl}/promotions/preview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          promo_code: code.trim().toUpperCase(),
+          booking_id: bookingId
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Promo code is valid
+        setPromoCodeData(data.data);
+        const discountAmount = data.data.pricing?.discount_amount || 0;
+        setPromoDiscountAmount(discountAmount);
+        setDiscountedAmount(data.data.pricing?.discounted_total || bookingAmount);
+        setPromoCodeError('');
+      } else {
+        // Promo code is invalid
+        setPromoCodeData(null);
+        setPromoDiscountAmount(0);
+        setDiscountedAmount(bookingAmount);
+        
+        // Set appropriate error message
+        const errorMsg = data.message || 'This promo code is invalid.';
+        if (errorMsg.toLowerCase().includes('expired')) {
+          setPromoCodeError('This promo code has expired.');
+        } else if (errorMsg.toLowerCase().includes('redeemed')) {
+          setPromoCodeError('This promo code has already been redeemed.');
+        } else if (errorMsg.toLowerCase().includes('cannot be applied')) {
+          setPromoCodeError('This promo code cannot be applied.');
+        } else {
+          setPromoCodeError('This promo code is invalid.');
+        }
+      }
+    } catch (err) {
+      console.error('Error validating promo code:', err);
+      setPromoCodeData(null);
+      setPromoDiscountAmount(0);
+      setDiscountedAmount(bookingAmount);
+      setPromoCodeError('Failed to validate promo code. Please try again.');
+    } finally {
+      setPromoCodeValidating(false);
+    }
+  };
+
+  const handlePromoCodeChange = (value) => {
+    const trimmedValue = value.trim().toUpperCase();
+    setPromoCode(trimmedValue);
+    
+    // Clear reward selection when entering promo code (mutual exclusivity)
+    if (trimmedValue && selectedReward) {
+      setSelectedReward(null);
+      setDiscountedAmount(bookingAmount);
+    }
+    
+    // Validate promo code after user stops typing (debounce)
+    if (trimmedValue) {
+      const timeoutId = setTimeout(() => {
+        validatePromoCode(trimmedValue);
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setPromoCodeData(null);
+      setPromoCodeError('');
+      setPromoDiscountAmount(0);
+      setDiscountedAmount(bookingAmount);
     }
   };
   
@@ -698,10 +799,11 @@ export default function PaymentPage() {
         body: JSON.stringify({
           credit_card_id: creditCardId,
           billing_address_id: billingAddressId,
-          amount: bookingAmount,
+          amount: bookingAmount, // Always send full price, backend calculates discount
           booking_id: bookingId,
           use_loyalty_discount: selectedReward ? true : false,
-          reward_id: selectedReward?.reward_id || null
+          reward_id: selectedReward?.reward_id || null,
+          promo_code: promoCodeData?.promo?.promo_code || null
         })
       });
       
@@ -975,6 +1077,48 @@ export default function PaymentPage() {
           </Card>
         )}
 
+        {/* Promo Code Section */}
+        <Card className="mb-4 shadow-lg border-gray-200">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Gift className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-lg">Promo Code</CardTitle>
+            </div>
+            <p className="text-sm text-gray-600 mt-1">Enter a promo code to save on this booking</p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  value={promoCode}
+                  onChange={(e) => handlePromoCodeChange(e.target.value)}
+                  placeholder="Enter promo code (e.g., ABC-123)"
+                  className="flex-1 font-mono uppercase"
+                  disabled={promoCodeValidating || loading}
+                />
+                {promoCodeValidating && (
+                  <div className="flex items-center px-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                  </div>
+                )}
+              </div>
+              {promoCodeError && (
+                <p className="text-sm text-red-600">{promoCodeError}</p>
+              )}
+              {promoCodeData && !promoCodeError && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm font-medium text-green-800 mb-1">
+                    Promo code applied: {promoCodeData.promo?.promo_code}
+                  </p>
+                  <p className="text-xs text-green-700">
+                    {promoCodeData.promo?.description || 'Discount applied successfully'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Available Rewards Section */}
         {salonId && (
           <Card className="mb-4 shadow-lg border-gray-200">
@@ -983,7 +1127,9 @@ export default function PaymentPage() {
                 <Gift className="h-5 w-5 text-blue-600" />
                 <CardTitle className="text-lg">Available Rewards</CardTitle>
               </div>
-              <p className="text-sm text-gray-600 mt-1">Redeem a loyalty reward to save on this booking</p>
+              <p className="text-sm text-gray-600 mt-1">
+                {promoCode ? 'Promo code is applied. Clear promo code to use rewards.' : 'Redeem a loyalty reward to save on this booking'}
+              </p>
             </CardHeader>
             <CardContent>
               {rewardsLoading ? (
@@ -996,14 +1142,17 @@ export default function PaymentPage() {
                   {availableRewards.map((reward) => {
                     const isSelected = selectedReward?.reward_id === reward.reward_id;
                     const discountAmount = (bookingAmount * (reward.discount_percentage || 0)) / 100;
+                    const isDisabled = !!promoCode; // Disable if promo code is entered
                     return (
                       <div
                         key={reward.reward_id}
-                        onClick={() => handleRewardSelect(reward)}
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          isSelected
-                            ? 'border-blue-600 bg-blue-50 shadow-sm'
-                            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                        onClick={() => !isDisabled && handleRewardSelect(reward)}
+                        className={`p-4 border-2 rounded-lg transition-all ${
+                          isDisabled
+                            ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
+                            : isSelected
+                            ? 'border-blue-600 bg-blue-50 shadow-sm cursor-pointer'
+                            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm cursor-pointer'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -1470,7 +1619,7 @@ export default function PaymentPage() {
                 {/* Total Amount Display */}
                 {bookingAmount > 0 && (
                   <div className="border-t pt-3 mt-auto">
-                    {selectedReward && (
+                    {(selectedReward || promoCodeData) && (
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-sm text-gray-600">Subtotal</span>
                         <span className="text-sm text-gray-600">
@@ -1486,10 +1635,20 @@ export default function PaymentPage() {
                         </span>
                       </div>
                     )}
+                    {promoCodeData && (
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm text-green-600">
+                          Promo Code ({promoCodeData.promo?.discount_pct || promoCodeData.pricing?.discount_percentage}% off)
+                        </span>
+                        <span className="text-sm font-medium text-green-600">
+                          -${(promoCodeData.pricing?.discount_amount || promoDiscountAmount || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-base font-medium text-gray-700">Total</span>
                       <span className="text-xl font-bold text-gray-900">
-                        ${selectedReward 
+                        ${(selectedReward || promoCodeData)
                           ? (typeof discountedAmount === 'number' ? discountedAmount.toFixed(2) : parseFloat(discountedAmount || 0).toFixed(2))
                           : (typeof bookingAmount === 'number' ? bookingAmount.toFixed(2) : parseFloat(bookingAmount || 0).toFixed(2))}
                       </span>
@@ -1501,8 +1660,8 @@ export default function PaymentPage() {
                 <Button 
                   type="submit" 
                   className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm disabled:opacity-50 mt-3" 
-                  disabled={loading || (!selectedCardId && !enteringNewCard) || !billingAddress}
-                  title={!billingAddress ? 'Please save your billing address first' : ''}
+                  disabled={loading || (!selectedCardId && !enteringNewCard) || !billingAddress || promoCodeValidating}
+                  title={!billingAddress ? 'Please save your billing address first' : promoCodeValidating ? 'Validating promo code...' : ''}
                 >
                   <Lock className="h-4 w-4 mr-2" />
                   {loading ? 'Processing...' : `Process Payment & Book`}

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
-import { Gift, Send, Users } from 'lucide-react';
+import { Gift, Send, Users, Bell, Loader2 } from 'lucide-react';
 import { DateTime } from 'luxon';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 
 const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, onError }) => {
   const [promotionType, setPromotionType] = useState('individual');
@@ -13,7 +14,9 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
     expires_at: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingUnusedOffers, setIsSendingUnusedOffers] = useState(false);
   const [error, setError] = useState('');
+  const [unusedOffersError, setUnusedOffersError] = useState('');
 
   const handleInputChange = (field, value) => {
     setPromoData(prev => ({
@@ -141,8 +144,106 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
     }
   };
 
+  const handleSendUnusedOffers = async () => {
+    setIsSendingUnusedOffers(true);
+    setUnusedOffersError('');
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      const response = await fetch(`${apiUrl}/notifications/owner/send-unused-offers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const message = data.message || 'Notifications sent successfully to all customers with unused offers!';
+        if (onSuccess) {
+          onSuccess(message);
+        } else {
+          alert(message);
+        }
+      } else {
+        const errorMessage = data.message || 'Failed to send unused offers notifications';
+        setUnusedOffersError(errorMessage);
+        if (onError) {
+          onError(errorMessage);
+        }
+      }
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to send unused offers notifications. Please try again.';
+      setUnusedOffersError(errorMessage);
+      if (onError) {
+        onError(errorMessage);
+      }
+    } finally {
+      setIsSendingUnusedOffers(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
+      {/* Send Unused Offers Notification Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="w-5 h-5" />
+            Remind Customers About Unused Offers
+          </CardTitle>
+          <CardDescription>
+            Send notifications to all customers who have unused promo codes or loyalty discounts. This helps remind them to use their available offers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground">
+                This will send reminders to all customers who have:
+              </p>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+                <li>Unused promotional codes</li>
+                <li>Available loyalty discounts</li>
+              </ul>
+            </div>
+            <Button
+              onClick={handleSendUnusedOffers}
+              disabled={isSendingUnusedOffers}
+              className="ml-4 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isSendingUnusedOffers ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send Reminders
+                </>
+              )}
+            </Button>
+          </div>
+          {unusedOffersError && (
+            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+              {unusedOffersError}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Divider */}
+      <div className="border-t border-gray-200"></div>
+
       <div className="bg-background border rounded-lg p-6">
         <div className="mb-6">
           <h3 className="text-xl font-semibold mb-2">Send Promotions</h3>

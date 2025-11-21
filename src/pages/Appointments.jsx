@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Calendar, Clock, X, Edit2, Star, Image } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { Calendar, Clock, X, Edit2, Star, Image, ChevronLeft, ChevronRight } from 'lucide-react';
 import { notifySuccess, notifyError } from '../utils/notifications';
 import { cmpUtc, formatLocal, todayYmdInZone } from '../utils/time';
 import StrandsModal from '../components/StrandsModal';
@@ -37,6 +38,18 @@ export default function Appointments() {
   });
   const loadingPhotosRef = useRef(false);
   const reviewFetchAbortControllerRef = useRef(null);
+  
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    total_pages: 1,
+    total_items: 0,
+    limit: 10,
+    offset: 0,
+    has_next_page: false,
+    has_prev_page: false
+  });
+  const [pageInputValue, setPageInputValue] = useState('1');
 
   const formatStatusLabel = (status = '') => {
     if (!status) return '';
@@ -50,25 +63,79 @@ export default function Appointments() {
       return;
     }
 
-    fetchAppointments();
+    fetchAppointments(1, 10, filter);
     // Refetch appointments when navigating back to this page (e.g., after rescheduling)
-  }, [user, navigate, location.pathname]);
+  }, [user, navigate, location.pathname, filter]);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = async (page = 1, limit = 10, filterParam = null) => {
     setLoading(true);
     setError('');
     try {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      const response = await fetch(`${apiUrl}/bookings/myAppointments`, {
+      // Use provided filterParam or current filter state to avoid stale closures
+      const currentFilter = filterParam !== null ? filterParam : filter;
+      
+      // Build query parameters - backend expects page and limit
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString()
+      });
+      
+      // Add filter parameter based on current filter
+      // Backend expects: filter=canceled, filter=upcoming, or filter=past
+      if (currentFilter === 'scheduled') {
+        // Upcoming: only show SCHEDULED appointments
+        params.append('filter', 'upcoming');
+      } else if (currentFilter === 'past') {
+        // Past: only show COMPLETED appointments
+        params.append('filter', 'past');
+      } else if (currentFilter === 'cancelled') {
+        // Cancelled: only show CANCELED appointments
+        params.append('filter', 'canceled');
+      }
+      // filter === 'all' means no filter parameter - backend returns all appointments
+      
+      const response = await fetch(`${apiUrl}/bookings/myAppointments?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       if (response.ok) {
         const data = await response.json();
-        const appointmentsList = data.data || [];
+        const appointmentsList = Array.isArray(data.data) ? data.data : [];
+        
+        // Backend has already filtered by status, so we use the response directly
         setAppointments(appointmentsList);
+        
+        // Update pagination from backend response
+        if (data.pagination) {
+          const newPagination = {
+            current_page: data.pagination.current_page || parseInt(data.pagination.page) || page,
+            total_pages: data.pagination.total_pages || 1,
+            total_items: data.pagination.total_items || data.pagination.total || appointmentsList.length,
+            limit: data.pagination.limit || limit,
+            offset: data.pagination.offset || ((page - 1) * limit),
+            has_next_page: data.pagination.has_next_page !== undefined ? data.pagination.has_next_page : (page < (data.pagination.total_pages || 1)),
+            has_prev_page: data.pagination.has_prev_page !== undefined ? data.pagination.has_prev_page : (page > 1)
+          };
+          setPagination(newPagination);
+          // Update page input value when pagination changes
+          setPageInputValue(newPagination.current_page.toString());
+        } else {
+          // Fallback if no pagination data
+          const newPagination = {
+            current_page: page,
+            total_pages: 1,
+            total_items: appointmentsList.length,
+            limit: limit,
+            offset: (page - 1) * limit,
+            has_next_page: false,
+            has_prev_page: false
+          };
+          setPagination(newPagination);
+          setPageInputValue(page.toString());
+        }
         
         // Defer reviews fetch - don't block page load or photo fetches
         // Use requestIdleCallback to ensure it doesn't interfere with user actions
@@ -101,13 +168,13 @@ export default function Appointments() {
       return;
     }
 
+    // Create abort controller for this batch of requests
+    const controller = new AbortController();
+    reviewFetchAbortControllerRef.current = controller;
+
     try {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      
-      // Create abort controller for this batch of requests
-      const controller = new AbortController();
-      reviewFetchAbortControllerRef.current = controller;
       
       // Get unique employee_ids from past appointments
       const employeeIds = new Set();
@@ -305,7 +372,8 @@ export default function Appointments() {
           ? 'Appointment cancelled and refund processed successfully.' 
           : 'Appointment cancelled successfully. Refund will be processed if applicable.';
         notifySuccess(refundMessage);
-        fetchAppointments();
+        // Refetch appointments with current filter and page
+        fetchAppointments(pagination.current_page, pagination.limit, filter);
         setShowCancelModal(false);
         setSelectedAppointment(null);
       } else {
@@ -362,34 +430,21 @@ export default function Appointments() {
     return cmpUtc(appointmentEndUtc, nowUtcIso) < 0;
   };
 
-  // Filter appointments based on selected filter
+  // Backend handles all filtering - just sort the appointments for display
   const getFilteredAppointments = () => {
-    let filtered = appointments;
-    
-    if (filter !== 'all') {
-      filtered = appointments.filter(appointment => {
-        const status = appointment.appointment?.status || appointment.status;
-        const isPast = isAppointmentPast(appointment);
-        const isCancelled = status === 'CANCELLED' || status === 'CANCELED';
-        
-        if (filter === 'scheduled') {
-          return status === 'SCHEDULED' && !isPast;
-        } else if (filter === 'past') {
-          return isPast && !isCancelled;
-        } else if (filter === 'cancelled') {
-          return isCancelled;
-        }
-        
-        return true;
-      });
+    // Backend already filtered by status, just sort for display
+    if (!appointments || appointments.length === 0) {
+      return [];
     }
     
-    return filtered.sort((a, b) => {
+    return [...appointments].sort((a, b) => {
       const dateAUtc = a.appointment?.scheduled_start || a.scheduled_start;
       const dateBUtc = b.appointment?.scheduled_start || b.scheduled_start;
       
-      const isAPast = isAppointmentPast(a);
-      const isBPast = isAppointmentPast(b);
+      // Handle null/undefined dates
+      if (!dateAUtc && !dateBUtc) return 0;
+      if (!dateAUtc) return 1;
+      if (!dateBUtc) return -1;
       
       // For "scheduled" filter, all are upcoming - sort ascending (soonest first)
       if (filter === 'scheduled') {
@@ -401,7 +456,14 @@ export default function Appointments() {
         return cmpUtc(dateBUtc, dateAUtc);
       }
       
+      // For "cancelled" filter, sort descending (most recent first)
+      if (filter === 'cancelled') {
+        return cmpUtc(dateBUtc, dateAUtc);
+      }
+      
       // For "all" filter, upcoming first (soonest first), then past (most recent first)
+      const isAPast = isAppointmentPast(a);
+      const isBPast = isAppointmentPast(b);
       if (isAPast && !isBPast) return 1;
       if (!isAPast && isBPast) return -1;
       
@@ -412,6 +474,59 @@ export default function Appointments() {
       }
     });
   };
+
+  const handlePageChange = (newPage) => {
+    const pageNum = typeof newPage === 'string' ? parseInt(newPage, 10) : newPage;
+    if (!isNaN(pageNum) && pageNum >= 1) {
+      // Don't check total_pages here - let backend return the correct value
+      // Pass current filter to ensure correct filtering
+      if (pageNum !== pagination.current_page) {
+        fetchAppointments(pageNum, pagination.limit, filter);
+      }
+    }
+  };
+
+  // Sync page input with pagination state
+  useEffect(() => {
+    setPageInputValue(pagination.current_page.toString());
+  }, [pagination.current_page]);
+
+  const handlePageInputChange = (e) => {
+    setPageInputValue(e.target.value);
+  };
+
+  const handlePageInputSubmit = (e) => {
+    e.preventDefault();
+    const pageNum = parseInt(pageInputValue, 10);
+    if (!isNaN(pageNum) && pageNum >= 1) {
+      // Check total_pages if available, otherwise allow any positive number
+      if (pagination.total_pages > 0 && pageNum > pagination.total_pages) {
+        setPageInputValue(pagination.current_page.toString());
+      } else {
+        handlePageChange(pageNum);
+      }
+    } else {
+      setPageInputValue(pagination.current_page.toString());
+    }
+  };
+
+  const handlePageInputBlur = () => {
+    const pageNum = parseInt(pageInputValue, 10);
+    if (isNaN(pageNum) || pageNum < 1) {
+      setPageInputValue(pagination.current_page.toString());
+    } else if (pagination.total_pages > 0 && pageNum > pagination.total_pages) {
+      setPageInputValue(pagination.current_page.toString());
+    } else if (pageNum !== pagination.current_page) {
+      handlePageChange(pageNum);
+    }
+  };
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    if (user) {
+      fetchAppointments(1, 10, filter);
+    }
+  }, [filter, user]);
 
   if (loading) {
     return (
@@ -469,17 +584,34 @@ export default function Appointments() {
           </Alert>
         )}
 
-        {getFilteredAppointments().length === 0 ? (
+        {getFilteredAppointments().length === 0 && !loading ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">No appointments found</h3>
-              <p className="text-muted-foreground mb-4">{filter === 'all' ? 'Book your first appointment to get started' : filter === 'cancelled' ? 'No canceled appointments' : filter === 'past' ? 'No past appointments' : 'No upcoming appointments'}</p>
+              <p className="text-muted-foreground mb-4">
+                {filter === 'all' 
+                  ? 'Book your first appointment to get started' 
+                  : filter === 'cancelled' 
+                  ? 'No canceled appointments' 
+                  : filter === 'past' 
+                  ? 'No past appointments' 
+                  : filter === 'scheduled'
+                  ? 'No upcoming appointments'
+                  : 'No appointments found'}
+              </p>
               {filter === 'all' && (
                 <Button onClick={() => navigate('/dashboard')}>
                   Browse Salons
                 </Button>
               )}
+            </CardContent>
+          </Card>
+        ) : loading ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading appointments...</p>
             </CardContent>
           </Card>
         ) : (
@@ -507,11 +639,14 @@ export default function Appointments() {
                     : parseFloat(appointment.actual_amount_paid))
                 : originalTotal;
               const rewardInfo = appointment.reward || null;
-              const hasDiscount = rewardInfo && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
+              const promoInfo = appointment.promo || null;
+              const hasDiscount = (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
               const discountLabel = rewardInfo?.discount_percentage
                 ? `${rewardInfo.discount_percentage}% off`
+                : promoInfo?.discount_pct
+                ? `${promoInfo.discount_pct}% off`
                 : 'Discount applied';
-              const couponNote = 'Coupons are non-refundable and one-time use.';
+              const couponNote = rewardInfo ? 'Coupons are non-refundable and one-time use.' : '';
               
               return (
               <Card key={appointment.booking_id} className="flex flex-col">
@@ -528,7 +663,7 @@ export default function Appointments() {
                     <div className="flex items-center gap-2">
                       {hasDiscount && (
                         <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-                          Discounted
+                          {promoInfo ? 'Promo Applied' : 'Discounted'}
                         </Badge>
                       )}
                       <Badge className={getStatusBadge(status)}>
@@ -593,6 +728,7 @@ export default function Appointments() {
                           <p className="text-xs text-muted-foreground mt-1">
                             {discountLabel}. {couponNote}
                             {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                            {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
                           </p>
                         </>
                       ) : (
@@ -669,6 +805,63 @@ export default function Appointments() {
               </Card>
             );
           })}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination.total_pages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pt-6 border-t">
+            <div className="text-sm text-muted-foreground">
+              Showing {((pagination.current_page - 1) * pagination.limit) + 1} - {Math.min(pagination.current_page * pagination.limit, pagination.total_items)} of {pagination.total_items} appointments
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.current_page - 1)}
+                disabled={!pagination.has_prev_page || loading || pagination.current_page <= 1}
+                className="h-9 px-3"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Previous
+              </Button>
+              
+              {/* Page Number Input */}
+              <form onSubmit={handlePageInputSubmit} className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Page</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={pagination.total_pages}
+                  value={pageInputValue}
+                  onChange={handlePageInputChange}
+                  onBlur={handlePageInputBlur}
+                  onWheel={(e) => e.target.blur()} // Disable scroll wheel
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handlePageInputSubmit(e);
+                    }
+                  }}
+                  className="w-16 h-9 text-center text-sm font-medium border-gray-300 focus:border-primary focus:ring-primary [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                  style={{ WebkitAppearance: 'textfield' }}
+                  disabled={loading}
+                />
+                <span className="text-sm text-muted-foreground whitespace-nowrap">of {pagination.total_pages}</span>
+              </form>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.current_page + 1)}
+                disabled={!pagination.has_next_page || loading || pagination.current_page >= pagination.total_pages}
+                className="h-9 px-3"
+              >
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
           </div>
         )}
       </main>
