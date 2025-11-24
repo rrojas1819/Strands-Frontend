@@ -9,12 +9,14 @@ import { MapPin, Phone, Mail, Star, Clock, Search, Filter, ChevronDown, Check } 
 import { Notifications } from '../utils/notifications';
 import { trackSalonView } from '../utils/analytics';
 import UserNavbar from '../components/UserNavbar';
+import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
 export default function SalonBrowser() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [salons, setSalons] = useState([]);
   const [salonRatings, setSalonRatings] = useState({});
+  const [salonPhotos, setSalonPhotos] = useState({}); // Map of salon_id -> photo URL
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -80,8 +82,10 @@ export default function SalonBrowser() {
         setSalons(data.data);
         
         const ratingsMap = {};
-        const ratingPromises = data.data.map(async (salon) => {
+        const photosMap = {};
+        const promises = data.data.map(async (salon) => {
           try {
+            // Fetch rating
             const ratingResponse = await fetch(
               `${import.meta.env.VITE_API_URL}/reviews/salon/${salon.salon_id}/all?limit=1&offset=0`,
               {
@@ -100,12 +104,27 @@ export default function SalonBrowser() {
               } catch (parseErr) {
               }
             }
+            
+            // Fetch photo
+            const photoResponse = await fetch(
+              `${import.meta.env.VITE_API_URL}/file/get-salon-photo?salon_id=${salon.salon_id}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              }
+            );
+            if (photoResponse.ok) {
+              const photoData = await photoResponse.json();
+              photosMap[salon.salon_id] = photoData.url || null;
+            }
           } catch (err) {
           }
         });
         
-        await Promise.allSettled(ratingPromises);
+        await Promise.allSettled(promises);
         setSalonRatings(ratingsMap);
+        setSalonPhotos(photosMap);
       } catch (err) {
         setError(err.message || 'Failed to load salons.');
       } finally {
@@ -300,11 +319,29 @@ export default function SalonBrowser() {
             <Card key={salon.salon_id} className="hover:shadow-lg transition-shadow h-full flex flex-col">
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{salon.name}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {getCategoryBadge(salon.category)}
-                    </CardDescription>
+                  <div className="flex items-start gap-3 flex-1">
+                    {salonPhotos[salon.salon_id] ? (
+                      <img 
+                        src={salonPhotos[salon.salon_id]} 
+                        alt={salon.name}
+                        className="w-16 h-16 object-cover rounded-lg border flex-shrink-0"
+                        onError={(e) => {
+                          e.target.src = strandsLogo;
+                        }}
+                      />
+                    ) : (
+                      <img 
+                        src={strandsLogo} 
+                        alt="Strands"
+                        className="w-16 h-16 object-contain rounded-lg border flex-shrink-0 bg-gray-50 p-2"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg">{salon.name}</CardTitle>
+                      <CardDescription className="mt-1">
+                        {getCategoryBadge(salon.category)}
+                      </CardDescription>
+                    </div>
                   </div>
                   {salonRatings[salon.salon_id]?.avg_rating ? (
                     <div className="flex items-center space-x-1">

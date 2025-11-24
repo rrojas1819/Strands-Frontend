@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Menu, X, LogOut } from 'lucide-react';
+import { Menu, X, LogOut, Bell } from 'lucide-react';
+import NotificationInbox from './NotificationInbox';
+import { useNotifications } from '../hooks/useNotifications';
 
 const NAV_ITEMS = [
   {
@@ -37,6 +39,8 @@ export default function AdminNavbar({ title, subtitle, activeKey, onLogout }) {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { unreadCount } = useNotifications();
 
   const handleNavClick = (path) => {
     setMobileOpen(false);
@@ -92,6 +96,19 @@ export default function AdminNavbar({ title, subtitle, activeKey, onLogout }) {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowNotifications(true)}
+                className="relative"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Badge>
+                )}
+              </Button>
               <Badge variant="secondary" className="bg-green-100 text-green-800 hidden sm:inline-flex">
                 {user?.role || 'Admin'}
               </Badge>
@@ -138,6 +155,7 @@ export default function AdminNavbar({ title, subtitle, activeKey, onLogout }) {
           )}
         </div>
       </nav>
+      <NotificationInbox isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
     </>
   );
 }
