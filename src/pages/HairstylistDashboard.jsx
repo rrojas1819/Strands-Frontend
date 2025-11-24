@@ -140,6 +140,7 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   
   const [revenueData, setRevenueData] = useState(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
+  const [salonPhotoUrl, setSalonPhotoUrl] = useState(null);
   
   useEffect(() => {
     fetchStylistSalon();
@@ -227,6 +228,10 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       if (response.ok) {
         setSalonData(data.data);
         fetchEmployeeId();
+        // Fetch salon photo if salon_id is available
+        if (data.data?.salon_id) {
+          fetchSalonPhoto(data.data.salon_id);
+        }
       } else if (response.status === 404) {
         setError('You are not an employee of any salon');
       } else {
@@ -240,6 +245,25 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSalonPhoto = async (salonId) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/file/get-salon-photo?salon_id=${salonId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSalonPhotoUrl(data.url || null);
+      }
+    } catch (error) {
+      // Silently fail - photo is optional
     }
   };
 
@@ -1845,15 +1869,29 @@ const handleCancelSelectedAppointment = async () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-           <h2 className="text-3xl font-bold text-foreground mb-2">
-             Welcome, {authContext.user?.full_name}!
-           </h2>
-          <p className="text-muted-foreground">
-            Manage your appointments, customers, and professional profile at {salonData?.name}.
-          </p>
-          {activeTab === 'schedule' && (
+        {/* Welcome Section - Only on Schedule Page */}
+        {activeTab === 'schedule' && (
+          <div className="mb-8">
+            <div className="flex items-start gap-6 mb-4">
+              <div className="flex-1">
+                <h2 className="text-3xl font-bold text-foreground mb-2">
+                  Welcome, {authContext.user?.full_name}!
+                </h2>
+                <p className="text-muted-foreground">
+                  Manage your appointments, customers, and professional profile at {salonData?.name}.
+                </p>
+              </div>
+              <div className="flex-shrink-0">
+                <img 
+                  src={salonPhotoUrl || strandsLogo} 
+                  alt={salonData?.name || 'Salon'} 
+                  className="w-24 h-24 rounded-lg object-contain border shadow-sm bg-gray-50 p-2"
+                  onError={(e) => {
+                    e.target.src = strandsLogo;
+                  }}
+                />
+              </div>
+            </div>
             <div className="mt-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Button onClick={fetchStylistSalon} variant="outline" size="sm">
@@ -1941,8 +1979,8 @@ const handleCancelSelectedAppointment = async () => {
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Tab Content */}
         {activeTab === 'schedule' && (
@@ -3646,22 +3684,22 @@ const handleCancelSelectedAppointment = async () => {
                             return (
                               <div key={idx} className="text-sm bg-gray-50 p-3 rounded">
                                 <div className="flex justify-between items-center">
-                                  <div>
-                                    <span className="font-medium text-foreground">{service.service_name}</span>
-                                    {service.employee && (
-                                      <p className="text-xs text-muted-foreground">
-                                        By: {service.employee.name}
-                                        {service.employee.title && ` (${service.employee.title})`}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <div className="text-right">
+                    <div>
+                                        <span className="font-medium text-foreground">{service.service_name}</span>
+                                        {service.employee && (
+                                          <p className="text-xs text-muted-foreground">
+                                            By: {service.employee.name}
+                                            {service.employee.title && ` (${service.employee.title})`}
+                                          </p>
+                                        )}
+                    </div>
+                                      <div className="text-right">
                                     <div className="font-medium text-green-800">
                                       ${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}
                                     </div>
-                                    <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
-                                  </div>
-                                </div>
+                                        <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
+                  </div>
+                </div>
                               </div>
                             );
                           })}
@@ -3721,7 +3759,7 @@ const handleCancelSelectedAppointment = async () => {
                                 Upload Photos
                               </Button>
                             )}
-                          </div>
+                                </div>
                                 <div className="flex justify-end mt-3 pt-3 border-t">
                                   {hasDiscount ? (
                                     <div className="text-right">
@@ -4453,8 +4491,8 @@ const handleCancelSelectedAppointment = async () => {
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
         </div>
       )}
 

@@ -306,7 +306,7 @@ export default function App() {
     if (user.role === 'ADMIN') {
       // If there's a tab query parameter, show AdminDashboard instead of redirecting
       if (tab === 'user-analytics' || tab === 'business-insights' || tab === 'revenue-analytics') {
-        return <AdminDashboard />;
+      return <AdminDashboard />;
       }
       // Otherwise redirect to salon verification
       return <Navigate to="/admin/salon-verification" replace />;
