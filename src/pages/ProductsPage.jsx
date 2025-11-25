@@ -147,17 +147,6 @@ export default function ProductsPage() {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-muted/30">
-        <UserNavbar activeTab="dashboard" title="Products" subtitle="Browse salon products" />
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-muted/30">
       <UserNavbar activeTab="dashboard" title="Products" subtitle="Browse salon products" />
@@ -205,7 +194,26 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {products.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-5/6 mb-4"></div>
+                  <div className="flex justify-between">
+                    <div className="h-6 bg-gray-200 rounded w-20"></div>
+                    <div className="h-6 bg-gray-200 rounded w-16"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : products.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <ShoppingCart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />

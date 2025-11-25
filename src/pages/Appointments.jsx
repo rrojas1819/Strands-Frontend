@@ -142,19 +142,18 @@ export default function Appointments() {
           setPageInputValue(page.toString());
         }
         
-        // Fetch private notes in parallel for all appointments (non-blocking)
-        fetchPrivateNotesInParallel(appointmentsList);
-        
-        // Defer reviews fetch - don't block page load or photo fetches
-        // Use requestIdleCallback to ensure it doesn't interfere with user actions
+        // Defer non-critical data fetching to improve initial load
+        // Fetch private notes and reviews after a short delay to prioritize main content
         if (window.requestIdleCallback) {
           requestIdleCallback(() => {
+            fetchPrivateNotesInParallel(appointmentsList);
             fetchStylistReviews(appointmentsList);
-          }, { timeout: 2000 });
+          }, { timeout: 1000 });
         } else {
           setTimeout(() => {
+            fetchPrivateNotesInParallel(appointmentsList);
             fetchStylistReviews(appointmentsList);
-          }, 500);
+          }, 300);
         }
       } else {
         const errorText = await response.text();
@@ -613,14 +612,6 @@ export default function Appointments() {
   // Note: Filter change is already handled in the main useEffect above
   // This duplicate effect was causing double fetches - removed for optimization
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-muted/30">
       <UserNavbar activeTab="appointments" title="My Appointments" subtitle="View and manage your appointments" />
@@ -636,6 +627,7 @@ export default function Appointments() {
               variant={filter === 'all' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('all')}
+              disabled={loading}
             >
               All
             </Button>
@@ -643,6 +635,7 @@ export default function Appointments() {
               variant={filter === 'scheduled' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('scheduled')}
+              disabled={loading}
             >
               Upcoming
             </Button>
@@ -650,6 +643,7 @@ export default function Appointments() {
               variant={filter === 'past' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('past')}
+              disabled={loading}
             >
               Past
             </Button>
@@ -657,6 +651,7 @@ export default function Appointments() {
               variant={filter === 'cancelled' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('cancelled')}
+              disabled={loading}
             >
               Canceled
             </Button>
@@ -669,7 +664,25 @@ export default function Appointments() {
           </Alert>
         )}
 
-        {filteredAppointments.length === 0 && !loading ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                    <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredAppointments.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -690,13 +703,6 @@ export default function Appointments() {
                   Browse Salons
                 </Button>
               )}
-            </CardContent>
-          </Card>
-        ) : loading ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading appointments...</p>
             </CardContent>
           </Card>
         ) : (

@@ -39,37 +39,18 @@ export default function App() {
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Get all approved salons first
-      const salonsResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+      // Use the new optimized endpoint
+      const response = await fetch(`${apiUrl}/user/loyalty/total-rewards`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
-      if (!salonsResponse.ok) return;
-
-      const salonsData = await salonsResponse.json();
-      const salons = salonsData.data || [];
-      
-      let totalRewards = 0;
-      
-      // Check loyalty data for each salon
-      for (const salon of salons) {
-        try {
-          const loyaltyResponse = await fetch(`${apiUrl}/user/loyalty/view?salon_id=${salon.salon_id}`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-
-          if (loyaltyResponse.ok) {
-            const loyaltyData = await loyaltyResponse.json();
-            const userRewards = loyaltyData.userRewards || [];
-            const activeRewards = userRewards.filter(reward => reward.active === 1);
-            totalRewards += activeRewards.length;
-          }
-        } catch (err) {
-          // Skip this salon if there's an error
-          continue;
-        }
+      if (!response.ok) {
+        console.error('Failed to fetch total rewards:', response.status);
+        return;
       }
 
+      const data = await response.json();
+      const totalRewards = data.totalRewards || 0;
       setRewardsCount(totalRewards);
     } catch (error) {
       console.error('Error fetching rewards count:', error);
