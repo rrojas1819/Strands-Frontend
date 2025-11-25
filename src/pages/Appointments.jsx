@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef, useMemo } from 'react';
 import { AuthContext, RewardsContext } from '../context/AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -38,6 +38,8 @@ export default function Appointments() {
   });
   const loadingPhotosRef = useRef(false);
   const reviewFetchAbortControllerRef = useRef(null);
+  const [privateNotes, setPrivateNotes] = useState({}); // Map of booking_id -> note data
+  const [loadingNotes, setLoadingNotes] = useState(false);
   
   // Pagination state
   const [pagination, setPagination] = useState({
@@ -108,6 +110,9 @@ export default function Appointments() {
         // Backend has already filtered by status, so we use the response directly
         setAppointments(appointmentsList);
         
+        // Clear previous notes when appointments change
+        setPrivateNotes({});
+        
         // Update pagination from backend response
         if (data.pagination) {
           const newPagination = {
@@ -137,6 +142,9 @@ export default function Appointments() {
           setPageInputValue(page.toString());
         }
         
+        // Fetch private notes in parallel for all appointments (non-blocking)
+        fetchPrivateNotesInParallel(appointmentsList);
+        
         // Defer reviews fetch - don't block page load or photo fetches
         // Use requestIdleCallback to ensure it doesn't interfere with user actions
         if (window.requestIdleCallback) {
@@ -162,6 +170,83 @@ export default function Appointments() {
     }
   };
 
+  // Fetch all private notes in parallel for better performance
+  // Memoize to avoid recreating function on every render
+  const fetchPrivateNotesInParallel = useCallback(async (appointmentsList) => {
+    const bookingIds = appointmentsList
+      .map(apt => apt.booking_id || apt.appointment?.booking_id)
+      .filter(Boolean);
+    
+    if (bookingIds.length === 0) {
+      setPrivateNotes({});
+      return;
+    }
+
+    setLoadingNotes(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setLoadingNotes(false);
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Fetch all notes in parallel using Promise.allSettled
+      const notePromises = bookingIds.map(async (bookingId) => {
+        try {
+          const response = await fetch(
+            `${apiUrl}/appointment-notes/booking/${bookingId}/my-note`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              }
+            }
+          );
+
+          if (response.status === 404) {
+            // No note exists - return null
+            return { bookingId, note: null };
+          }
+
+          if (!response.ok) {
+            return { bookingId, note: null };
+          }
+
+          const result = await response.json();
+          const noteEntry = Array.isArray(result.data) && result.data.length > 0 
+            ? result.data[0] 
+            : null;
+          
+          return { bookingId, note: noteEntry };
+        } catch (err) {
+          // Silently fail for individual notes
+          return { bookingId, note: null };
+        }
+      });
+
+      const results = await Promise.allSettled(notePromises);
+      
+      // Build notes map
+      const notesMap = {};
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          const { bookingId, note } = result.value;
+          notesMap[bookingId] = note;
+        }
+      });
+
+      setPrivateNotes(notesMap);
+    } catch (err) {
+      console.error('Error fetching private notes:', err);
+      setPrivateNotes({});
+    } finally {
+      setLoadingNotes(false);
+    }
+  }, []);
+
   const fetchStylistReviews = async (appointmentsList) => {
     // Cancel any existing review fetches if photo fetch is active
     if (loadingPhotosRef.current) {
@@ -179,7 +264,9 @@ export default function Appointments() {
       // Get unique employee_ids from past appointments
       const employeeIds = new Set();
       appointmentsList.forEach(appointment => {
-        const isPast = isAppointmentPast(appointment);
+        const appointmentEndUtc = appointment.appointment?.scheduled_end || appointment.scheduled_end;
+        const nowUtcIso = new Date().toISOString();
+        const isPast = cmpUtc(appointmentEndUtc, nowUtcIso) < 0;
         if (isPast && appointment.stylists && appointment.stylists.length > 0) {
           const employeeId = appointment.stylists[0].employee_id;
           if (employeeId) {
@@ -423,15 +510,17 @@ export default function Appointments() {
     return variants[status] || 'bg-gray-200 text-gray-800 border-gray-300';
   };
 
-  // Check if appointment is in the past (using end time)
-  const isAppointmentPast = (appointment) => {
+
+  // Memoize isAppointmentPast to avoid recalculating
+  const isAppointmentPastMemo = useCallback((appointment) => {
     const appointmentEndUtc = appointment.appointment?.scheduled_end || appointment.scheduled_end;
     const nowUtcIso = new Date().toISOString();
     return cmpUtc(appointmentEndUtc, nowUtcIso) < 0;
-  };
+  }, []);
 
   // Backend handles all filtering - just sort the appointments for display
-  const getFilteredAppointments = () => {
+  // Memoize to avoid re-sorting on every render
+  const filteredAppointments = useMemo(() => {
     // Backend already filtered by status, just sort for display
     if (!appointments || appointments.length === 0) {
       return [];
@@ -462,8 +551,8 @@ export default function Appointments() {
       }
       
       // For "all" filter, upcoming first (soonest first), then past (most recent first)
-      const isAPast = isAppointmentPast(a);
-      const isBPast = isAppointmentPast(b);
+      const isAPast = isAppointmentPastMemo(a);
+      const isBPast = isAppointmentPastMemo(b);
       if (isAPast && !isBPast) return 1;
       if (!isAPast && isBPast) return -1;
       
@@ -473,7 +562,7 @@ export default function Appointments() {
         return cmpUtc(dateBUtc, dateAUtc);
       }
     });
-  };
+  }, [appointments, filter, isAppointmentPastMemo]);
 
   const handlePageChange = (newPage) => {
     const pageNum = typeof newPage === 'string' ? parseInt(newPage, 10) : newPage;
@@ -521,12 +610,8 @@ export default function Appointments() {
     }
   };
 
-  // Reset to page 1 when filter changes
-  useEffect(() => {
-    if (user) {
-      fetchAppointments(1, 10, filter);
-    }
-  }, [filter, user]);
+  // Note: Filter change is already handled in the main useEffect above
+  // This duplicate effect was causing double fetches - removed for optimization
 
   if (loading) {
     return (
@@ -584,7 +669,7 @@ export default function Appointments() {
           </Alert>
         )}
 
-        {getFilteredAppointments().length === 0 && !loading ? (
+        {filteredAppointments.length === 0 && !loading ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -615,9 +700,9 @@ export default function Appointments() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-            {getFilteredAppointments().map((appointment) => {
-              const isPast = isAppointmentPast(appointment);
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredAppointments.map((appointment) => {
+              const isPast = isAppointmentPastMemo(appointment);
               const status = appointment.appointment?.status || appointment.status;
               const canModify = status === 'SCHEDULED' && !isPast;
               
@@ -649,31 +734,31 @@ export default function Appointments() {
               const couponNote = rewardInfo ? 'Coupons are non-refundable and one-time use.' : '';
               
               return (
-              <Card key={appointment.booking_id} className="flex flex-col">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle>{appointment.salon?.name || 'Unknown Salon'}</CardTitle>
-                      <CardDescription>
+              <Card key={appointment.booking_id} className="flex flex-col h-full">
+                <CardHeader className="flex-shrink-0">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg">{appointment.salon?.name || 'Unknown Salon'}</CardTitle>
+                      <CardDescription className="mt-1">
                         {appointment.stylists && appointment.stylists.length > 0 
                           ? `${appointment.stylists[0].name}${appointment.stylists[0].title ? ' - ' + appointment.stylists[0].title : ''}`
                           : 'No stylist assigned'}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       {hasDiscount && (
-                        <Badge className="bg-sky-100 text-sky-700 border-sky-200">
+                        <Badge className="bg-sky-100 text-sky-700 border-sky-200 whitespace-nowrap">
                           {promoInfo ? 'Promo Applied' : 'Discounted'}
                         </Badge>
                       )}
-                      <Badge className={getStatusBadge(status)}>
+                      <Badge className={`${getStatusBadge(status)} whitespace-nowrap`}>
                         {formatStatusLabel(status)}
                       </Badge>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="flex flex-col flex-grow">
-                  <div className="space-y-3 flex-grow">
+                <CardContent className="flex flex-col flex-1 min-h-0">
+                  <div className="space-y-3 flex-1">
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Calendar className="w-4 h-4 mr-2" />
                       {formatLocal(appointment.appointment?.scheduled_start || appointment.scheduled_start, {
@@ -694,11 +779,11 @@ export default function Appointments() {
                       })}
                     </div>
                     {appointment.services && appointment.services.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-sm font-medium mb-1">Services:</p>
-                        <div className="flex flex-wrap gap-2 mt-3 mb-2">
+                      <div className="mb-3">
+                        <p className="text-sm font-medium mb-2">Services:</p>
+                        <div className="flex flex-wrap gap-2">
                           {appointment.services.map((service, idx) => (
-                            <Badge key={idx} variant="secondary">
+                            <Badge key={idx} variant="secondary" className="whitespace-nowrap">
                               {service.service_name || service.name}
                             </Badge>
                           ))}
@@ -713,8 +798,8 @@ export default function Appointments() {
                       </Alert>
                     )}
                   </div>
-                  <div className="flex items-start justify-between pt-3 border-t mt-auto">
-                    <div className="flex flex-col">
+                  <div className="flex items-start justify-between pt-4 border-t mt-auto flex-shrink-0">
+                    <div className="flex flex-col min-w-0 flex-1">
                       {hasDiscount ? (
                         <>
                           <div className="flex items-baseline gap-2">
@@ -725,7 +810,7 @@ export default function Appointments() {
                               ${!Number.isNaN(actualPaid) ? actualPaid.toFixed(2) : '0.00'}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground mt-1 break-words">
                             {discountLabel}. {couponNote}
                             {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
                             {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
@@ -737,7 +822,7 @@ export default function Appointments() {
                         </span>
                       )}
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-2 ml-4 flex-shrink-0">
                       {isPast && appointment.stylists && appointment.stylists.length > 0 && (
                         <Button
                           size="sm"
@@ -794,12 +879,21 @@ export default function Appointments() {
                   </div>
 
                   {appointment.booking_id && (
-                    <PrivateNoteCard
-                      bookingId={appointment.booking_id}
-                      className="mt-4"
-                      title="Private note"
-                      description="Only you can see this."
-                    />
+                    <div className="mt-4 flex-shrink-0">
+                      <PrivateNoteCard
+                        bookingId={appointment.booking_id}
+                        initialNote={privateNotes[appointment.booking_id]}
+                        title="Private note"
+                        description="Only you can see this."
+                        onNoteChange={(note) => {
+                          // Update notes map when note is saved/deleted
+                          setPrivateNotes(prev => ({
+                            ...prev,
+                            [appointment.booking_id]: note
+                          }));
+                        }}
+                      />
+                    </div>
                   )}
                 </CardContent>
               </Card>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Edit, Trash2 } from 'lucide-react';
@@ -19,6 +19,7 @@ const emptyNoteState = {
 
 const PrivateNoteCard = ({
   bookingId,
+  initialNote = null, // Pre-fetched note data to avoid individual fetch
   title = 'Private note',
   description = 'Only you can see this.',
   className = '',
@@ -29,6 +30,7 @@ const PrivateNoteCard = ({
   const [modalConfig, setModalConfig] = useState({});
   const abortControllerRef = useRef(null);
   const hasAttemptedFetchRef = useRef(false);
+  const hasFetchedOnMountRef = useRef(false);
 
   const formatTimestamp = useCallback((timestamp) => {
     if (!timestamp) return '';
@@ -142,8 +144,58 @@ const PrivateNoteCard = ({
     }
   }, [bookingId]);
 
-  // LAZY LOAD: Only fetch when user clicks "Add private note" or "View note"
-  // Don't fetch on mount - this prevents blocking page load and photo fetches
+  // Use initialNote if provided, otherwise fetch on mount
+  useEffect(() => {
+    if (bookingId && !hasFetchedOnMountRef.current) {
+      hasFetchedOnMountRef.current = true;
+      
+      // If initialNote is provided, use it directly (no fetch needed)
+      if (initialNote !== null && initialNote !== undefined) {
+        if (initialNote) {
+          setNoteState({
+            loading: false,
+            saving: false,
+            deleting: false,
+            editing: false,
+            noteId: initialNote.note_id,
+            text: initialNote.note || '',
+            originalText: initialNote.note || '',
+            createdAt: initialNote.created_at || null,
+            updatedAt: initialNote.updated_at || null,
+            error: ''
+          });
+        } else {
+          // initialNote is explicitly null (no note exists)
+          setNoteState({ ...emptyNoteState, loading: false });
+        }
+        return;
+      }
+      
+      // Otherwise, fetch the note
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      
+      setNoteState((prev) => ({ 
+        ...prev, 
+        loading: true, 
+        editing: false,
+        error: '' 
+      }));
+      
+      fetchNote(controller.signal).finally(() => {
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+        }
+      });
+    }
+    
+    // Reset fetch flag when bookingId changes (cleanup)
+    return () => {
+      hasFetchedOnMountRef.current = false;
+    };
+  }, [bookingId, initialNote, fetchNote]);
+
+  // Add/Edit note - set editing mode
   const handleAddNoteClick = useCallback(() => {
     // Cancel any existing fetch
     if (abortControllerRef.current) {
@@ -152,38 +204,7 @@ const PrivateNoteCard = ({
     
     // Set editing to true immediately so user can type
     setNoteState((prev) => ({ ...prev, editing: true, loading: false }));
-    
-    // Fetch note in background (in case one exists)
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-    fetchNote(controller.signal).finally(() => {
-      if (abortControllerRef.current === controller) {
-        abortControllerRef.current = null;
-      }
-    });
-  }, [fetchNote]);
-
-  // View note - fetch and show without editing
-  const handleViewNoteClick = useCallback(() => {
-    // Cancel any existing fetch
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    setNoteState((prev) => ({ 
-      ...prev, 
-      loading: true, 
-      editing: false,
-      error: '' // Clear any previous errors
-    }));
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-    fetchNote(controller.signal).finally(() => {
-      if (abortControllerRef.current === controller) {
-        abortControllerRef.current = null;
-      }
-    });
-  }, [fetchNote]);
+  }, []);
 
   const handleNoteChange = (value) => {
     if (value.length > 2000) return;
@@ -324,7 +345,7 @@ const PrivateNoteCard = ({
         throw new Error(data.message || 'Failed to delete note');
       }
 
-      setNoteState({ ...emptyNoteState, editing: true });
+      setNoteState({ ...emptyNoteState, editing: false });
       openModal({
         title: 'Note Deleted',
         message: 'Your private note has been removed.',
@@ -351,17 +372,6 @@ const PrivateNoteCard = ({
 
   if (!bookingId) return null;
 
-  // Determine if we've fetched and know the state
-  // We've fetched if:
-  // 1. We have a noteId (note exists)
-  // 2. We're currently loading (fetching in progress)
-  // 3. We've attempted a fetch and completed (not loading, not editing)
-  const hasFetched = noteState.noteId !== null || 
-    (noteState.loading && !noteState.editing) || 
-    (hasAttemptedFetchRef.current && !noteState.loading && !noteState.editing);
-  
-  const showContent = hasFetched || noteState.editing;
-
   return (
     <div className={`rounded-xl border border-gray-200 bg-gray-50 p-4 ${className}`}>
       <div className="mb-2">
@@ -369,18 +379,7 @@ const PrivateNoteCard = ({
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
 
-      {!showContent ? (
-        // Haven't fetched yet - show "View note" button (will check if exists when clicked)
-        <div className="space-y-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleViewNoteClick}
-          >
-            View note
-          </Button>
-        </div>
-      ) : noteState.loading && !noteState.editing ? (
+      {noteState.loading && !noteState.editing ? (
         <p className="text-sm text-muted-foreground">Loading note...</p>
       ) : noteState.editing ? (
         <div className="space-y-3">
@@ -482,5 +481,6 @@ const PrivateNoteCard = ({
   );
 };
 
-export default PrivateNoteCard;
+// Memoize component to prevent unnecessary re-renders
+export default React.memo(PrivateNoteCard);
 
