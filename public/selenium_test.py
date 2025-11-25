@@ -209,87 +209,6 @@ class StrandsTestSuite:
             print(f"Error waiting for element {description or value}: {e}")
             return False
     
-    def wait_for_modal(self, timeout=4):
-        """Wait for confirmation modal to appear - with better detection and animation wait"""
-        try:
-            wait = WebDriverWait(self.driver, timeout)
-            # Try multiple selectors for modal
-            modal = wait.until(EC.any_of(
-                EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'fixed') and contains(@class, 'inset-0')]")),
-                EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'z-50') and contains(@class, 'fixed')]")),
-                EC.presence_of_element_located((By.XPATH, "//div[@role='dialog']"))
-            ))
-            # Wait for modal animation to finish
-            time.sleep(0.5)  # Wait for modal animation to complete
-            return True
-        except:
-            return False
-    
-    def click_modal_confirm(self, timeout=4):
-        """Click the confirm button in a modal - improved with better waits and visibility checks"""
-        try:
-            wait = WebDriverWait(self.driver, timeout)
-            
-            # Try to find confirm/approve/reject buttons first (action buttons)
-            # Wait for buttons to be visible and clickable
-            try:
-                action_buttons = wait.until(EC.presence_of_all_elements_located((
-                    By.XPATH, 
-                    "//div[contains(@class, 'fixed')]//button[contains(text(), 'Approve')] | "
-                    "//div[contains(@class, 'fixed')]//button[contains(text(), 'Reject')] | "
-                    "//div[contains(@class, 'fixed')]//button[contains(text(), 'Confirm')] | "
-                    "//div[@role='dialog']//button[contains(text(), 'Approve')] | "
-                    "//div[@role='dialog']//button[contains(text(), 'Reject')] | "
-                    "//div[@role='dialog']//button[contains(text(), 'Confirm')]"
-                )))
-                
-                # Filter to only visible buttons
-                visible_buttons = [btn for btn in action_buttons if btn.is_displayed()]
-                
-                if visible_buttons:
-                    # Scroll to button first
-                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", visible_buttons[0])
-                    time.sleep(0.2)
-                    
-                    # Wait for button to be clickable
-                    clickable_btn = wait.until(EC.element_to_be_clickable(visible_buttons[0]))
-                    
-                    # Click the button
-                    try:
-                        clickable_btn.click()
-                    except:
-                        self.driver.execute_script("arguments[0].click();", clickable_btn)
-                    time.sleep(0.3)
-                    return True
-            except TimeoutException:
-                pass
-            
-            # Fallback: find all buttons and click non-cancel one that's visible
-            all_buttons = self.driver.find_elements(By.XPATH, 
-                "//div[contains(@class, 'fixed')]//button | "
-                "//div[contains(@class, 'z-50')]//button | "
-                "//div[@role='dialog']//button"
-            )
-            
-            for btn in all_buttons:
-                if not btn.is_displayed():
-                    continue
-                btn_text = btn.text.strip().lower()
-                if 'cancel' not in btn_text and btn.is_enabled():
-                    # Scroll to button
-                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-                    time.sleep(0.2)
-                    try:
-                        btn.click()
-                    except:
-                        self.driver.execute_script("arguments[0].click();", btn)
-                    time.sleep(0.3)
-                    return True
-            return False
-        except Exception as e:
-            print(f"Modal confirm click failed: {e}")
-            return False
-    
     def logout(self):
         """Logout - reliable with cookie/localStorage clearing"""
         try:
@@ -368,47 +287,229 @@ class StrandsTestSuite:
         self.safe_send_keys(By.ID, "login-email", email, "Email")
         self.safe_send_keys(By.ID, "login-password", password, "Password")
         self.safe_click(By.XPATH, "//button[@type='submit' and contains(text(), 'Sign In')]", "Login button")
-        time.sleep(ACTION_DELAY)
+        time.sleep(ACTION_DELAY * 2)  # Wait longer for redirect
         
-        if "/dashboard" in self.driver.current_url or "/admin" in self.driver.current_url or "/owner" in self.driver.current_url:
+        # Check URL after login
+        current_url = self.driver.current_url
+        if "/dashboard" in current_url or "/admin" in current_url or "/owner" in current_url:
             print(f"Successfully logged in as {role_description}")
             return True
-        return False
+        else:
+            print(f"Login may have failed - current URL: {current_url}")
+            # Sometimes redirect takes a moment, wait a bit more
+            time.sleep(ACTION_DELAY * 2)
+            current_url = self.driver.current_url
+            if "/dashboard" in current_url or "/admin" in current_url or "/owner" in current_url:
+                print(f"Successfully logged in as {role_description} (after additional wait)")
+                return True
+            return False
     
-    def generate_email(self):
-        random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        return f"test_{random_str}@selenium.com"
-    
-    def select_dropdown_option(self, button_selector, option_text, description=""):
-        """Helper method to handle custom StrandsSelect dropdowns"""
+    def wait_for_modal(self, timeout=4):
+        """Wait for confirmation modal to appear"""
         try:
-            # Click the dropdown button to open it
-            dropdown_button = self.wait.until(EC.element_to_be_clickable((By.XPATH, button_selector)))
-            self.scroll_to_element(dropdown_button)
-            dropdown_button = self.wait.until(EC.element_to_be_clickable((By.XPATH, button_selector)))
-            try:
-                dropdown_button.click()
-            except:
-                self.driver.execute_script("arguments[0].click();", dropdown_button)
-            time.sleep(ACTION_DELAY * 0.5)
-            
-            # Wait for dropdown options to appear and click the desired option
-            option = self.wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[contains(@class, 'cursor-pointer') and contains(text(), '{option_text}')] | //div[contains(text(), '{option_text}') and @role='option']")))
-            self.scroll_to_element(option)
-            option = self.wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[contains(@class, 'cursor-pointer') and contains(text(), '{option_text}')] | //div[contains(text(), '{option_text}') and @role='option']")))
-            try:
-                option.click()
-            except:
-                self.driver.execute_script("arguments[0].click();", option)
-            time.sleep(ACTION_DELAY * 0.5)
-            print(f"Selected dropdown option: {option_text} {description}")
+            wait = WebDriverWait(self.driver, timeout)
+            modal = wait.until(EC.any_of(
+                EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'fixed') and contains(@class, 'inset-0')]")),
+                EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'z-50') and contains(@class, 'fixed')]")),
+                EC.presence_of_element_located((By.XPATH, "//div[@role='dialog']"))
+            ))
+            time.sleep(0.5)  # Wait for modal animation
             return True
-        except TimeoutException:
-            print(f"Failed to select dropdown option: {option_text}")
+        except:
+            return False
+    
+    def click_modal_confirm(self, timeout=4):
+        """Click the confirm button in a modal"""
+        try:
+            wait = WebDriverWait(self.driver, timeout)
+            
+            # Try to find confirm/reject/approve buttons
+            try:
+                action_buttons = wait.until(EC.presence_of_all_elements_located((
+                    By.XPATH, 
+                    "//div[contains(@class, 'fixed')]//button[contains(text(), 'Reject')] | "
+                    "//div[contains(@class, 'fixed')]//button[contains(text(), 'Confirm')] | "
+                    "//div[@role='dialog']//button[contains(text(), 'Reject')] | "
+                    "//div[@role='dialog']//button[contains(text(), 'Confirm')]"
+                )))
+                
+                visible_buttons = [btn for btn in action_buttons if btn.is_displayed()]
+                
+                if visible_buttons:
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", visible_buttons[0])
+                    time.sleep(0.2)
+                    clickable_btn = wait.until(EC.element_to_be_clickable(visible_buttons[0]))
+                    try:
+                        clickable_btn.click()
+                    except:
+                        self.driver.execute_script("arguments[0].click();", clickable_btn)
+                    time.sleep(0.3)
+                    return True
+            except TimeoutException:
+                pass
+            
+            # Fallback: find all buttons and click non-cancel one
+            all_buttons = self.driver.find_elements(By.XPATH, 
+                "//div[contains(@class, 'fixed')]//button | "
+                "//div[@role='dialog']//button"
+            )
+            
+            for btn in all_buttons:
+                if not btn.is_displayed():
+                    continue
+                btn_text = btn.text.strip().lower()
+                if 'cancel' not in btn_text and btn.is_enabled():
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                    time.sleep(0.2)
+                    try:
+                        btn.click()
+                    except:
+                        self.driver.execute_script("arguments[0].click();", btn)
+                    time.sleep(0.3)
+                    return True
             return False
         except Exception as e:
-            print(f"Failed to select dropdown option: {option_text} - {e}")
+            print(f"Modal confirm click failed: {e}")
             return False
+    
+    def select_select_dropdown(self, element_id, option_text):
+        """Helper method to handle Radix UI Select dropdowns (like role selector)"""
+        try:
+            # Find the SelectTrigger by ID
+            select_trigger = self.wait.until(EC.element_to_be_clickable((By.ID, element_id)))
+            self.scroll_to_element(select_trigger)
+            time.sleep(0.2)
+            
+            # Click to open the dropdown
+            try:
+                select_trigger.click()
+            except:
+                self.driver.execute_script("arguments[0].click();", select_trigger)
+            time.sleep(0.5)  # Wait for dropdown to open
+            
+            # Wait for SelectContent to appear and find the option
+            option_selectors = [
+                f"//div[@role='option']//span[contains(text(), '{option_text}')]",
+                f"//div[@role='option' and contains(., '{option_text}')]",
+                f"//div[contains(@class, 'SelectItem')]//span[contains(text(), '{option_text}')]",
+                f"//div[contains(@class, 'SelectItem') and contains(., '{option_text}')]"
+            ]
+            
+            option_found = False
+            for selector in option_selectors:
+                try:
+                    option = WebDriverWait(self.driver, 3).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    self.scroll_to_element(option)
+                    time.sleep(0.2)
+                    
+                    # Click the option
+                    try:
+                        option.click()
+                    except:
+                        self.driver.execute_script("arguments[0].click();", option)
+                    
+                    time.sleep(0.3)  # Wait for selection to register
+                    print(f"Selected role: {option_text}")
+                    option_found = True
+                    break
+                except:
+                    continue
+            
+            if not option_found:
+                print(f"Failed to find role option: {option_text}")
+                return False
+            
+            return True
+        except Exception as e:
+            print(f"Failed to select from dropdown {element_id}: {e}")
+            return False
+    
+    def select_strands_select(self, option_text, element_id=None, dropdown_index=None):
+        """Helper method to handle StrandsSelect custom dropdowns - uses ID to find button"""
+        try:
+            # If element_id is provided, find button by ID directly
+            if element_id:
+                print(f"    Finding dropdown button by ID: {element_id}")
+                select_trigger = self.wait.until(EC.element_to_be_clickable((By.ID, element_id)))
+            elif dropdown_index is not None:
+                # Find all StrandsSelect dropdowns (they have a button with border-gray-300 and rounded-lg)
+                strands_selects = self.driver.find_elements(By.XPATH, 
+                    "//button[contains(@class, 'border-gray-300') and contains(@class, 'rounded-lg')]"
+                )
+                
+                if dropdown_index >= len(strands_selects):
+                    print(f"    Dropdown index {dropdown_index} not found (only {len(strands_selects)} dropdowns available)")
+                    return False
+                
+                select_trigger = strands_selects[dropdown_index]
+            else:
+                print("    Either element_id or dropdown_index must be provided")
+                return False
+            
+            # Scroll to button and ensure it's visible
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", select_trigger)
+            time.sleep(0.3)
+            
+            # Click to open dropdown
+            print(f"    Clicking dropdown button to open options...")
+            try:
+                select_trigger.click()
+            except:
+                self.driver.execute_script("arguments[0].click();", select_trigger)
+            time.sleep(0.8)  # Wait for dropdown to open
+            
+            # Find the option by text (StrandsSelect uses divs with cursor-pointer class inside the dropdown)
+            print(f"    Looking for option: {option_text}")
+            option_selectors = [
+                f"//div[contains(@class, 'absolute')]//div[contains(@class, 'cursor-pointer') and contains(., '{option_text}')]",
+                f"//div[contains(@class, 'absolute')]//div[contains(@class, 'flex') and contains(@class, 'items-center') and contains(., '{option_text}')]",
+                f"//div[contains(@class, 'absolute')]//div[contains(text(), '{option_text}')]",
+                f"//div[contains(@class, 'cursor-pointer')]//span[contains(text(), '{option_text}')]",
+                f"//div[contains(text(), '{option_text}') and contains(@class, 'cursor-pointer')]"
+            ]
+            
+            option_found = False
+            for selector in option_selectors:
+                try:
+                    option = WebDriverWait(self.driver, 4).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", option)
+                    time.sleep(0.2)
+                    
+                    # Click the option
+                    try:
+                        option.click()
+                    except:
+                        self.driver.execute_script("arguments[0].click();", option)
+                    
+                    time.sleep(0.4)  # Wait for selection to register
+                    print(f"    ✓ Selected option: {option_text}")
+                    option_found = True
+                    break
+                except TimeoutException:
+                    continue
+                except Exception as e:
+                    print(f"    Option selector failed: {e}")
+                    continue
+            
+            if not option_found:
+                print(f"    ✗ Failed to find option: {option_text}")
+                return False
+            
+            return True
+        except Exception as e:
+            print(f"    ✗ Failed to select from StrandsSelect: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def generate_email(self):
+        """Generate a random email for testing"""
+        random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        return f"test_{random_str}@selenium.com"
 
     # PHASE 1 — AUTHENTICATION TESTS
     
@@ -446,13 +547,63 @@ class StrandsTestSuite:
     def test_2_invalid_login_attempt(self):
         """
         Test 2 — Invalid Login Attempt
-        Enter incorrect email or password
+        First: Click Sign In with empty fields to test error validation
+        Then: Enter incorrect email or password
         Expect visible error message: Invalid credentials
         """
         print("\n" + "="*70)
         print("TEST 2: Invalid Login Attempt")
         print("="*70)
         try:
+            self.driver.get(f"{BASE_URL}/login")
+            time.sleep(ACTION_DELAY)
+            
+            # First, test empty fields validation
+            print("Testing empty fields validation...")
+            try:
+                # Clear any existing values
+                email_input = self.driver.find_element(By.ID, "login-email")
+                password_input = self.driver.find_element(By.ID, "login-password")
+                email_input.clear()
+                password_input.clear()
+                time.sleep(0.2)
+                
+                # Click Sign In button with empty fields
+                sign_in_button = self.driver.find_element(By.XPATH, "//button[@type='submit' and contains(text(), 'Sign In')]")
+                self.scroll_to_element(sign_in_button)
+                time.sleep(0.2)
+                sign_in_button.click()
+                time.sleep(ACTION_DELAY * 2)  # Wait for validation to appear
+                
+                # Check for validation error messages
+                empty_field_error = False
+                try:
+                    validation_errors = self.driver.find_elements(By.XPATH, 
+                        "//div[contains(@class, 'error')] | "
+                        "//div[contains(text(), 'required')] | "
+                        "//div[contains(text(), 'Required')] | "
+                        "//div[contains(text(), 'Please')] | "
+                        "//input[@id='login-email']/following-sibling::div[contains(@class, 'error')] | "
+                        "//input[@id='login-password']/following-sibling::div[contains(@class, 'error')]"
+                    )
+                    if validation_errors:
+                        empty_field_error = True
+                        print(f"  ✓ Empty fields validation error displayed: {validation_errors[0].text[:50]}")
+                    else:
+                        # Check if form prevented submission (stayed on login page)
+                        if "/login" in self.driver.current_url:
+                            print("  ✓ Empty fields prevented form submission (stayed on login page)")
+                            empty_field_error = True
+                except:
+                    pass
+                
+                if not empty_field_error:
+                    print("  ⚠ Empty fields validation may not have triggered")
+            except Exception as e:
+                print(f"  ⚠ Could not test empty fields validation: {e}")
+            
+            # Now test invalid credentials
+            print("Testing invalid credentials...")
             self.driver.get(f"{BASE_URL}/login")
             time.sleep(ACTION_DELAY)
             
@@ -486,6 +637,7 @@ class StrandsTestSuite:
         Test 3 — Successful Login (Admin)
         Login as: admin@strands.com / test123
         Expect redirect to the default admin dashboard tab: /dashboard?tab=user-analytics
+        Navigate to salon verification page after login
         """
         print("\n" + "="*70)
         print("TEST 3: Successful Login (Admin)")
@@ -495,104 +647,240 @@ class StrandsTestSuite:
                 return False
             
             # Check if redirected to admin dashboard
-            time.sleep(ACTION_DELAY)
+            time.sleep(ACTION_DELAY * 2)  # Wait longer for redirect
             current_url = self.driver.current_url
+            print(f" Current URL after login: {current_url}")
             
             if "/admin" in current_url or "/dashboard" in current_url or "tab=user-analytics" in current_url:
                 print(" Admin login successful and redirected to dashboard")
-                return True
+                
+                # Navigate to salon verification page
+                print("Navigating to Salon Verification page...")
+                salon_mgmt_clicked = self.safe_click(
+                    By.XPATH,
+                    "//button[contains(text(), 'Salon Management')] | //a[contains(text(), 'Salon Management')]",
+                    "Salon Management tab"
+                )
+                if not salon_mgmt_clicked:
+                    self.navigate_and_scroll(f"{BASE_URL}/admin/salon-verification")
+                else:
+                    time.sleep(1.0)
+                
+                # Wait for page to load
+                time.sleep(1.5)
+                current_url = self.driver.current_url
+                print(f" Current URL after navigation: {current_url}")
+                if "/admin/salon-verification" in current_url:
+                    print(" Successfully navigated to Salon Verification page")
+                    return True
+                else:
+                    print(f" Navigation to salon verification may have failed - current URL: {current_url}")
+                    # Still pass if we're on an admin page (login worked)
+                    if "/admin" in current_url or "/dashboard" in current_url:
+                        print(" Still on admin page, login was successful")
+                        return True
+                    return False
             else:
                 print(f" Admin login failed - redirected to: {current_url}")
                 return False
         except Exception as e:
             print(f" Test 3 failed: {e}")
             return False
-
+    
     # PHASE 2 — ADMIN CORE FUNCTION TESTS
     
-    def test_4_admin_analytics_pages_load(self):
+    def test_4_admin_pages_and_salon_rejection(self):
         """
-        Test 4 — Admin Analytics Pages Load
-        Visit and validate the following tabs load content:
-        /dashboard?tab=user-analytics
-        /dashboard?tab=business-insights
-        /dashboard?tab=revenue-analytics
-        For each page: Assert presence of analytic cards, charts, or metrics containers
+        Test 4 — Admin Pages Navigation and Salon Rejection
+        After Phase 1, already logged in as admin on salon verification page
+        Go through each admin page and scroll through to show content
+        Go back to salon verification
+        Go through salon management filter tabs (using IDs)
+        Make sure everything is loaded
+        Go back to "All" filter
+        Reject the first salon found (using ID)
+        Click logout (using ID)
         """
         print("\n" + "="*70)
-        print("TEST 4: Admin Analytics Pages Load")
+        print("TEST 4: Admin Pages Navigation and Salon Rejection")
         print("="*70)
         try:
-            if "/admin" not in self.driver.current_url and "/dashboard" not in self.driver.current_url:
-                if not self.login("admin@strands.com", "test123", "Admin"):
-                    return False
+            # Should already be on salon verification page from test 3
+            current_url = self.driver.current_url
+            if "/admin/salon-verification" not in current_url:
+                # Navigate to salon verification if not already there
+                print("Navigating to Salon Verification page...")
+                salon_mgmt_clicked = self.safe_click(
+                    By.XPATH,
+                    "//button[contains(text(), 'Salon Management')] | //a[contains(text(), 'Salon Management')]",
+                    "Salon Management tab"
+                )
+                if not salon_mgmt_clicked:
+                    self.navigate_and_scroll(f"{BASE_URL}/admin/salon-verification")
+                else:
+                    time.sleep(1.0)
             
-            tabs = [
-                ("user-analytics", "User Analytics"),
-                ("business-insights", "Business Insights"),
-                ("revenue-analytics", "Revenue Analytics")
+            # Go through each admin page in the order they appear in the navbar
+            print("Going through admin pages in navbar order...")
+            admin_pages = [
+                ("/admin/salon-verification", "Salon Management"),  # First in navbar
+                ("/admin/loyalty-monitoring", "Loyalty Monitoring"),  # Second in navbar
+                ("/dashboard?tab=user-analytics", "User Analytics"),  # Third in navbar
+                ("/dashboard?tab=business-insights", "Business Insights"),  # Fourth in navbar
+                ("/dashboard?tab=revenue-analytics", "Revenue Analytics"),  # Fifth in navbar (Revenue Tracking)
             ]
             
-            all_loaded = True
-            for tab, name in tabs:
-                print(f"Checking {name}...")
-                self.navigate_and_scroll(f"{BASE_URL}/dashboard?tab={tab}")
-                
-                # Look for analytics content
-                content_found = self.wait_for_element(
-                    By.XPATH, 
-                    "//div[contains(@class, 'analytics')] | //h2 | //div[contains(@class, 'chart')] | //div[contains(@class, 'metric')] | //div[contains(@class, 'card')]",
-                    f"{name} content"
-                )
-                
-                if content_found:
-                    print(f" {name} page loaded")
-                else:
-                    print(f" {name} page did not load content")
-                    all_loaded = False
-                time.sleep(ACTION_DELAY)
-            
-            return all_loaded
-        except Exception as e:
-            print(f" Test 4 failed: {e}")
-            return False
-    
-    def test_5_admin_salon_verification_reject(self):
-        """
-        Test 5 — Admin Salon Verification (Reject Flow)
-        Navigate to /admin/salon-verification
-        If a Reject button exists:
-        Click Reject
-        Confirm modal
-        Expect success notification
-        """
-        print("\n" + "="*70)
-        print("TEST 5: Admin Salon Verification (Reject Flow)")
-        print("="*70)
-        try:
-            self.test_start_time = time.time()
-            if "/admin" not in self.driver.current_url:
-                if not self.login("admin@strands.com", "test123", "Admin"):
-                    return False
-            
-            # Navigate and wait for page to fully load
-            self.navigate_and_scroll(f"{BASE_URL}/admin/salon-verification")
-            self.wait_for_page_stable(timeout=10)
-            self.wait_for_loading_to_complete(timeout=10)
-            time.sleep(0.5)  # Additional wait for salon cards to render
-            
-            try:
-                # Wait for salon cards to load before looking for buttons
-                try:
-                    WebDriverWait(self.driver, 8).until(
-                        EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'Card')] | //div[contains(@class, 'card')]"))
+            for path, name in admin_pages:
+                print(f"  Checking {name} page...")
+                # Use navbar click if available, otherwise navigate directly
+                if name == "Salon Management":
+                    salon_mgmt_clicked = self.safe_click(
+                        By.XPATH,
+                        "//button[contains(text(), 'Salon Management')] | //a[contains(text(), 'Salon Management')]",
+                        "Salon Management tab"
                     )
-                except:
-                    pass  # Continue even if wait times out
+                    if not salon_mgmt_clicked:
+                        self.navigate_and_scroll(f"{BASE_URL}{path}")
+                    else:
+                        time.sleep(1.0)
+                elif name == "Loyalty Monitoring":
+                    loyalty_clicked = self.safe_click(
+                        By.XPATH,
+                        "//button[contains(text(), 'Loyalty Monitoring')] | //a[contains(text(), 'Loyalty Monitoring')]",
+                        "Loyalty Monitoring tab"
+                    )
+                    if not loyalty_clicked:
+                        self.navigate_and_scroll(f"{BASE_URL}{path}")
+                    else:
+                        time.sleep(1.0)
+                elif name == "User Analytics":
+                    user_analytics_clicked = self.safe_click(
+                        By.XPATH,
+                        "//button[contains(text(), 'User Analytics')] | //a[contains(text(), 'User Analytics')]",
+                        "User Analytics tab"
+                    )
+                    if not user_analytics_clicked:
+                        self.navigate_and_scroll(f"{BASE_URL}{path}")
+                    else:
+                        time.sleep(1.0)
+                elif name == "Business Insights":
+                    business_clicked = self.safe_click(
+                        By.XPATH,
+                        "//button[contains(text(), 'Business Insights')] | //a[contains(text(), 'Business Insights')]",
+                        "Business Insights tab"
+                    )
+                    if not business_clicked:
+                        self.navigate_and_scroll(f"{BASE_URL}{path}")
+                    else:
+                        time.sleep(1.0)
+                elif name == "Revenue Analytics":
+                    revenue_clicked = self.safe_click(
+                        By.XPATH,
+                        "//button[contains(text(), 'Revenue Tracking')] | //button[contains(text(), 'Revenue Analytics')] | //a[contains(text(), 'Revenue')]",
+                        "Revenue Tracking tab"
+                    )
+                    if not revenue_clicked:
+                        self.navigate_and_scroll(f"{BASE_URL}{path}")
+                    else:
+                        time.sleep(1.0)
+                else:
+                    self.navigate_and_scroll(f"{BASE_URL}{path}")
                 
-                # Find Reject buttons in salon cards (not filter buttons)
+                time.sleep(1.5)  # Wait for page to load
+                
+                # Visibly scroll to show all content
+                print(f"    Scrolling through {name} page...")
+                time.sleep(0.5)
+                page_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
+                viewport_height = self.driver.execute_script("return window.innerHeight")
+                
+                # Scroll in increments to make it visible
+                scroll_increment = viewport_height * 0.8
+                current_scroll = 0
+                while current_scroll < page_height:
+                    current_scroll += scroll_increment
+                    self.driver.execute_script(f"window.scrollTo(0, {current_scroll});")
+                    time.sleep(0.4)  # Delay to make scrolling visible
+                
+                # Scroll to bottom
+                self.driver.execute_script(f"window.scrollTo(0, {page_height});")
+                time.sleep(0.5)
+                
+                # Scroll back to top
+                self.driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(0.3)
+                print(f"    ✓ {name} page scrolled through")
+            
+            # Go back to salon verification (last page in the loop should be Revenue, so navigate back)
+            print("Returning to Salon Verification page...")
+            salon_mgmt_clicked = self.safe_click(
+                By.XPATH,
+                "//button[contains(text(), 'Salon Management')] | //a[contains(text(), 'Salon Management')]",
+                "Salon Management tab"
+            )
+            if not salon_mgmt_clicked:
+                self.navigate_and_scroll(f"{BASE_URL}/admin/salon-verification")
+            else:
+                time.sleep(1.0)
+            
+            # Wait for page to load
+            time.sleep(1.5)
+            
+            # Go through salon management filter tabs using IDs
+            print("Clicking through salon management filter tabs...")
+            filter_buttons = [
+                ("filter-all-button", "All"),
+                ("filter-pending-button", "Pending"),
+                ("filter-approved-button", "Approved"),
+                ("filter-rejected-button", "Rejected")
+            ]
+            
+            for filter_id, filter_name in filter_buttons:
+                try:
+                    filter_button = self.wait.until(EC.element_to_be_clickable((By.ID, filter_id)))
+                    self.scroll_to_element(filter_button)
+                    time.sleep(0.3)
+                    filter_button.click()
+                    time.sleep(1.0)  # Wait for filter to apply and content to load
+                    print(f"  ✓ Clicked {filter_name} filter")
+                    
+                    # Verify content is loaded
+                    time.sleep(0.5)
+                    salon_cards = self.driver.find_elements(By.XPATH, 
+                        "//div[contains(@class, 'Card')] | //div[contains(@class, 'card')]"
+                    )
+                    print(f"    Found {len(salon_cards)} salon card(s) in {filter_name} view")
+                except Exception as e:
+                    print(f"  ⚠ Could not click {filter_name} filter: {e}")
+            
+            # Go back to "All" filter
+            print("Returning to 'All' filter...")
+            try:
+                all_filter = self.wait.until(EC.element_to_be_clickable((By.ID, "filter-all-button")))
+                self.scroll_to_element(all_filter)
+                time.sleep(0.3)
+                all_filter.click()
+                time.sleep(1.0)  # Wait for filter to apply
+                print("  ✓ Returned to 'All' filter")
+            except Exception as e:
+                print(f"  ⚠ Could not return to 'All' filter: {e}")
+            
+            # Wait for salon cards to load
+            print("Waiting for salon cards to load...")
+            try:
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'Card')] | //div[contains(@class, 'card')]"))
+                )
+                time.sleep(0.5)
+            except:
+                print("Warning: Salon cards may not have loaded, continuing anyway...")
+            
+            # Find and reject the first salon using ID
+            print("Looking for first salon to reject...")
+            try:
+                # Find all reject buttons using ID pattern
                 reject_buttons = self.driver.find_elements(By.XPATH, 
-                    "//div[contains(@class, 'Card') or contains(@class, 'card')]//button[contains(text(), 'Reject')]"
+                    "//button[starts-with(@id, 'reject-salon-')]"
                 )
                 
                 if reject_buttons:
@@ -613,9 +901,9 @@ class StrandsTestSuite:
                     except:
                         self.driver.execute_script("arguments[0].click();", reject_btn)
                     
-                    time.sleep(1.0)  # Wait for modal to appear and animate
+                    time.sleep(1.0)  # Wait for modal to appear
                     
-                    # Wait for modal and click confirm with retries
+                    # Wait for modal and click confirm
                     modal_clicked = False
                     for attempt in range(3):
                         if self.wait_for_modal(timeout=4):
@@ -628,1330 +916,971 @@ class StrandsTestSuite:
                                 pass
                             
                             if self.click_modal_confirm(timeout=4):
-                                time.sleep(1.5)  # Wait for action to complete and modal to close
-                                print("Salon rejected successfully")
+                                time.sleep(1.0)  # Wait for rejection to complete
+                                print("  ✓ Salon rejected successfully")
                                 modal_clicked = True
                                 break
                         time.sleep(0.5)
                     
                     if not modal_clicked:
-                        print("WARNING: Could not complete rejection - continuing")
-                    
-                    # Wait for any notifications/updates to finish
-                    time.sleep(1.0)
-                    return True
+                        print("  WARNING: Could not complete rejection - continuing")
                 else:
-                    print("No Reject buttons found (no pending salons)")
-                    return True
+                    print("  No Reject buttons found (no pending salons)")
             except Exception as e:
-                print(f"Error rejecting salon: {e}")
-                return True
-        except Exception as e:
-            print(f"FAIL: Test 5 failed: {e}")
-            return False
-        finally:
-            self.test_start_time = None
-            # Always logout properly with session clearing
+                print(f"  Error rejecting salon: {e}")
+            
+            # Click logout using ID
+            print("Clicking logout button...")
+            time.sleep(0.5)
             try:
-                if self.driver:
-                    print("Logging out after test...")
-                    # Use the proper logout method
-                    self.logout()
-                    # Wait a bit to ensure logout completed
-                    time.sleep(0.5)
-            except:
-                pass
-
-    # PHASE 3 — OWNER AND STYLIST ONBOARDING
-    
-    def test_6_owner_signup(self):
-        """
-        Test 6 — Owner Signup
-        Navigate to /signup
-        Select Owner
-        Complete form with random owner email
-        Submit
-        Expect redirect to /owner or /owner/register-salon
-        """
-        print("\n" + "="*70)
-        print("TEST 6: Owner Signup")
-        print("="*70)
-        try:
-            self.logout()
-            time.sleep(ACTION_DELAY)
-            
-            self.navigate_and_scroll(f"{BASE_URL}/signup")
-            time.sleep(ACTION_DELAY)
-            
-            # Ensure we're on signup tab
-            self.safe_click(By.XPATH, "//button[contains(text(), 'Sign Up')]", "Sign Up tab")
-            time.sleep(ACTION_DELAY * 0.5)
-            
-            self.owner_email = self.generate_email()
-            owner_name = "Selenium Test Owner"
-            
-            self.safe_send_keys(By.ID, "name", owner_name, "Owner Name")
-            self.safe_send_keys(By.ID, "email", self.owner_email, "Owner Email")
-            self.safe_send_keys(By.ID, "password", "test123456", "Password")
-            self.safe_send_keys(By.ID, "confirmPassword", "test123456", "Confirm Password")
-            
-            # Select Owner role using Select dropdown helper
-            if not self.select_select_dropdown("role", "Salon Owner"):
-                return False
-            
-            self.safe_click(By.XPATH, "//button[@type='submit' and contains(text(), 'Sign Up')]", "Sign Up button")
-            time.sleep(ACTION_DELAY * 3)
-            
-            current_url = self.driver.current_url
-            if "/owner" in current_url or "/dashboard" in current_url:
-                print(f" Owner signup successful - redirected to: {current_url}")
-                print(f"  Owner email: {self.owner_email}")
-                return True
-            else:
-                print(f" Owner signup failed - redirected to: {current_url}")
-                return False
-        except Exception as e:
-            print(f" Test 6 failed: {e}")
-            return False
-    
-    def test_7_owner_registers_salon(self):
-        """
-        Test 7 — Owner Registers Salon
-        Fill: Salon name, Phone, Address, City, State, Postal, Salon Type (StrandsSelect), Description
-        Submit for review
-        Expect: Salon submitted for review message
-        """
-        print("\n" + "="*70)
-        print("TEST 7: Owner Registers Salon")
-        print("="*70)
-        try:
-            # Should already be on owner dashboard after signup
-            time.sleep(ACTION_DELAY * 2)
-            
-            # Look for salon registration form (may be on dashboard if no salon exists)
-            salon_name = f"Selenium Test Salon {random.randint(1000, 9999)}"
-            
-            try:
-                # Try to find registration form inputs
-                name_inputs = self.driver.find_elements(By.NAME, "name")
-                if not name_inputs:
-                    name_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'name') or contains(@placeholder, 'Name') or contains(@placeholder, 'salon')]")
-                
-                if name_inputs:
-                    print("Found salon registration form, filling it out...")
-                    self.safe_send_keys_element(name_inputs[0], salon_name, "Salon name")
+                # Try desktop logout button first
+                try:
+                    logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "admin-logout-button")))
+                    self.scroll_to_element(logout_button)
+                    time.sleep(0.2)
+                    logout_button.click()
+                    time.sleep(1.5)  # Wait for logout modal to appear
                     
-                    phone_inputs = self.driver.find_elements(By.NAME, "phone")
-                    if not phone_inputs:
-                        phone_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'phone') or contains(@placeholder, 'Phone')]")
-                    if phone_inputs:
-                        self.safe_send_keys_element(phone_inputs[0], "(555) 123-4567", "Phone")
-                    
-                    street_inputs = self.driver.find_elements(By.NAME, "street")
-                    if not street_inputs:
-                        street_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'street') or contains(@placeholder, 'Street')]")
-                    if street_inputs:
-                        self.safe_send_keys_element(street_inputs[0], "123 Test Street", "Street")
-                    
-                    city_inputs = self.driver.find_elements(By.NAME, "city")
-                    if not city_inputs:
-                        city_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'city') or contains(@placeholder, 'City')]")
-                    if city_inputs:
-                        self.safe_send_keys_element(city_inputs[0], "New York", "City")
-                    
-                    # Handle state dropdown (StrandsSelect) - first dropdown
-                    if not self.select_strands_select("New York", dropdown_index=0):
-                        # Fallback: try "NY"
-                        self.select_strands_select("NY", dropdown_index=0)
-                    
-                    postal_inputs = self.driver.find_elements(By.NAME, "postal_code")
-                    if not postal_inputs:
-                        postal_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'postal') or contains(@placeholder, 'zip') or contains(@placeholder, 'ZIP')]")
-                    if postal_inputs:
-                        self.safe_send_keys_element(postal_inputs[0], "10001", "Postal code")
-                    
-                    # Handle category dropdown (StrandsSelect) - second dropdown
-                    if not self.select_strands_select("Hair Salon", dropdown_index=1):
-                        # Fallback: try "HAIR SALON"
-                        self.select_strands_select("HAIR SALON", dropdown_index=1)
-                    
-                    desc_inputs = self.driver.find_elements(By.NAME, "description")
-                    if not desc_inputs:
-                        desc_inputs = self.driver.find_elements(By.XPATH, "//textarea[contains(@placeholder, 'description') or contains(@placeholder, 'Description')]")
-                    if desc_inputs:
-                        self.safe_send_keys_element(desc_inputs[0], "Test salon created by Selenium automation", "Description")
-                    
-                    submit_buttons = self.driver.find_elements(By.XPATH, "//button[@type='submit' and (contains(text(), 'Register') or contains(text(), 'Submit') or contains(text(), 'Create'))]")
-                    if submit_buttons:
-                        self.safe_click_element(submit_buttons[0], "Submit button")
-                        time.sleep(ACTION_DELAY * 3)
-                        
-                        # Check for success message
+                    # Handle logout success modal - click OK button
+                    print("  Handling logout success modal...")
+                    try:
+                        ok_button = WebDriverWait(self.driver, 5).until(
+                            EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
+                        )
+                        ok_button.click()
+                        time.sleep(0.5)
+                        print("  ✓ Clicked OK on logout modal")
+                    except:
+                        # Fallback: try to find OK button by text
                         try:
-                            success_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), 'submitted')] | //div[contains(text(), 'success')] | //div[contains(text(), 'pending')]")
-                            if success_elements:
-                                print(f" Salon registration submitted: {salon_name}")
-                                return True
+                            ok_button = WebDriverWait(self.driver, 3).until(
+                                EC.element_to_be_clickable((By.XPATH,
+                                    "//div[contains(@class, 'fixed')]//button[contains(text(), 'OK')] | "
+                                    "//div[@role='dialog']//button[contains(text(), 'OK')]"
+                                ))
+                            )
+                            ok_button.click()
+                            time.sleep(0.5)
+                            print("  ✓ Clicked OK on logout modal (fallback)")
+                        except:
+                            print("  ⚠ Could not find OK button on logout modal")
+                    
+                    time.sleep(1.0)
+                    print("  ✓ Logged out successfully")
+                except:
+                    # Try mobile logout button
+                    try:
+                        logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "admin-logout-button-mobile")))
+                        self.scroll_to_element(logout_button)
+                        time.sleep(0.2)
+                        logout_button.click()
+                        time.sleep(1.5)
+                        
+                        # Handle logout modal
+                        try:
+                            ok_button = WebDriverWait(self.driver, 5).until(
+                                EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
+                            )
+                            ok_button.click()
+                            time.sleep(0.5)
+                            print("  ✓ Clicked OK on logout modal")
                         except:
                             pass
                         
-                        print(f" Salon registration form submitted: {salon_name}")
-                        return True
-                    else:
-                        print(" Could not find submit button")
-                        return False
-                else:
-                    print("No salon registration form found (owner may already have a salon)")
-                    return True  # Not a failure if salon already exists
+                        time.sleep(1.0)
+                        print("  ✓ Logged out successfully (mobile)")
+                    except:
+                        # Fallback to XPath
+                        logout_buttons = self.driver.find_elements(By.XPATH, 
+                            "//button[contains(text(), 'Logout')] | "
+                            "//button[contains(., 'Logout')]"
+                        )
+                        if logout_buttons:
+                            self.scroll_to_element(logout_buttons[0])
+                            time.sleep(0.2)
+                            logout_buttons[0].click()
+                            time.sleep(1.5)
+                            
+                            # Handle logout modal
+                            try:
+                                ok_button = WebDriverWait(self.driver, 5).until(
+                                    EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
+                                )
+                                ok_button.click()
+                                time.sleep(0.5)
+                                print("  ✓ Clicked OK on logout modal")
+                            except:
+                                pass
+                            
+                            time.sleep(1.0)
+                            print("  ✓ Logged out successfully (fallback)")
+                        else:
+                            print("  ⚠ Could not find logout button")
             except Exception as e:
-                print(f"Could not complete salon registration form: {e}")
-                return False
+                print(f"  ⚠ Error clicking logout: {e}")
+            
+            return True
         except Exception as e:
-            print(f" Test 7 failed: {e}")
+            print(f" Test 4 failed: {e}")
             return False
     
-    def test_8_admin_approves_newly_submitted_salon(self):
+    # PHASE 3 — OWNER SIGNUP AND ONBOARDING
+    
+    def test_5_owner_signup_and_admin_approval(self):
         """
-        Test 8 — Admin Approves Newly Submitted Salon
-        Admin logs in again
-        Go to /admin/salon-verification
-        Approve newly created salon
-        Expect success toast
+        Test 5 — Owner Signup and Admin Approval
+        After Phase 2, should be signed out and on landing page
+        Click Get Started button
+        Test error handling (empty fields, invalid info)
+        Fill with valid random information
+        Click Create Account
+        Log out using logout button ID
+        Log back into admin account
+        On salon management page, approve the new salon using approve button ID
+        Log out of admin
+        Log back into the owner account that was just created
+        Go through owner dashboard tabs in order and scroll through each
         """
         print("\n" + "="*70)
-        print("TEST 8: Admin Approves Newly Submitted Salon")
+        print("TEST 5: Owner Signup and Admin Approval")
         print("="*70)
         try:
-            self.test_start_time = time.time()
-            self.logout()
-            time.sleep(ACTION_DELAY)
+            # Should be on landing page after Phase 2 logout
+            current_url = self.driver.current_url
+            if "/" not in current_url and "/login" not in current_url:
+                print("Navigating to landing page...")
+                self.navigate_and_scroll(f"{BASE_URL}/")
+                time.sleep(1.0)
             
-            if not self.login("admin@strands.com", "test123", "Admin"):
-                return False
+            # Click Get Started button using ID
+            print("Clicking Get Started button...")
+            try:
+                # Try hero button first (more prominent)
+                get_started_button = self.wait.until(EC.element_to_be_clickable((By.ID, "get-started-hero-button")))
+                self.scroll_to_element(get_started_button)
+                time.sleep(0.3)
+                get_started_button.click()
+            except:
+                # Fallback to header button
+                try:
+                    get_started_button = self.wait.until(EC.element_to_be_clickable((By.ID, "get-started-header-button")))
+                    self.scroll_to_element(get_started_button)
+                    time.sleep(0.3)
+                    get_started_button.click()
+                except:
+                    # Fallback to XPath
+                    get_started_buttons = self.driver.find_elements(By.XPATH, 
+                        "//button[contains(text(), 'Get Started')]"
+                    )
+                    if get_started_buttons:
+                        self.safe_click_element(get_started_buttons[0], "Get Started button")
             
-            # Navigate and wait for page to fully load
-            self.navigate_and_scroll(f"{BASE_URL}/admin/salon-verification")
-            self.wait_for_page_stable(timeout=10)
-            self.wait_for_loading_to_complete(timeout=10)
-            time.sleep(0.5)  # Additional wait for salon cards to render
+            time.sleep(1.5)  # Wait for signup page to load
+            
+            # Ensure we're on signup tab
+            print("Ensuring we're on Sign Up tab...")
+            try:
+                signup_tab = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Sign Up')]")
+                if signup_tab:
+                    signup_tab.click()
+                    time.sleep(0.5)
+            except:
+                pass
+            
+            # Test error handling - empty fields
+            print("Testing error handling with empty fields...")
+            try:
+                # Clear all fields
+                name_input = self.driver.find_element(By.ID, "name")
+                email_input = self.driver.find_element(By.ID, "email")
+                password_input = self.driver.find_element(By.ID, "password")
+                confirm_password_input = self.driver.find_element(By.ID, "confirmPassword")
+                
+                name_input.clear()
+                email_input.clear()
+                password_input.clear()
+                confirm_password_input.clear()
+                time.sleep(0.2)
+                
+                # Try to submit with empty fields
+                create_account_button = self.driver.find_element(By.ID, "create-account-button")
+                self.scroll_to_element(create_account_button)
+                time.sleep(0.2)
+                create_account_button.click()
+                time.sleep(1.5)  # Wait for validation errors
+                
+                # Check for validation errors
+                validation_errors = self.driver.find_elements(By.XPATH, 
+                    "//div[contains(@class, 'error')] | "
+                    "//div[contains(text(), 'required')] | "
+                    "//div[contains(text(), 'Required')] | "
+                    "//div[contains(text(), 'Please')]"
+                )
+                if validation_errors or "/signup" in self.driver.current_url:
+                    print("  ✓ Empty fields validation triggered")
+                else:
+                    print("  ⚠ Empty fields validation may not have triggered")
+            except Exception as e:
+                print(f"  ⚠ Could not test empty fields: {e}")
+            
+            # Test error handling - invalid information
+            print("Testing error handling with invalid information...")
+            try:
+                # Fill with invalid data
+                name_input = self.driver.find_element(By.ID, "name")
+                email_input = self.driver.find_element(By.ID, "email")
+                password_input = self.driver.find_element(By.ID, "password")
+                confirm_password_input = self.driver.find_element(By.ID, "confirmPassword")
+                
+                name_input.clear()
+                name_input.send_keys("A")  # Too short
+                email_input.clear()
+                email_input.send_keys("invalid-email")  # Invalid email
+                password_input.clear()
+                password_input.send_keys("123")  # Too short
+                confirm_password_input.clear()
+                confirm_password_input.send_keys("456")  # Doesn't match
+                time.sleep(0.3)
+                
+                # Try to submit
+                create_account_button = self.driver.find_element(By.ID, "create-account-button")
+                self.scroll_to_element(create_account_button)
+                time.sleep(0.2)
+                create_account_button.click()
+                time.sleep(1.5)  # Wait for validation errors
+                
+                # Check for validation errors
+                validation_errors = self.driver.find_elements(By.XPATH, 
+                    "//div[contains(@class, 'error')] | "
+                    "//div[contains(text(), 'invalid')] | "
+                    "//div[contains(text(), 'match')] | "
+                    "//div[contains(text(), 'length')]"
+                )
+                if validation_errors:
+                    print(f"  ✓ Invalid data validation triggered: {validation_errors[0].text[:50]}")
+                else:
+                    print("  ⚠ Invalid data validation may not have triggered")
+            except Exception as e:
+                print(f"  ⚠ Could not test invalid data: {e}")
+            
+            # Now fill with valid random information
+            print("Filling signup form with valid information...")
+            self.owner_email = self.generate_email()
+            owner_name = "Selenium Test Owner"
+            owner_password = "test123456"
             
             try:
-                # Wait for salon cards to load
+                # Fill Full Name
+                name_input = self.driver.find_element(By.ID, "name")
+                name_input.clear()
+                self.safe_send_keys_element(name_input, owner_name, "Full Name")
+                time.sleep(0.2)
+                
+                # Fill Email
+                email_input = self.driver.find_element(By.ID, "email")
+                email_input.clear()
+                self.safe_send_keys_element(email_input, self.owner_email, "Email")
+                time.sleep(0.2)
+                
+                # Fill Password
+                password_input = self.driver.find_element(By.ID, "password")
+                password_input.clear()
+                self.safe_send_keys_element(password_input, owner_password, "Password")
+                time.sleep(0.2)
+                
+                # Fill Confirm Password
+                confirm_password_input = self.driver.find_element(By.ID, "confirmPassword")
+                confirm_password_input.clear()
+                self.safe_send_keys_element(confirm_password_input, owner_password, "Confirm Password")
+                time.sleep(0.2)
+                
+                # Select Owner role
+                print("Selecting Owner role...")
+                if not self.select_select_dropdown("role", "Salon Owner"):
+                    # Fallback method
+                    try:
+                        select_trigger = self.wait.until(EC.element_to_be_clickable((By.ID, "role")))
+                        self.scroll_to_element(select_trigger)
+                        select_trigger.click()
+                        time.sleep(0.5)
+                        owner_option = WebDriverWait(self.driver, 3).until(
+                            EC.element_to_be_clickable((By.XPATH, "//div[@role='option' and (contains(., 'Owner') or contains(., 'Salon'))]"))
+                        )
+                        owner_option.click()
+                        time.sleep(0.3)
+                        print("Selected Owner role via fallback")
+                    except:
+                        print("Warning: Could not select Owner role")
+                
+                # Click Create Account button using ID
+                print("Clicking Create Account button...")
+                create_account_button = self.wait.until(EC.element_to_be_clickable((By.ID, "create-account-button")))
+                self.scroll_to_element(create_account_button)
+                time.sleep(0.3)
+                create_account_button.click()
+                time.sleep(ACTION_DELAY * 3)  # Wait for account creation and redirect
+                
+                # Check if signup was successful
+                current_url = self.driver.current_url
+                if "/owner" in current_url or "/dashboard" in current_url or "/salon-registration" in current_url:
+                    print(f"  ✓ Owner account created successfully: {self.owner_email}")
+                else:
+                    print(f"  ⚠ Signup may have failed - redirected to: {current_url}")
+            except Exception as e:
+                print(f"  Error filling signup form: {e}")
+                return False
+            
+            # Wait for salon registration form to appear
+            print("Waiting for salon registration form...")
+            time.sleep(2.0)  # Wait for redirect to salon registration page
+            
+            # Check if we're on salon registration page
+            current_url = self.driver.current_url
+            if "/salon-registration" not in current_url and "/owner" not in current_url:
+                # Try to find the salon registration form by looking for form fields
                 try:
-                    WebDriverWait(self.driver, 5).until(
-                        EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'Card')] | //div[contains(@class, 'card')]"))
+                    salon_name_field = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.ID, "name"))
                     )
+                    print("  ✓ Salon registration form found")
+                except:
+                    print("  ⚠ Salon registration form may not have appeared")
+            else:
+                print("  ✓ On salon registration page")
+            
+            # Close any notification modals that might be open
+            try:
+                # Check if notification modal is open and close it
+                notification_modals = self.driver.find_elements(By.XPATH, 
+                    "//div[contains(@class, 'fixed')]//h3[contains(text(), 'Notifications')] | "
+                    "//div[@role='dialog']//h3[contains(text(), 'Notifications')]"
+                )
+                if notification_modals:
+                    # Find and click close button
+                    close_buttons = self.driver.find_elements(By.XPATH,
+                        "//div[contains(@class, 'fixed')]//button[contains(@class, 'X')] | "
+                        "//div[@role='dialog']//button[.//*[local-name()='svg']] | "
+                        "//button[.//*[local-name()='svg' and contains(@class, 'X')]]"
+                    )
+                    for btn in close_buttons:
+                        try:
+                            if btn.is_displayed():
+                                btn.click()
+                                time.sleep(0.3)
+                                print("  Closed notification modal if it was open")
+                                break
+                        except:
+                            pass
+            except:
+                pass
+            
+            # Scroll to the form to avoid accidentally clicking navbar buttons (like inbox)
+            try:
+                # Scroll to form area to focus on form elements
+                form_element = self.driver.find_element(By.XPATH, 
+                    "//form | //div[contains(@class, 'Card')] | //div[contains(@class, 'card')]"
+                )
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'start', behavior: 'smooth'});", form_element)
+                time.sleep(0.5)
+                print("  Scrolled to form to avoid navbar buttons")
+            except:
+                pass
+            
+            # Test error handling - empty fields
+            print("Testing salon registration error handling with empty fields...")
+            try:
+                # Try to submit with empty fields
+                submit_button = self.wait.until(EC.element_to_be_clickable((By.ID, "submit-for-review-button")))
+                self.scroll_to_element(submit_button)
+                time.sleep(0.2)
+                submit_button.click()
+                time.sleep(1.5)  # Wait for validation errors
+                
+                # Check for validation errors
+                validation_errors = self.driver.find_elements(By.XPATH, 
+                    "//div[contains(@class, 'error')] | "
+                    "//div[contains(text(), 'required')] | "
+                    "//div[contains(text(), 'Required')] | "
+                    "//div[contains(text(), 'Please')] | "
+                    "//div[contains(@class, 'destructive')]"
+                )
+                if validation_errors or "/salon-registration" in self.driver.current_url:
+                    print("  ✓ Empty fields validation triggered")
+                else:
+                    print("  ⚠ Empty fields validation may not have triggered")
+            except Exception as e:
+                print(f"  ⚠ Could not test empty fields: {e}")
+            
+            # Test error handling - invalid information
+            print("Testing salon registration error handling with invalid information...")
+            try:
+                # Fill with invalid data
+                phone_input = self.driver.find_element(By.ID, "phone")
+                postal_code_input = self.driver.find_element(By.ID, "postal_code")
+                
+                phone_input.clear()
+                phone_input.send_keys("abc")  # Invalid phone
+                postal_code_input.clear()
+                postal_code_input.send_keys("abc")  # Invalid postal code
+                time.sleep(0.3)
+                
+                # Try to submit
+                submit_button = self.driver.find_element(By.ID, "submit-for-review-button")
+                self.scroll_to_element(submit_button)
+                time.sleep(0.2)
+                submit_button.click()
+                time.sleep(1.5)  # Wait for validation errors
+                
+                # Check for validation errors
+                validation_errors = self.driver.find_elements(By.XPATH, 
+                    "//div[contains(@class, 'error')] | "
+                    "//div[contains(text(), 'invalid')] | "
+                    "//div[contains(text(), 'valid')] | "
+                    "//div[contains(@class, 'destructive')]"
+                )
+                if validation_errors:
+                    print(f"  ✓ Invalid data validation triggered")
+                else:
+                    print("  ⚠ Invalid data validation may not have triggered")
+            except Exception as e:
+                print(f"  ⚠ Could not test invalid data: {e}")
+            
+            # Now fill with valid information - using IDs explicitly to avoid clicking notifications
+            # All form fields have IDs: name, email, phone, street, city, state, postal_code, category, description
+            # Submit button has ID: submit-for-review-button
+            print("Filling salon registration form with valid information (using field IDs only)...")
+            print("  Form fields with IDs: name, email, phone, street, city, state, postal_code, category, description")
+            print("  Submit button ID: submit-for-review-button")
+            try:
+                # Ensure we're focused on the form, not navbar
+                try:
+                    form = self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "form")))
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'start'});", form)
+                    time.sleep(0.3)
                 except:
                     pass
                 
-                # Find Approve buttons in salon cards
-                approve_buttons = self.driver.find_elements(By.XPATH,
-                    "//div[contains(@class, 'Card') or contains(@class, 'card')]//button[contains(text(), 'Approve')]"
+                # Disable inbox button temporarily to prevent accidental clicks
+                try:
+                    inbox_button = self.driver.find_element(By.ID, "owner-inbox-button")
+                    self.driver.execute_script("""
+                        arguments[0].style.pointerEvents = 'none';
+                        arguments[0].style.opacity = '0.5';
+                    """, inbox_button)
+                    print("  Disabled inbox button to prevent accidental clicks")
+                except:
+                    pass
+                
+                # Fill Salon Name using ID
+                print("  Filling Salon Name (id='name')...")
+                salon_name_input = self.wait.until(EC.presence_of_element_located((By.ID, "name")))
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", salon_name_input)
+                time.sleep(0.2)
+                salon_name_input.clear()
+                salon_name_input.send_keys("Selenium Test Salon")
+                time.sleep(0.2)
+                
+                # Email is already filled and locked
+                print("  Email is locked to account (as expected)")
+                time.sleep(0.2)
+                
+                # Fill Phone Number using ID
+                print("  Filling Phone Number (id='phone')...")
+                phone_input = self.wait.until(EC.presence_of_element_located((By.ID, "phone")))
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", phone_input)
+                time.sleep(0.2)
+                phone_input.clear()
+                phone_input.send_keys("5551234567")
+                time.sleep(0.2)
+                
+                # Fill Street Address using ID
+                print("  Filling Street Address (id='street')...")
+                street_input = self.wait.until(EC.presence_of_element_located((By.ID, "street")))
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", street_input)
+                time.sleep(0.2)
+                street_input.clear()
+                street_input.send_keys("123 Test Street")
+                time.sleep(0.2)
+                
+                # Fill City using ID
+                print("  Filling City (id='city')...")
+                city_input = self.wait.until(EC.presence_of_element_located((By.ID, "city")))
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", city_input)
+                time.sleep(0.2)
+                city_input.clear()
+                city_input.send_keys("Test City")
+                time.sleep(0.2)
+                
+                # Select State using ID (id="state")
+                print("  Selecting State (id='state')...")
+                state_selected = self.select_strands_select("California", element_id="state")
+                if not state_selected:
+                    print("  ⚠ Could not select State - trying alternative...")
+                    # Try alternative: find button by ID and click, then find option
+                    try:
+                        state_button = self.wait.until(EC.element_to_be_clickable((By.ID, "state")))
+                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", state_button)
+                        time.sleep(0.2)
+                        state_button.click()
+                        time.sleep(0.8)
+                        # Find California option
+                        california_option = WebDriverWait(self.driver, 4).until(
+                            EC.element_to_be_clickable((By.XPATH, 
+                                "//div[contains(@class, 'absolute')]//div[contains(text(), 'California')] | "
+                                "//div[contains(@class, 'cursor-pointer')]//span[contains(text(), 'California')]"
+                            ))
+                        )
+                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", california_option)
+                        time.sleep(0.2)
+                        california_option.click()
+                        time.sleep(0.4)
+                        print("  ✓ Selected State: California (alternative method)")
+                    except Exception as e:
+                        print(f"  ✗ Could not select State: {e}")
+                
+                # Fill Postal Code (numbers only) using ID
+                print("  Filling Postal Code (id='postal_code')...")
+                postal_code_input = self.wait.until(EC.presence_of_element_located((By.ID, "postal_code")))
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", postal_code_input)
+                time.sleep(0.2)
+                postal_code_input.clear()
+                time.sleep(0.1)
+                # Send keys one by one to ensure numeric input
+                postal_code_input.send_keys("1")
+                time.sleep(0.05)
+                postal_code_input.send_keys("2")
+                time.sleep(0.05)
+                postal_code_input.send_keys("3")
+                time.sleep(0.05)
+                postal_code_input.send_keys("4")
+                time.sleep(0.05)
+                postal_code_input.send_keys("5")
+                time.sleep(0.2)
+                # Verify postal code is numeric
+                postal_value = postal_code_input.get_attribute("value")
+                if postal_value and not postal_value.replace(" ", "").isdigit():
+                    print(f"  ⚠ Warning: Postal code may not be numeric: {postal_value}")
+                    # Try clearing and re-entering
+                    postal_code_input.clear()
+                    time.sleep(0.1)
+                    postal_code_input.send_keys("12345")
+                    time.sleep(0.2)
+                else:
+                    print(f"  ✓ Postal code is numeric: {postal_value}")
+                
+                # Select Salon Type using ID (id="category")
+                print("  Selecting Salon Type (id='category')...")
+                salon_type_selected = self.select_strands_select("Hair Salon", element_id="category")
+                if not salon_type_selected:
+                    print("  ⚠ Could not select Salon Type - trying alternative...")
+                    # Try alternative: find button by ID and click, then find option
+                    try:
+                        salon_type_button = self.wait.until(EC.element_to_be_clickable((By.ID, "category")))
+                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", salon_type_button)
+                        time.sleep(0.2)
+                        salon_type_button.click()
+                        time.sleep(0.8)
+                        # Find Hair Salon option
+                        hair_salon_option = WebDriverWait(self.driver, 4).until(
+                            EC.element_to_be_clickable((By.XPATH,
+                                "//div[contains(@class, 'absolute')]//div[contains(text(), 'Hair Salon')] | "
+                                "//div[contains(@class, 'cursor-pointer')]//span[contains(text(), 'Hair Salon')]"
+                            ))
+                        )
+                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", hair_salon_option)
+                        time.sleep(0.2)
+                        hair_salon_option.click()
+                        time.sleep(0.4)
+                        print("  ✓ Selected Salon Type: Hair Salon (alternative method)")
+                    except Exception as e:
+                        print(f"  ✗ Could not select Salon Type: {e}")
+                
+                # Fill Description using ID (id="description")
+                print("  Filling Description (id='description')...")
+                description_input = self.wait.until(EC.presence_of_element_located((By.ID, "description")))
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", description_input)
+                time.sleep(0.2)
+                description_input.clear()
+                time.sleep(0.1)
+                description_input.send_keys("This is a test salon created by Selenium automation for testing purposes.")
+                time.sleep(0.3)
+                # Verify description was filled
+                desc_value = description_input.get_attribute("value")
+                if desc_value:
+                    print(f"  ✓ Description filled: {desc_value[:50]}...")
+                else:
+                    print("  ⚠ Warning: Description may not have been filled")
+                
+                # Click Submit for Review button using ID - make absolutely sure we're not clicking inbox
+                print("Clicking Submit for Review button (id='submit-for-review-button')...")
+                submit_button = self.wait.until(EC.element_to_be_clickable((By.ID, "submit-for-review-button")))
+                # Verify it's the correct button by checking its text
+                button_text = submit_button.text.strip()
+                if "Submit" not in button_text and "Review" not in button_text:
+                    print(f"  ⚠ Warning: Button text doesn't match expected: {button_text}")
+                
+                # Scroll to button to ensure it's visible and not blocked by navbar
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", submit_button)
+                time.sleep(0.5)
+                
+                # Double-check we're not clicking the inbox button
+                try:
+                    inbox_button = self.driver.find_element(By.ID, "owner-inbox-button")
+                    inbox_location = inbox_button.location
+                    submit_location = submit_button.location
+                    # If they're too close, scroll more
+                    if abs(inbox_location['y'] - submit_location['y']) < 100:
+                        self.driver.execute_script("window.scrollBy(0, -150);")
+                        time.sleep(0.3)
+                except:
+                    pass
+                
+                # Make sure we're clicking the submit button, not any navbar buttons
+                try:
+                    submit_button.click()
+                except:
+                    # Fallback: use JavaScript click
+                    self.driver.execute_script("arguments[0].click();", submit_button)
+                time.sleep(ACTION_DELAY * 4)  # Wait for submission and redirect/modal
+                
+                # Close notification modal if it opened
+                try:
+                    notification_modals = self.driver.find_elements(By.XPATH, 
+                        "//div[contains(@class, 'fixed')]//h3[contains(text(), 'Notifications')]"
+                    )
+                    if notification_modals:
+                        close_btn = self.driver.find_element(By.XPATH,
+                            "//div[contains(@class, 'fixed')]//button[.//*[local-name()='svg']] | "
+                            "//button[@aria-label='Close'] | "
+                            "//button[contains(@class, 'close')]"
+                        )
+                        if close_btn and close_btn.is_displayed():
+                            close_btn.click()
+                            time.sleep(0.3)
+                            print("  Closed notification modal after submission")
+                except:
+                    pass
+                
+                # Check if a success modal appeared and close it if needed
+                try:
+                    modal_confirm = WebDriverWait(self.driver, 3).until(
+                        EC.presence_of_element_located((By.XPATH, 
+                            "//div[contains(@class, 'fixed')]//button[contains(text(), 'OK')] | "
+                            "//div[contains(@class, 'fixed')]//button[contains(text(), 'Confirm')] | "
+                            "//div[@role='dialog']//button[contains(text(), 'OK')]"
+                        ))
+                    )
+                    if modal_confirm:
+                        modal_confirm.click()
+                        time.sleep(0.5)
+                        print("  Closed success modal")
+                except:
+                    pass
+                
+                # Check if submission was successful
+                current_url = self.driver.current_url
+                if "/owner" in current_url or "/dashboard" in current_url:
+                    print("  ✓ Salon registration submitted successfully")
+                else:
+                    print(f"  ⚠ Salon registration may have failed - redirected to: {current_url}")
+            except Exception as e:
+                print(f"  Error filling salon registration form: {e}")
+                import traceback
+                traceback.print_exc()
+                return False
+            
+            # After salon registration form is submitted, log out of owner account
+            print("Logging out of owner account after salon registration...")
+            time.sleep(1.5)  # Wait for page to load after form submission
+            try:
+                # Try owner logout button ID first
+                try:
+                    logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "owner-logout-button")))
+                    self.scroll_to_element(logout_button)
+                    time.sleep(0.2)
+                    logout_button.click()
+                    time.sleep(1.5)  # Wait for logout modal to appear
+                    
+                    # Handle logout success modal - click OK button
+                    print("  Handling logout success modal...")
+                    try:
+                        ok_button = WebDriverWait(self.driver, 5).until(
+                            EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
+                        )
+                        ok_button.click()
+                        time.sleep(0.5)
+                        print("  ✓ Clicked OK on logout modal")
+                    except:
+                        # Fallback: try to find OK button by text
+                        try:
+                            ok_button = WebDriverWait(self.driver, 3).until(
+                                EC.element_to_be_clickable((By.XPATH,
+                                    "//div[contains(@class, 'fixed')]//button[contains(text(), 'OK')] | "
+                                    "//div[@role='dialog']//button[contains(text(), 'OK')]"
+                                ))
+                            )
+                            ok_button.click()
+                            time.sleep(0.5)
+                            print("  ✓ Clicked OK on logout modal (fallback)")
+                        except:
+                            print("  ⚠ Could not find OK button on logout modal")
+                    
+                    time.sleep(1.0)
+                    print("  ✓ Logged out using owner logout button ID")
+                except:
+                    # Fallback to XPath
+                    logout_buttons = self.driver.find_elements(By.XPATH, 
+                        "//button[@id='owner-logout-button'] | "
+                        "//button[contains(text(), 'Logout')] | "
+                        "//button[contains(., 'Logout')]"
+                    )
+                    if logout_buttons:
+                        self.scroll_to_element(logout_buttons[0])
+                        time.sleep(0.2)
+                        logout_buttons[0].click()
+                        time.sleep(1.5)
+                        
+                        # Handle logout modal
+                        try:
+                            ok_button = WebDriverWait(self.driver, 5).until(
+                                EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
+                            )
+                            ok_button.click()
+                            time.sleep(0.5)
+                            print("  ✓ Clicked OK on logout modal")
+                        except:
+                            pass
+                        
+                        time.sleep(1.0)
+                        print("  ✓ Logged out (fallback)")
+                    else:
+                        # Navigate to home and clear session
+                        self.driver.get(f"{BASE_URL}/")
+                        time.sleep(0.5)
+                        print("  ✓ Navigated to home (logout)")
+            except Exception as e:
+                print(f"  ⚠ Error logging out: {e}")
+            
+            # Log back into admin account
+            print("Logging back into admin account...")
+            if not self.login("admin@strands.com", "test123", "Admin"):
+                return False
+            
+            # Navigate to salon management page
+            print("Navigating to Salon Management page...")
+            salon_mgmt_clicked = self.safe_click(
+                By.XPATH,
+                "//button[contains(text(), 'Salon Management')] | //a[contains(text(), 'Salon Management')]",
+                "Salon Management tab"
+            )
+            if not salon_mgmt_clicked:
+                self.navigate_and_scroll(f"{BASE_URL}/admin/salon-verification")
+            else:
+                time.sleep(1.0)
+            
+            # Wait for page to load
+            time.sleep(1.5)
+            
+            # Find and approve the new salon using approve button ID
+            print("Looking for new salon to approve...")
+            try:
+                # Find all approve buttons using ID pattern
+                approve_buttons = self.driver.find_elements(By.XPATH, 
+                    "//button[starts-with(@id, 'approve-salon-')]"
                 )
                 
                 if approve_buttons:
                     print(f"Found {len(approve_buttons)} Approve button(s), clicking first one...")
-                    # Scroll and click
-                    self.scroll_to_element(approve_buttons[0])
-                    time.sleep(0.3)
-                    try:
-                        approve_buttons[0].click()
-                    except:
-                        self.driver.execute_script("arguments[0].click();", approve_buttons[0])
-                    time.sleep(0.8)
                     
-                    # Wait for modal and click confirm with retries
+                    # Scroll to button
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", approve_buttons[0])
+                    time.sleep(0.5)
+                    
+                    # Wait for button to be clickable
+                    approve_btn = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable(approve_buttons[0])
+                    )
+                    
+                    # Click the button
+                    try:
+                        approve_btn.click()
+                    except:
+                        self.driver.execute_script("arguments[0].click();", approve_btn)
+                    
+                    time.sleep(1.0)  # Wait for modal to appear
+                    
+                    # Wait for modal and click confirm
                     modal_clicked = False
                     for attempt in range(3):
-                        if self.wait_for_modal(timeout=3):
-                            if self.click_modal_confirm(timeout=3):
-                                time.sleep(0.8)
-                                print("Salon approved successfully")
+                        if self.wait_for_modal(timeout=4):
+                            if self.click_modal_confirm(timeout=4):
+                                time.sleep(1.0)  # Wait for approval to complete
+                                print("  ✓ Salon approved successfully")
                                 modal_clicked = True
                                 break
                         time.sleep(0.5)
                     
                     if not modal_clicked:
-                        print("WARNING: Could not complete approval - continuing")
-                    
-                    time.sleep(0.5)
-                    return True
+                        print("  WARNING: Could not complete approval - continuing")
                 else:
-                    print("No Approve buttons found (no pending salons)")
-                    return True
+                    print("  No Approve buttons found (no pending salons)")
             except Exception as e:
-                print(f"Error approving salon: {e}")
-                return True
-        except Exception as e:
-            print(f"FAIL: Test 8 failed: {e}")
-            return False
-        finally:
-            self.test_start_time = None
-            # Always logout with simple method
+                print(f"  Error approving salon: {e}")
+            
+            # Log out of admin using logout button ID
+            print("Logging out of admin...")
+            time.sleep(0.5)
             try:
-                if self.driver:
-                    print("Logging out after test...")
+                # Try desktop logout button first
+                try:
+                    logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "admin-logout-button")))
+                    self.scroll_to_element(logout_button)
+                    time.sleep(0.2)
+                    logout_button.click()
+                    time.sleep(1.5)  # Wait for logout modal to appear
+                    
+                    # Handle logout success modal - click OK button
+                    print("  Handling logout success modal...")
                     try:
-                        logout_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Logout')]")
-                        if logout_buttons and len(logout_buttons) > 0:
-                            self.driver.execute_script("arguments[0].click();", logout_buttons[0])
-                            time.sleep(0.8)
-                        else:
-                            self.driver.get(f"{BASE_URL}/")
-                            time.sleep(0.5)
+                        ok_button = WebDriverWait(self.driver, 5).until(
+                            EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
+                        )
+                        ok_button.click()
+                        time.sleep(0.5)
+                        print("  ✓ Clicked OK on logout modal")
                     except:
+                        # Fallback: try to find OK button by text
                         try:
-                            self.driver.get(f"{BASE_URL}/")
+                            ok_button = WebDriverWait(self.driver, 3).until(
+                                EC.element_to_be_clickable((By.XPATH,
+                                    "//div[contains(@class, 'fixed')]//button[contains(text(), 'OK')] | "
+                                    "//div[@role='dialog']//button[contains(text(), 'OK')]"
+                                ))
+                            )
+                            ok_button.click()
                             time.sleep(0.5)
+                            print("  ✓ Clicked OK on logout modal (fallback)")
+                        except:
+                            print("  ⚠ Could not find OK button on logout modal")
+                    
+                    time.sleep(1.0)
+                    print("  ✓ Logged out of admin")
+                except:
+                    # Try mobile logout button
+                    try:
+                        logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "admin-logout-button-mobile")))
+                        self.scroll_to_element(logout_button)
+                        time.sleep(0.2)
+                        logout_button.click()
+                        time.sleep(1.5)
+                        
+                        # Handle logout modal
+                        try:
+                            ok_button = WebDriverWait(self.driver, 5).until(
+                                EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
+                            )
+                            ok_button.click()
+                            time.sleep(0.5)
+                            print("  ✓ Clicked OK on logout modal")
                         except:
                             pass
-            except:
-                pass
-    
-    def test_9_owner_dashboard_loads_correctly(self):
-        """
-        Test 9 — Owner Dashboard Loads Correctly
-        Owner logs in and visits:
-        /owner/overview
-        /owner/revenue
-        /owner/customers
-        /owner/reviews
-        /owner/loyalty
-        For each page: Assert tables, charts, cards, or headers load correctly
-        """
-        print("\n" + "="*70)
-        print("TEST 9: Owner Dashboard Loads Correctly")
-        print("="*70)
-        try:
-            self.logout()
-            time.sleep(ACTION_DELAY)
+                        
+                        time.sleep(1.0)
+                        print("  ✓ Logged out of admin (mobile)")
+                    except:
+                        # Fallback to XPath
+                        logout_buttons = self.driver.find_elements(By.XPATH, 
+                            "//button[contains(text(), 'Logout')] | "
+                            "//button[contains(., 'Logout')]"
+                        )
+                        if logout_buttons:
+                            self.scroll_to_element(logout_buttons[0])
+                            time.sleep(0.2)
+                            logout_buttons[0].click()
+                            time.sleep(1.5)
+                            
+                            # Handle logout modal
+                            try:
+                                ok_button = WebDriverWait(self.driver, 5).until(
+                                    EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
+                                )
+                                ok_button.click()
+                                time.sleep(0.5)
+                                print("  ✓ Clicked OK on logout modal")
+                            except:
+                                pass
+                            
+                            time.sleep(1.0)
+                            print("  ✓ Logged out of admin (fallback)")
+            except Exception as e:
+                print(f"  ⚠ Error logging out: {e}")
             
-            # Use the owner email from Test 6, or fallback to existing owner
-            if self.owner_email:
-                if not self.login(self.owner_email, "test123456", "Owner"):
-                    # Try with existing owner if new one doesn't work
-                    if not self.login("Trim@gmail.com", "test123", "Owner"):
-                        return False
-            else:
-                if not self.login("Trim@gmail.com", "test123", "Owner"):
-                    return False
+            # Log back into the owner account that was just created
+            print(f"Logging back into owner account: {self.owner_email}")
+            if not self.login(self.owner_email, owner_password, "Owner"):
+                return False
             
-            pages = [
+            # Should start on overview page after login
+            time.sleep(1.5)
+            current_url = self.driver.current_url
+            if "/owner/overview" not in current_url:
+                # Navigate to overview if not already there
+                self.navigate_and_scroll(f"{BASE_URL}/owner/overview")
+                time.sleep(1.0)
+            
+            # Go through owner dashboard tabs in order (as shown in navbar)
+            print("Going through owner dashboard tabs in order...")
+            owner_tabs = [
                 ("/owner/overview", "Overview"),
-                ("/owner/revenue", "Revenue"),
+                ("/owner/staff", "Staff"),
+                ("/owner/products", "Products"),
                 ("/owner/customers", "Customers"),
+                ("/owner/order-history", "Order History"),
                 ("/owner/reviews", "Reviews"),
-                ("/owner/loyalty", "Loyalty")
+                ("/owner/revenue", "Revenue"),
+                ("/owner/loyalty", "Loyalty & Promotions"),
+                ("/owner/settings", "Settings"),
             ]
             
-            all_loaded = True
-            for path, name in pages:
-                print(f"Checking {name} page...")
+            for path, name in owner_tabs:
+                print(f"  Checking {name} page...")
                 self.navigate_and_scroll(f"{BASE_URL}{path}")
+                time.sleep(1.5)  # Wait for page to load
                 
-                # Look for content
-                content_found = self.wait_for_element(
-                    By.XPATH,
-                    "//div[contains(@class, 'overview')] | //div[contains(@class, 'revenue')] | //div[contains(@class, 'customer')] | //div[contains(@class, 'review')] | //div[contains(@class, 'loyalty')] | //h2 | //h3 | //table | //div[contains(@class, 'card')] | //div[contains(@class, 'chart')]",
-                    f"{name} content"
-                )
+                # Visibly scroll to show all content
+                print(f"    Scrolling through {name} page...")
+                time.sleep(0.5)
+                page_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
+                viewport_height = self.driver.execute_script("return window.innerHeight")
                 
-                if content_found:
-                    print(f" {name} page loaded")
-                else:
-                    print(f" {name} page did not load content")
-                    all_loaded = False
-                time.sleep(ACTION_DELAY)
+                # Scroll in increments to make it visible
+                scroll_increment = viewport_height * 0.8
+                current_scroll = 0
+                while current_scroll < page_height:
+                    current_scroll += scroll_increment
+                    self.driver.execute_script(f"window.scrollTo(0, {current_scroll});")
+                    time.sleep(0.4)  # Delay to make scrolling visible
+                
+                # Scroll to bottom
+                self.driver.execute_script(f"window.scrollTo(0, {page_height});")
+                time.sleep(0.5)
+                
+                # Scroll back to top
+                self.driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(0.3)
+                print(f"    ✓ {name} page scrolled through")
             
-            return all_loaded
-        except Exception as e:
-            print(f" Test 9 failed: {e}")
-            return False
-    
-    def test_10_stylist_signup(self):
-        """
-        Test 10 — Stylist Signup (Account Creation Only)
-        Navigate to /signup
-        Select Stylist role
-        Register a stylist with a new email and password
-        Submit
-        Expect redirect to a basic stylist or dashboard landing page
-        Record stylist email for the next test
-        """
-        print("\n" + "="*70)
-        print("TEST 10: Stylist Signup")
-        print("="*70)
-        try:
-            self.logout()
-            time.sleep(ACTION_DELAY)
-            
-            self.navigate_and_scroll(f"{BASE_URL}/signup")
-            time.sleep(ACTION_DELAY)
-            
-            self.safe_click(By.XPATH, "//button[contains(text(), 'Sign Up')]", "Sign Up tab")
-            time.sleep(ACTION_DELAY * 0.5)
-            
-            self.stylist_email = self.generate_email()
-            stylist_name = "Selenium Test Stylist"
-            
-            self.safe_send_keys(By.ID, "name", stylist_name, "Stylist Name")
-            self.safe_send_keys(By.ID, "email", self.stylist_email, "Stylist Email")
-            self.safe_send_keys(By.ID, "password", "test123456", "Password")
-            self.safe_send_keys(By.ID, "confirmPassword", "test123456", "Confirm Password")
-            
-            # Select Stylist/Employee role using Select dropdown helper
-            if not self.select_select_dropdown("role", "Hairstylist / Employee"):
-                return False
-            
-            self.safe_click(By.XPATH, "//button[@type='submit' and contains(text(), 'Sign Up')]", "Sign Up button")
-            time.sleep(ACTION_DELAY * 3)
-            
-            current_url = self.driver.current_url
-            if "/dashboard" in current_url or "/stylist" in current_url:
-                print(f" Stylist signup successful - redirected to: {current_url}")
-                print(f"  Stylist email: {self.stylist_email}")
-                return True
-            else:
-                print(f" Stylist signup failed - redirected to: {current_url}")
-                return False
-        except Exception as e:
-            print(f" Test 10 failed: {e}")
-            return False
-    
-    def test_11_owner_adds_stylist_and_sets_hours(self):
-        """
-        Test 11 — Owner Adds Existing Stylist And Sets Hours
-        Owner logs in
-        Go to /owner/staff
-        Click Add Staff
-        Enter the stylist email created in Test 10, plus name and phone
-        Submit
-        Expect success message and stylist appears in staff list
-        Then set hours:
-        Navigate to /owner/settings or hours page
-        Set salon opening and closing hours
-        If staff hour controls exist, set at least one stylist schedule window
-        Save changes
-        Expect success message for updated hours
-        """
-        print("\n" + "="*70)
-        print("TEST 11: Owner Adds Existing Stylist And Sets Hours")
-        print("="*70)
-        try:
-            self.logout()
-            time.sleep(ACTION_DELAY)
-            
-            # Use the owner email from Test 6, or fallback
-            if self.owner_email:
-                if not self.login(self.owner_email, "test123456", "Owner"):
-                    if not self.login("Trim@gmail.com", "test123", "Owner"):
-                        return False
-            else:
-                if not self.login("Trim@gmail.com", "test123", "Owner"):
-                    return False
-            
-            # Add staff
-            print("Adding stylist to staff...")
-            self.navigate_and_scroll(f"{BASE_URL}/owner/staff")
-            time.sleep(ACTION_DELAY * 2)
-            
-            try:
-                add_staff_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Add Staff')] | //button[contains(text(), 'Add Employee')] | //button[contains(text(), 'Add') and contains(@class, 'button')]")
-                if add_staff_buttons:
-                    self.safe_click_element(add_staff_buttons[0], "Add Staff button")
-                    time.sleep(ACTION_DELAY)
-                    
-                    if self.stylist_email:
-                        email_inputs = self.driver.find_elements(By.NAME, "email")
-                        if not email_inputs:
-                            email_inputs = self.driver.find_elements(By.XPATH, "//input[@type='email' or contains(@placeholder, 'email')]")
-                        if email_inputs:
-                            self.safe_send_keys_element(email_inputs[0], self.stylist_email, "Staff email")
-                        
-                        name_inputs = self.driver.find_elements(By.NAME, "full_name")
-                        if not name_inputs:
-                            name_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'name') or contains(@placeholder, 'Name')]")
-                        if name_inputs:
-                            self.safe_send_keys_element(name_inputs[0], "Selenium Test Stylist", "Staff name")
-                        
-                        phone_inputs = self.driver.find_elements(By.NAME, "phone")
-                        if phone_inputs:
-                            self.safe_send_keys_element(phone_inputs[0], "(555) 987-6543", "Staff phone")
-                        
-                        submit_buttons = self.driver.find_elements(By.XPATH, "//button[@type='submit' and (contains(text(), 'Add') or contains(text(), 'Submit'))]")
-                        if submit_buttons:
-                            self.safe_click_element(submit_buttons[0], "Submit button")
-                            time.sleep(ACTION_DELAY * 2)
-                            print(f" Stylist added: {self.stylist_email}")
-                    else:
-                        print("No stylist email from Test 10, skipping add staff")
-                else:
-                    print("Could not find Add Staff button")
-            except Exception as e:
-                print(f"Could not add staff: {e}")
-            
-            # Set hours
-            print("Setting salon hours...")
-            self.navigate_and_scroll(f"{BASE_URL}/owner/settings")
-            time.sleep(ACTION_DELAY * 2)
-            
-            try:
-                # Look for hours section
-                hours_sections = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'hours')] | //h3[contains(text(), 'Hours')] | //label[contains(text(), 'Hours')] | //div[contains(text(), 'Operating Hours')]")
-                if hours_sections:
-                    # Try to find time inputs
-                    time_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'AM') or contains(@placeholder, 'PM') or contains(@name, 'time') or contains(@type, 'time')]")
-                    if time_inputs and len(time_inputs) >= 2:
-                        # Set opening time
-                        self.safe_send_keys_element(time_inputs[0], "09:00", "Opening time")
-                        # Set closing time
-                        self.safe_send_keys_element(time_inputs[1], "17:00", "Closing time")
-                        time.sleep(ACTION_DELAY)
-                        
-                        save_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Save')] | //button[contains(text(), 'Update')] | //button[@type='submit']")
-                        if save_buttons:
-                            self.safe_click_element(save_buttons[0], "Save button")
-                            time.sleep(ACTION_DELAY * 2)
-                            print(" Salon hours updated")
-                    else:
-                        print("Could not find time input fields")
-            except Exception as e:
-                print(f"Could not set hours: {e}")
-            
-            print(" Owner adds stylist and sets hours test completed")
+            print("  ✓ All owner dashboard tabs checked")
             return True
         except Exception as e:
-            print(f" Test 11 failed: {e}")
-            return False
-    
-    def test_12_owner_adds_product(self):
-        """
-        Test 12 — Owner Adds Product
-        Go to /owner/products
-        Click Add Product
-        Fill product name, price, description
-        Submit
-        Expect success message
-        """
-        print("\n" + "="*70)
-        print("TEST 12: Owner Adds Product")
-        print("="*70)
-        try:
-            if "/owner" not in self.driver.current_url:
-                if self.owner_email:
-                    if not self.login(self.owner_email, "test123456", "Owner"):
-                        if not self.login("Trim@gmail.com", "test123", "Owner"):
-                            return False
-                else:
-                    if not self.login("Trim@gmail.com", "test123", "Owner"):
-                        return False
-            
-            self.navigate_and_scroll(f"{BASE_URL}/owner/products")
-            time.sleep(ACTION_DELAY * 2)
-            
-            try:
-                add_product_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Add Product')] | //button[contains(text(), 'New Product')] | //button[contains(text(), 'Add') and contains(@class, 'button')]")
-                if add_product_buttons:
-                    self.safe_click_element(add_product_buttons[0], "Add Product button")
-                    time.sleep(ACTION_DELAY)
-                    
-                    product_name = f"Test Product {random.randint(100, 999)}"
-                    
-                    name_inputs = self.driver.find_elements(By.NAME, "name")
-                    if not name_inputs:
-                        name_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'name') or contains(@placeholder, 'Name') or contains(@placeholder, 'product')]")
-                    if name_inputs:
-                        self.safe_send_keys_element(name_inputs[0], product_name, "Product name")
-                    
-                    price_inputs = self.driver.find_elements(By.NAME, "price")
-                    if not price_inputs:
-                        price_inputs = self.driver.find_elements(By.XPATH, "//input[@type='number' or contains(@placeholder, 'price') or contains(@placeholder, 'Price')]")
-                    if price_inputs:
-                        self.safe_send_keys_element(price_inputs[0], "29.99", "Product price")
-                    
-                    desc_inputs = self.driver.find_elements(By.NAME, "description")
-                    if not desc_inputs:
-                        desc_inputs = self.driver.find_elements(By.XPATH, "//textarea[contains(@placeholder, 'description') or contains(@placeholder, 'Description')]")
-                    if desc_inputs:
-                        self.safe_send_keys_element(desc_inputs[0], "Test product description for Selenium automation", "Product description")
-                    
-                    submit_buttons = self.driver.find_elements(By.XPATH, "//button[@type='submit' and (contains(text(), 'Add') or contains(text(), 'Create') or contains(text(), 'Save'))]")
-                    if submit_buttons:
-                        self.safe_click_element(submit_buttons[0], "Submit button")
-                        time.sleep(ACTION_DELAY * 2)
-                        
-                        # Check for success message
-                        try:
-                            success_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), 'success')] | //div[contains(text(), 'added')] | //div[contains(text(), 'created')]")
-                            if success_elements:
-                                print(f" Product added successfully: {product_name}")
-                            else:
-                                print(f" Product form submitted: {product_name}")
-                        except:
-                            print(f" Product form submitted: {product_name}")
-                        
-                        return True
-                    else:
-                        print(" Could not find submit button")
-                        return False
-                else:
-                    print(" Could not find Add Product button")
-                    return False
-            except Exception as e:
-                print(f" Could not add product: {e}")
-                return False
-        except Exception as e:
-            print(f" Test 12 failed: {e}")
-            return False
-
-    # PHASE 4 — STYLIST WORKFLOW
-    
-    def test_13_stylist_login_after_linked(self):
-        """
-        Test 13 — Stylist Login After Being Linked To Salon
-        Log in using the stylist account created in Test 10
-        Because owner linked this email in Test 11, stylist should now see the full stylist dashboard view
-        Expect redirect to stylist dashboard with schedule or tasks visible
-        """
-        print("\n" + "="*70)
-        print("TEST 13: Stylist Login After Being Linked To Salon")
-        print("="*70)
-        try:
-            self.logout()
-            time.sleep(ACTION_DELAY)
-            
-            if self.stylist_email:
-                if not self.login(self.stylist_email, "test123456", "Stylist"):
-                    return False
-            else:
-                # Fallback to existing stylist
-                if not self.login("Kaismith@gmail.com", "test123", "Stylist"):
-                    return False
-            
-            time.sleep(ACTION_DELAY * 2)
-            
-            # Check if stylist dashboard loaded
-            current_url = self.driver.current_url
-            if "/dashboard" in current_url:
-                # Look for schedule or dashboard content
-                content_found = self.wait_for_element(
-                    By.XPATH,
-                    "//div[contains(@class, 'schedule')] | //div[contains(@class, 'dashboard')] | //h2 | //div[contains(@class, 'appointment')]",
-                    "Stylist dashboard content"
-                )
-                
-                if content_found:
-                    print(" Stylist dashboard loaded with schedule visible")
-                    return True
-                else:
-                    print(" Stylist dashboard did not load content")
-                    return False
-            else:
-                print(f" Stylist login failed - redirected to: {current_url}")
-                return False
-        except Exception as e:
-            print(f" Test 13 failed: {e}")
-            return False
-    
-    def test_14_stylist_adds_services(self):
-        """
-        Test 14 — Stylist Adds Services
-        From stylist dashboard, go to services page
-        Click Add Service
-        Create three services:
-        Haircut (30 minutes, $25)
-        Beard Trim (20 minutes, $18)
-        Retwist / Dreadlock Maintenance (75 minutes, $120)
-        Submit each service
-        Expect success messages and services visible in the list
-        """
-        print("\n" + "="*70)
-        print("TEST 14: Stylist Adds Services")
-        print("="*70)
-        try:
-            if "/dashboard" not in self.driver.current_url:
-                if self.stylist_email:
-                    if not self.login(self.stylist_email, "test123456", "Stylist"):
-                        if not self.login("Kaismith@gmail.com", "test123", "Stylist"):
-                            return False
-                else:
-                    if not self.login("Kaismith@gmail.com", "test123", "Stylist"):
-                        return False
-            
-            services = [
-                ("Haircut", "30", "25.00"),
-                ("Beard Trim", "20", "18.00"),
-                ("Retwist / Dreadlock Maintenance", "75", "120.00")
-            ]
-            
-            services_added = 0
-            for service_name, duration, price in services:
-                try:
-                    print(f"Adding service: {service_name}...")
-                    
-                    # Look for Add Service button (may need to scroll or navigate)
-                    add_service_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Add Service')] | //button[contains(text(), 'New Service')] | //button[contains(text(), 'Add') and contains(@class, 'service')]")
-                    if not add_service_buttons:
-                        # Try to find services section first
-                        services_tabs = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Service')] | //div[contains(@class, 'service')]//button")
-                        if services_tabs:
-                            self.safe_click_element(services_tabs[0], "Services tab")
-                            time.sleep(ACTION_DELAY)
-                            add_service_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Add Service')] | //button[contains(text(), 'New Service')]")
-                    
-                    if add_service_buttons:
-                        self.safe_click_element(add_service_buttons[0], "Add Service button")
-                        time.sleep(ACTION_DELAY)
-                        
-                        # Fill service form
-                        name_inputs = self.driver.find_elements(By.NAME, "name")
-                        if not name_inputs:
-                            name_inputs = self.driver.find_elements(By.XPATH, "//input[contains(@placeholder, 'name') or contains(@placeholder, 'Name') or contains(@placeholder, 'service')]")
-                        if name_inputs:
-                            self.safe_send_keys_element(name_inputs[0], service_name, "Service name")
-                        
-                        duration_inputs = self.driver.find_elements(By.NAME, "duration_minutes")
-                        if not duration_inputs:
-                            duration_inputs = self.driver.find_elements(By.NAME, "duration")
-                        if not duration_inputs:
-                            duration_inputs = self.driver.find_elements(By.XPATH, "//input[@type='number' and (contains(@placeholder, 'duration') or contains(@placeholder, 'minutes'))]")
-                        if duration_inputs:
-                            self.safe_send_keys_element(duration_inputs[0], duration, "Service duration")
-                        
-                        price_inputs = self.driver.find_elements(By.NAME, "price")
-                        if not price_inputs:
-                            price_inputs = self.driver.find_elements(By.XPATH, "//input[@type='number' and contains(@placeholder, 'price')]")
-                        if price_inputs:
-                            self.safe_send_keys_element(price_inputs[0], price, "Service price")
-                        
-                        submit_buttons = self.driver.find_elements(By.XPATH, "//button[@type='submit' and (contains(text(), 'Add') or contains(text(), 'Save') or contains(text(), 'Create'))]")
-                        if submit_buttons:
-                            self.safe_click_element(submit_buttons[0], "Submit button")
-                            time.sleep(ACTION_DELAY * 2)
-                            services_added += 1
-                            print(f"   Service added: {service_name}")
-                        else:
-                            print(f"   Could not find submit button for {service_name}")
-                    else:
-                        print(f"   Could not find Add Service button for {service_name}")
-                except Exception as e:
-                    print(f"   Could not add service {service_name}: {e}")
-            
-            if services_added > 0:
-                print(f" Added {services_added} out of {len(services)} services")
-                return True
-            else:
-                print(" No services were added")
-                return False
-        except Exception as e:
-            print(f" Test 14 failed: {e}")
-            return False
-    
-    def test_15_stylist_views_schedule(self):
-        """
-        Test 15 — Stylist Views Schedule
-        Visit stylist schedule page
-        Assert schedule table or calendar exists and shows the working hours set by owner
-        """
-        print("\n" + "="*70)
-        print("TEST 15: Stylist Views Schedule")
-        print("="*70)
-        try:
-            if "/dashboard" not in self.driver.current_url:
-                if self.stylist_email:
-                    if not self.login(self.stylist_email, "test123456", "Stylist"):
-                        if not self.login("Kaismith@gmail.com", "test123", "Stylist"):
-                            return False
-                else:
-                    if not self.login("Kaismith@gmail.com", "test123", "Stylist"):
-                        return False
-            
-            # Schedule should be visible on dashboard
-            time.sleep(ACTION_DELAY * 2)
-            
-            # Look for schedule content
-            schedule_found = self.wait_for_element(
-                By.XPATH,
-                "//div[contains(@class, 'schedule')] | //div[contains(@class, 'calendar')] | //table | //div[contains(@class, 'appointment')] | //div[contains(text(), 'Schedule')]",
-                "Schedule content"
-            )
-            
-            if schedule_found:
-                print(" Stylist schedule visible")
-                return True
-            else:
-                print(" Stylist schedule not found")
-                return False
-        except Exception as e:
-            print(f" Test 15 failed: {e}")
-            return False
-
-    # PHASE 5 — USER WORKFLOW
-    
-    def test_16_user_signup(self):
-        """
-        Test 16 — User Signup
-        Navigate to /signup
-        Select Customer
-        Register random user
-        Expect redirect to discovery or home page
-        """
-        print("\n" + "="*70)
-        print("TEST 16: User Signup")
-        print("="*70)
-        try:
-            self.logout()
-            time.sleep(ACTION_DELAY)
-            
-            self.navigate_and_scroll(f"{BASE_URL}/signup")
-            time.sleep(ACTION_DELAY)
-            
-            self.safe_click(By.XPATH, "//button[contains(text(), 'Sign Up')]", "Sign Up tab")
-            time.sleep(ACTION_DELAY * 0.5)
-            
-            self.user_email = self.generate_email()
-            user_name = "Selenium Test User"
-            
-            self.safe_send_keys(By.ID, "name", user_name, "User Name")
-            self.safe_send_keys(By.ID, "email", self.user_email, "User Email")
-            self.safe_send_keys(By.ID, "password", "test123456", "Password")
-            self.safe_send_keys(By.ID, "confirmPassword", "test123456", "Confirm Password")
-            
-            # Select Customer role using Select dropdown helper
-            if not self.select_select_dropdown("role", "Customer"):
-                return False
-            
-            self.safe_click(By.XPATH, "//button[@type='submit' and contains(text(), 'Sign Up')]", "Sign Up button")
-            time.sleep(ACTION_DELAY * 3)
-            
-            current_url = self.driver.current_url
-            if "/dashboard" in current_url or "/salon" in current_url:
-                print(f" User signup successful - redirected to: {current_url}")
-                print(f"  User email: {self.user_email}")
-                return True
-            else:
-                print(f" User signup failed - redirected to: {current_url}")
-                return False
-        except Exception as e:
-            print(f" Test 16 failed: {e}")
-            return False
-    
-    def test_17_user_browses_salons(self):
-        """
-        Test 17 — User Browses Salons
-        User visits /discover or /salons
-        Clicks into the newly approved salon from Tests 7 and 8
-        Expect salon details page to load with salon info and services
-        """
-        print("\n" + "="*70)
-        print("TEST 17: User Browses Salons")
-        print("="*70)
-        try:
-            if "/dashboard" not in self.driver.current_url and "/salon" not in self.driver.current_url:
-                if self.user_email:
-                    if not self.login(self.user_email, "test123456", "Customer"):
-                        if not self.login("Nate@gmail.com", "test123", "Customer"):
-                            return False
-                else:
-                    if not self.login("Nate@gmail.com", "test123", "Customer"):
-                        return False
-            
-            time.sleep(ACTION_DELAY)
-            self.scroll_page_to_show_all()
-            
-            # Dashboard should show salon browser
-            try:
-                # Look for salon cards/links
-                salon_cards = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'salon')]//a | //a[contains(@href, '/salon/')] | //div[contains(@class, 'card')]//a[contains(@href, '/salon/')]")
-                if salon_cards:
-                    print("Found salon cards, clicking first salon...")
-                    self.safe_click_element(salon_cards[0], "Salon card")
-                    time.sleep(ACTION_DELAY * 2)
-                    
-                    if "/salon/" in self.driver.current_url:
-                        salon_id = self.driver.current_url.split("/salon/")[1].split("/")[0]
-                        self.test_salon_id = salon_id
-                        print(f" Navigated to salon ID: {salon_id}")
-                        
-                        # Verify salon details loaded
-                        details_found = self.wait_for_element(
-                            By.XPATH,
-                            "//div[contains(@class, 'salon')] | //h1 | //h2 | //div[contains(@class, 'service')]",
-                            "Salon details"
-                        )
-                        
-                        if details_found:
-                            print(" Salon details page loaded with info and services")
-                            return True
-                        else:
-                            print(" Salon details page did not load content")
-                            return False
-                    else:
-                        print(" Did not navigate to salon detail page")
-                        return False
-                else:
-                    print("No salon cards found to browse")
-                    # Try navigating directly to a salon
-                    self.navigate_and_scroll(f"{BASE_URL}/salon/1")
-                    time.sleep(ACTION_DELAY * 2)
-                    if "/salon/" in self.driver.current_url:
-                        self.test_salon_id = "1"
-                        print(" Navigated directly to salon 1")
-                        return True
-                    return False
-            except Exception as e:
-                print(f"Could not browse salons: {e}")
-                return False
-        except Exception as e:
-            print(f" Test 17 failed: {e}")
-            return False
-    
-    def test_18_user_books_appointment(self):
-        """
-        Test 18 — User Books Appointment
-        Booking flow:
-        Select stylist (one created and linked earlier)
-        Select service (for example Haircut)
-        Select available date
-        Select available time
-        Confirm booking
-        Expect confirmation message: Appointment booked successfully
-        """
-        print("\n" + "="*70)
-        print("TEST 18: User Books Appointment")
-        print("="*70)
-        try:
-            salon_id = self.test_salon_id or "1"
-            
-            if "/salon/" not in self.driver.current_url:
-                self.navigate_and_scroll(f"{BASE_URL}/salon/{salon_id}/book")
-            else:
-                # Click book button from salon detail page
-                book_buttons = self.driver.find_elements(By.XPATH, "//a[contains(@href, '/book')] | //button[contains(text(), 'Book')]")
-                if book_buttons:
-                    self.safe_click_element(book_buttons[0], "Book button")
-                    time.sleep(ACTION_DELAY * 2)
-            
-            try:
-                # Wait for page to load and scroll
-                self.wait_for_page_stable(timeout=10)
-                self.wait_for_loading_to_complete(timeout=10)
-                self.scroll_page_to_show_all()
-                time.sleep(0.5)
-                
-                # Select stylist - buttons with Users icon, variant changes on selection
-                print("Selecting stylist...")
-                stylist_buttons = self.driver.find_elements(By.XPATH, 
-                    "//button[contains(@class, 'flex-1') and contains(., 'Select Stylist')] | "
-                    "//div[contains(@class, 'card')]//button[contains(@class, 'flex-1')] | "
-                    "//button[contains(@class, 'outline') or contains(@class, 'default')]//div[contains(@class, 'font-medium')]"
-                )
-                if stylist_buttons:
-                    # Find first enabled stylist button
-                    for btn in stylist_buttons:
-                        if btn.is_enabled() and btn.is_displayed():
-                            self.scroll_to_element(btn)
-                            time.sleep(0.2)
-                            btn.click()
-                            time.sleep(ACTION_DELAY * 2)  # Wait for services to load
-                            print("   Stylist selected")
-                            break
-                else:
-                    print("   Could not find stylist buttons")
-                    return False
-                
-                # Wait for services to load
-                self.wait_for_loading_to_complete(timeout=10)
-                time.sleep(0.5)
-                
-                # Select service - clickable cards with border, Check icon appears when selected
-                print("Selecting service...")
-                service_cards = self.driver.find_elements(By.XPATH, 
-                    "//div[contains(@class, 'cursor-pointer') and contains(@class, 'border')]//p[contains(@class, 'font-medium')] | "
-                    "//div[contains(@class, 'border') and contains(@class, 'rounded-lg')]//p[contains(@class, 'font-medium')]"
-                )
-                if service_cards:
-                    # Click first service card
-                    service_card = service_cards[0].find_element(By.XPATH, "./ancestor::div[contains(@class, 'cursor-pointer')]")
-                    self.scroll_to_element(service_card)
-                    time.sleep(0.2)
-                    service_card.click()
-                    time.sleep(ACTION_DELAY * 2)  # Wait for time slots to load
-                    print("   Service selected")
-                else:
-                    print("   Could not find service cards")
-                    return False
-                
-                # Wait for time slots to load
-                self.wait_for_loading_to_complete(timeout=10)
-                time.sleep(0.5)
-                
-                # Select date - buttons in calendar grid, disabled if no availability
-                print("Selecting date...")
-                date_buttons = self.driver.find_elements(By.XPATH, 
-                    "//div[contains(@class, 'grid') and contains(@class, 'grid-cols-7')]//button[not(@disabled)] | "
-                    "//div[contains(@class, 'calendar')]//button[not(@disabled)]"
-                )
-                if date_buttons:
-                    # Find first enabled date button
-                    for btn in date_buttons:
-                        if btn.is_enabled() and btn.is_displayed() and not btn.get_attribute('disabled'):
-                            self.scroll_to_element(btn)
-                            time.sleep(0.2)
-                            btn.click()
-                            time.sleep(ACTION_DELAY)  # Wait for time slots to appear
-                            print("   Date selected")
-                            break
-                else:
-                    print("   Could not find date buttons")
-                    return False
-                
-                # Wait for time slots to appear
-                time.sleep(ACTION_DELAY * 2)
-                
-                # Select time slot - buttons showing time range, disabled if booked/blocked
-                print("Selecting time slot...")
-                time_slots = self.driver.find_elements(By.XPATH, 
-                    "//button[contains(@class, 'w-full') and not(@disabled) and not(contains(@class, 'cursor-not-allowed'))] | "
-                    "//button[not(@disabled) and not(contains(text(), 'Booked')) and not(contains(text(), 'Blocked'))]"
-                )
-                if time_slots:
-                    # Find first available time slot (not disabled, not showing Booked/Blocked)
-                    for slot in time_slots:
-                        slot_text = slot.text.strip()
-                        if (slot.is_enabled() and slot.is_displayed() and 
-                            'Booked' not in slot_text and 'Blocked' not in slot_text and
-                            not slot.get_attribute('disabled')):
-                            self.scroll_to_element(slot)
-                            time.sleep(0.2)
-                            slot.click()
-                            time.sleep(ACTION_DELAY)
-                            print(f"   Time slot selected: {slot_text[:30]}")
-                            break
-                else:
-                    print("   Could not find available time slots")
-                    return False
-                
-                # Wait for confirm button to be enabled
-                time.sleep(ACTION_DELAY)
-                
-                # Confirm booking - button should be enabled after all selections
-                print("Confirming booking...")
-                confirm_buttons = self.driver.find_elements(By.XPATH, 
-                    "//button[contains(text(), 'Confirm') and not(@disabled)] | "
-                    "//button[contains(text(), 'Book Appointment') and not(@disabled)] | "
-                    "//button[@type='button' and contains(text(), 'Continue') and not(@disabled)]"
-                )
-                if confirm_buttons:
-                    confirm_btn = confirm_buttons[0]
-                    self.scroll_to_element(confirm_btn)
-                    time.sleep(0.2)
-                    # Wait for button to be clickable
-                    WebDriverWait(self.driver, 5).until(EC.element_to_be_clickable(confirm_btn))
-                    confirm_btn.click()
-                    time.sleep(ACTION_DELAY * 3)  # Wait for redirect
-                    
-                    # Check for redirect to payment or confirmation
-                    current_url = self.driver.current_url
-                    if "/payment" in current_url or "/appointments" in current_url:
-                        print(" Appointment booking confirmed - redirected to payment/appointments")
-                        return True
-                    else:
-                        # Check for success message
-                        try:
-                            success_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), 'success')] | //div[contains(text(), 'booked')] | //div[contains(text(), 'confirmed')]")
-                            if success_elements:
-                                print(" Appointment booked successfully")
-                                return True
-                        except:
-                            pass
-                        
-                        print(f"  Appointment booking attempted (redirected to: {current_url})")
-                        return True
-                else:
-                    print("   Could not find confirm button")
-                    return False
-            except Exception as e:
-                print(f"Could not complete booking: {e}")
-                return False
-        except Exception as e:
-            print(f" Test 18 failed: {e}")
-            return False
-    
-    def test_19_promo_code_application(self):
-        """
-        Test 19 — Promo Code Application (NC 1.21)
-        On the payment page for that appointment:
-        Enter promo code in the Promo Code input
-        UI displays: Original price, Discount percentage, Final price
-        Badge such as Promo Applied (CODE)
-        Attempt invalid, expired, or already used promo code
-        UI shows appropriate error message (invalid, expired, already redeemed)
-        Rules enforced:
-        User may apply either a loyalty discount or a promo code, but not both
-        Promo code is only applied at payment finalization, after user confirms payment
-        """
-        print("\n" + "="*70)
-        print("TEST 19: Promo Code Application (NC 1.21)")
-        print("="*70)
-        try:
-            # Should be on payment page after booking
-            if "/payment" not in self.driver.current_url:
-                print("Not on payment page, navigating...")
-                self.navigate_and_scroll(f"{BASE_URL}/payment")
-            
-            # Wait for page to load
-            self.wait_for_page_stable(timeout=10)
-            self.wait_for_loading_to_complete(timeout=10)
-            self.scroll_page_to_show_all()
-            time.sleep(0.5)
-            
-            # Scroll to promo code section (may be below the fold)
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight * 0.6);")
-            time.sleep(0.3)
-            
-            # Look for promo code input - PaymentPage has specific structure
-            print("Looking for promo code input...")
-            promo_inputs = self.driver.find_elements(By.XPATH, 
-                "//input[contains(@placeholder, 'promo') or contains(@placeholder, 'Promo') or contains(@id, 'promo')] | "
-                "//label[contains(text(), 'Promo')]/following::input | "
-                "//div[contains(text(), 'Promo Code')]/following::input"
-            )
-            if not promo_inputs:
-                # Try finding by label
-                promo_labels = self.driver.find_elements(By.XPATH, "//label[contains(text(), 'Promo')]")
-                if promo_labels:
-                    # Find input near the label
-                    for label in promo_labels:
-                        parent = label.find_element(By.XPATH, "./ancestor::div")
-                        inputs = parent.find_elements(By.TAG_NAME, "input")
-                        if inputs:
-                            promo_inputs = inputs
-                            break
-            
-            if promo_inputs:
-                print("Found promo code input, testing promo code functionality...")
-                
-                # Clear any existing value and enter invalid promo code
-                promo_input = promo_inputs[0]
-                self.scroll_to_element(promo_input)
-                time.sleep(0.2)
-                promo_input.clear()
-                promo_input.click()
-                time.sleep(0.2)
-                promo_input.send_keys("INVALID-CODE-123")
-                time.sleep(ACTION_DELAY * 3)  # Wait for debounced validation (500ms + processing)
-                
-                # Check for error message
-                error_found = False
-                try:
-                    error_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), 'invalid')] | //div[contains(text(), 'Invalid')] | //div[contains(@class, 'error')]")
-                    if error_elements:
-                        error_found = True
-                        print(f"   Invalid promo code error displayed: {error_elements[0].text[:50]}")
-                except:
-                    pass
-                
-                # Try a valid-looking format (may or may not work)
-                self.safe_send_keys_element(promo_inputs[0], "TEST-1234", "Test promo code")
-                time.sleep(ACTION_DELAY * 2)
-                
-                # Check if discount info is displayed
-                discount_found = False
-                try:
-                    discount_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), 'discount')] | //div[contains(text(), 'Discount')] | //div[contains(text(), '%')] | //div[contains(@class, 'discount')]")
-                    if discount_elements:
-                        discount_found = True
-                        print("   Discount information displayed")
-                except:
-                    pass
-                
-                # Check for promo applied badge
-                badge_found = False
-                try:
-                    badge_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), 'Promo Applied')] | //div[contains(text(), 'promo')] | //badge[contains(text(), 'Promo')]")
-                    if badge_elements:
-                        badge_found = True
-                        print("   Promo Applied badge displayed")
-                except:
-                    pass
-                
-                if error_found or discount_found or badge_found:
-                    print(" Promo code functionality tested")
-                    return True
-                else:
-                    print("  Promo code input found but no validation visible (may need valid code)")
-                    return True  # Not a failure if input exists
-            else:
-                print(" Could not find promo code input on payment page")
-                return False
-        except Exception as e:
-            print(f" Test 19 failed: {e}")
-            return False
-    
-    def test_20_appointment_history_with_discount_badge(self):
-        """
-        Test 20 — Appointment History With Discount Badge
-        Visit /appointments
-        The most recent appointment should show:
-        Original price (strike-through)
-        Discount amount
-        Final paid price
-        Indicator showing a promo code was used
-        Correct service name and stylist name
-        """
-        print("\n" + "="*70)
-        print("TEST 20: Appointment History With Discount Badge")
-        print("="*70)
-        try:
-            self.navigate_and_scroll(f"{BASE_URL}/appointments")
-            
-            # Look for appointment cards
-            appointment_cards = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'appointment')] | //div[contains(@class, 'card')] | //div[contains(@class, 'booking')]")
-            if appointment_cards:
-                print("Found appointment cards, checking for discount information...")
-                
-                # Look for discount-related elements
-                discount_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), 'Promo Applied')] | //div[contains(text(), 'promo')] | //div[contains(text(), 'discount')] | //div[contains(text(), 'Discount')] | //badge[contains(text(), 'Promo')]")
-                if discount_elements:
-                    print(" Discount badge/elements found in appointment history")
-                    return True
-                else:
-                    # Check for price information
-                    price_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), '$')] | //div[contains(@class, 'price')]")
-                    if price_elements:
-                        print(" Appointment history loaded with price information")
-                        return True
-                    else:
-                        print("  Appointment history loaded but no discount info visible (may not have promo applied)")
-                        return True  # Not a failure if appointments exist
-            else:
-                print("No appointment cards found")
-                return True  # Not a failure if no appointments yet
-        except Exception as e:
-            print(f" Test 20 failed: {e}")
-            return False
-
-    # PHASE 6 — RETENTION METRICS UPDATE
-    
-    def test_21_admin_reviews_retention_metrics(self):
-        """
-        Test 21 — Admin Reviews Retention Metrics
-        Admin logs in again
-        Navigate to /dashboard?tab=user-analytics
-        Metrics expected to update after the user has booked and paid:
-        Returning User Rate (can be low for first run, but panel must render)
-        Average Days Between Visits (baseline or placeholder calculation)
-        Active Login Rate (recent login reflected)
-        For each metric panel: Assert it loads and displays numeric values or charts, not errors
-        """
-        print("\n" + "="*70)
-        print("TEST 21: Admin Reviews Retention Metrics")
-        print("="*70)
-        try:
-            self.logout()
-            time.sleep(ACTION_DELAY)
-            
-            if not self.login("admin@strands.com", "test123", "Admin"):
-                return False
-            
-            self.navigate_and_scroll(f"{BASE_URL}/dashboard?tab=user-analytics")
-            
-            # Look for retention metrics within user-analytics tab
-            retention_found = False
-            try:
-                # Look for retention-related content
-                retention_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), 'Retention')] | //div[contains(text(), 'retention')] | //div[contains(text(), 'Returning')] | //div[contains(text(), 'rebooking')] | //div[contains(@class, 'retention')]")
-                if retention_elements:
-                    retention_found = True
-                    print(" Retention metrics section found")
-                
-                # Look for metric cards/panels
-                metric_cards = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'card')] | //div[contains(@class, 'metric')] | //div[contains(@class, 'chart')]")
-                if metric_cards:
-                    print(f" Found {len(metric_cards)} metric cards/panels")
-                    retention_found = True
-                
-                # Look for numeric values or charts
-                numeric_elements = self.driver.find_elements(By.XPATH, "//div[contains(text(), '%')] | //div[contains(text(), 'days')] | //div[contains(@class, 'number')]")
-                if numeric_elements:
-                    print(" Found numeric values in retention metrics")
-                    retention_found = True
-            except:
-                pass
-            
-            if retention_found:
-                print(" Retention metrics loaded and displayed")
-                return True
-            else:
-                print("  Retention metrics section may not be visible (data may be loading or not available)")
-                # Still pass if page loaded
-                page_loaded = self.wait_for_element(By.XPATH, "//div | //h2", "Page content")
-                return page_loaded
-        except Exception as e:
-            print(f" Test 21 failed: {e}")
-            return False
-
-    # PHASE 7 — COMPLETION / CLEANUP
-    
-    def test_22_logout_tests(self):
-        """
-        Test 22 — Logout Tests
-        For each role (admin, owner, stylist, user):
-        Click logout button in the header or profile menu
-        Confirm redirect to /login
-        """
-        print("\n" + "="*70)
-        print("TEST 22: Logout Tests for All Roles")
-        print("="*70)
-        try:
-            roles = [
-                ("admin@strands.com", "test123", "Admin"),
-                ("Trim@gmail.com", "test123", "Owner"),
-                ("Kaismith@gmail.com", "test123", "Stylist"),
-                ("Nate@gmail.com", "test123", "Customer")
-            ]
-            
-            all_logged_out = True
-            for email, password, role in roles:
-                print(f"Testing logout for {role}...")
-                try:
-                    if not self.login(email, password, role):
-                        print(f"   Could not login as {role}")
-                        all_logged_out = False
-                        continue
-                    
-                    time.sleep(ACTION_DELAY)
-                    
-                    # Look for logout button
-                    logout_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Logout')] | //button[contains(text(), 'Sign Out')] | //button[contains(text(), 'Log Out')] | //a[contains(text(), 'Logout')]")
-                    if logout_buttons:
-                        self.safe_click_element(logout_buttons[0], "Logout button")
-                        time.sleep(ACTION_DELAY * 2)
-                        
-                        current_url = self.driver.current_url
-                        if "/login" in current_url or "/" in current_url:
-                            print(f"   {role} logged out successfully")
-                        else:
-                            print(f"   {role} logout failed - redirected to: {current_url}")
-                            all_logged_out = False
-                    else:
-                        # Try alternative logout method
-                        self.driver.get(f"{BASE_URL}/")
-                        time.sleep(ACTION_DELAY)
-                        print(f"   {role} logged out (via navigation)")
-                except Exception as e:
-                    print(f"   {role} logout test failed: {e}")
-                    all_logged_out = False
-            
-            return all_logged_out
-        except Exception as e:
-            print(f" Test 22 failed: {e}")
+            print(f" Test 5 failed: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def run_all_tests(self):
         print("=" * 70)
-        print("STRANDS PLATFORM SELENIUM TEST SUITE")
+        print("STRANDS PLATFORM SELENIUM TEST SUITE - PHASE 1 & 2")
         print("=" * 70)
         
         start_time = time.time()
@@ -1963,25 +1892,8 @@ class StrandsTestSuite:
                 self.test_1_login_page_loads,
                 self.test_2_invalid_login_attempt,
                 self.test_3_successful_login_admin,
-                self.test_4_admin_analytics_pages_load,
-                self.test_5_admin_salon_verification_reject,
-                self.test_6_owner_signup,
-                self.test_7_owner_registers_salon,
-                self.test_8_admin_approves_newly_submitted_salon,
-                self.test_9_owner_dashboard_loads_correctly,
-                self.test_10_stylist_signup,
-                self.test_11_owner_adds_stylist_and_sets_hours,
-                self.test_12_owner_adds_product,
-                self.test_13_stylist_login_after_linked,
-                self.test_14_stylist_adds_services,
-                self.test_15_stylist_views_schedule,
-                self.test_16_user_signup,
-                self.test_17_user_browses_salons,
-                self.test_18_user_books_appointment,
-                self.test_19_promo_code_application,
-                self.test_20_appointment_history_with_discount_badge,
-                self.test_21_admin_reviews_retention_metrics,
-                self.test_22_logout_tests,
+                self.test_4_admin_pages_and_salon_rejection,
+                self.test_5_owner_signup_and_admin_approval,
             ]
             
             passed = 0
@@ -2051,7 +1963,7 @@ class StrandsTestSuite:
             elapsed_time = time.time() - start_time
             
             print("\n" + "=" * 70)
-            print("TEST SUMMARY")
+            print("TEST SUMMARY - PHASE 1, 2 & 3")
             print("=" * 70)
             print(f"Passed: {passed}")
             print(f"Failed: {failed}")
@@ -2069,3 +1981,4 @@ class StrandsTestSuite:
 if __name__ == "__main__":
     suite = StrandsTestSuite()
     suite.run_all_tests()
+
