@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useCallback, memo } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -33,29 +33,33 @@ export default function OrderHistoryPage() {
       return;
     }
 
-    fetchSalons().then(() => {
-      // After salons are loaded, fetch all orders by default
-      fetchAllOrders(0);
-    });
-  }, [user, navigate]);
-
-  const fetchSalons = async () => {
-    try {
+    // Fetch salons and orders in parallel for faster loading
+    const initializeData = async () => {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      const response = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      // Fetch salons first (needed for order fetching)
+      try {
+        const salonsResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setSalons(data.data || []);
+        if (salonsResponse.ok) {
+          const salonsData = await salonsResponse.json();
+          const fetchedSalons = salonsData.data || [];
+          setSalons(fetchedSalons);
+          
+          // Now fetch all orders in parallel
+          fetchAllOrdersOptimized(fetchedSalons, token, apiUrl);
+        }
+      } catch (err) {
+        console.error('Error fetching salons:', err);
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('Error fetching salons:', err);
-    }
-  };
+    };
+
+    initializeData();
+  }, [user, navigate]);
 
   const fetchOrders = async (salonId, offset = 0) => {
     setLoading(true);
@@ -82,14 +86,6 @@ export default function OrderHistoryPage() {
       if (response.ok) {
         const data = await response.json();
         const orders = data.orders || [];
-        // Debug: log first order to see available fields
-        if (orders.length > 0) {
-          console.log('Full API response:', data);
-          console.log('Sample order fields:', Object.keys(orders[0]));
-          console.log('Sample order data (full):', JSON.stringify(orders[0], null, 2));
-          console.log('ordered_date value:', orders[0].ordered_date);
-          console.log('All orders count:', orders.length);
-        }
         // Add salon info to each order item
         orders.forEach(order => {
           order.salon_id = parseInt(salonId);
@@ -113,63 +109,71 @@ export default function OrderHistoryPage() {
     }
   };
 
-  const handleSalonChange = (salonId) => {
-    setSelectedSalonId(salonId === 'all' ? null : salonId);
+  const handleSalonChange = useCallback((salonId) => {
+    const selectedId = salonId === 'all' ? null : salonId;
+    setSelectedSalonId(selectedId);
     if (salonId === 'all') {
       fetchAllOrders(0);
     } else {
       fetchOrders(salonId, 0);
     }
-  };
+  }, [salons]);
 
-  const fetchAllOrders = async (offset = 0) => {
+  // Optimized version that fetches all salon orders in parallel
+  const fetchAllOrdersOptimized = async (salonsToFetch, token, apiUrl) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      
       const allOrders = [];
-      const salonsToFetch = salons.length > 0 ? salons : await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      }).then(res => res.json()).then(data => data.data || []).catch(() => []);
       
-      for (const salon of salonsToFetch) {
-        try {
-          const response = await fetch(`${apiUrl}/products/customer/view-orders`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              salon_id: parseInt(salon.salon_id),
-              limit: 100,
-              offset: 0
-            })
-          });
+      // Fetch all salon orders in parallel (major speedup!)
+      const orderPromises = salonsToFetch.map(salon => 
+        fetch(`${apiUrl}/products/customer/view-orders`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            salon_id: parseInt(salon.salon_id),
+            limit: 100,
+            offset: 0
+          })
+        }).then(response => ({
+          salon,
+          response,
+          ok: response.ok,
+          status: response.status
+        })).catch(err => ({
+          salon,
+          response: null,
+          ok: false,
+          status: 0,
+          error: err
+        }))
+      );
 
-          if (response.ok) {
+      const orderResults = await Promise.allSettled(orderPromises);
+      
+      // Process all results
+      for (const result of orderResults) {
+        if (result.status === 'fulfilled' && result.value.ok) {
+          try {
+            const { salon, response } = result.value;
             const data = await response.json();
             const orders = data.orders || [];
-            // Debug: log first order to see available fields (only once)
-            if (allOrders.length === 0 && orders.length > 0) {
-              console.log('Full API response from fetchAllOrders:', data);
-              console.log('Sample order fields from fetchAllOrders:', Object.keys(orders[0]));
-              console.log('Sample order data from fetchAllOrders (full):', JSON.stringify(orders[0], null, 2));
-              console.log('ordered_date value from fetchAllOrders:', orders[0].ordered_date);
-            }
+            
             // Add salon info to each order item
             orders.forEach(order => {
               order.salon_id = salon.salon_id;
               order.salon_name = salon.name;
             });
             allOrders.push(...orders);
-          } else if (response.status === 500) {
-            // No orders for this salon, continue
-            continue;
+          } catch (err) {
+            console.error(`Error processing orders for salon ${result.value.salon.salon_id}:`, err);
           }
-        } catch (err) {
-          console.error(`Error fetching orders for salon ${salon.salon_id}:`, err);
+        } else if (result.status === 'fulfilled' && result.value.status === 500) {
+          // No orders for this salon, skip
+          continue;
         }
       }
       
@@ -184,13 +188,102 @@ export default function OrderHistoryPage() {
     }
   };
 
-  const handlePageChange = (newOffset) => {
+  const fetchAllOrders = async (offset = 0) => {
+    const token = localStorage.getItem('auth_token');
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    const salonsToFetch = salons.length > 0 ? salons : await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    }).then(res => res.json()).then(data => data.data || []).catch(() => []);
+    
+    await fetchAllOrdersOptimized(salonsToFetch, token, apiUrl);
+  };
+
+  const handlePageChange = useCallback((newOffset) => {
     if (selectedSalonId) {
       fetchOrders(selectedSalonId, newOffset);
     } else {
       fetchAllOrders(newOffset);
     }
-  };
+  }, [selectedSalonId, salons]);
+
+  // Memoize expensive order processing operations (must be before any conditional returns)
+  const sortedOrders = useMemo(() => {
+    if (orders.length === 0) return [];
+    
+    // Group orders by order_code (each order has a unique order_code)
+    const groupedOrders = {};
+    orders.forEach(order => {
+      const orderCode = order.order_code || 'unknown';
+      const salonId = order.salon_id || 'unknown';
+      const salonName = order.salon_name || 'Unknown Salon';
+      
+      // Extract order date/time from various possible field names (prioritize created_at for time sorting)
+      const orderDateTime = order.created_at || order.createdAt || order.ordered_date || order.order_date || 
+                           order.orderDate || order.order_created_at || order.created || order.timestamp || 
+                           order.purchase_date || order.purchased_at || null;
+      
+      // Extract just the date part for display (without time)
+      const orderDate = orderDateTime ? orderDateTime.split('T')[0] : null;
+      
+      // Use order_code as unique key (each order_code is unique)
+      if (!groupedOrders[orderCode]) {
+        groupedOrders[orderCode] = {
+          order_code: orderCode,
+          salon_id: salonId,
+          salon_name: salonName,
+          subtotal: parseFloat(order.subtotal_order_price || 0),
+          tax: parseFloat(order.order_tax || 0),
+          total: parseFloat(order.total_order_price || 0),
+          order_date: orderDate, // Date only for display
+          order_datetime: orderDateTime, // Full datetime for sorting
+          items: []
+        };
+      }
+      
+      // Add each item - backend now returns quantity field
+      const itemQuantity = order.quantity || 1;
+      groupedOrders[orderCode].items.push({
+        product_id: order.product_id,
+        name: order.name || 'Product',
+        description: order.description || '',
+        category: order.category || 'Product',
+        purchase_price: parseFloat(order.purchase_price || 0),
+        quantity: itemQuantity
+      });
+    });
+    
+    // Consolidate duplicate items in the same order (same product_id and purchase_price)
+    Object.keys(groupedOrders).forEach(orderCode => {
+      const order = groupedOrders[orderCode];
+      const itemMap = {};
+      
+      order.items.forEach(item => {
+        const key = `${item.product_id}_${item.purchase_price}`;
+        if (itemMap[key]) {
+          // Sum quantities for same product and price
+          itemMap[key].quantity = (itemMap[key].quantity || 0) + (item.quantity || 0);
+        } else {
+          // First occurrence
+          itemMap[key] = { ...item, quantity: item.quantity || 0 };
+        }
+      });
+      
+      order.items = Object.values(itemMap);
+    });
+    
+    // Sort orders by time (most recent first) - use order_datetime for accurate time sorting
+    return Object.values(groupedOrders).sort((a, b) => {
+      if (a.order_datetime && b.order_datetime) {
+        const timeA = new Date(a.order_datetime).getTime();
+        const timeB = new Date(b.order_datetime).getTime();
+        return timeB - timeA; // Most recent first
+      }
+      if (a.order_datetime && !b.order_datetime) return -1;
+      if (!a.order_datetime && b.order_datetime) return 1;
+      // Fallback to order_code
+      return b.order_code.localeCompare(a.order_code);
+    });
+  }, [orders]);
 
   if (loading && orders.length === 0) {
     return (
@@ -202,88 +295,6 @@ export default function OrderHistoryPage() {
       </div>
     );
   }
-
-  // Group orders by order_code (each order has a unique order_code)
-  const groupedOrders = {};
-  orders.forEach(order => {
-    const orderCode = order.order_code || 'unknown';
-    const salonId = order.salon_id || 'unknown';
-    const salonName = order.salon_name || 'Unknown Salon';
-    
-    // Extract order date/time from various possible field names (prioritize created_at for time sorting)
-    const orderDateTime = order.created_at || order.createdAt || order.ordered_date || order.order_date || 
-                         order.orderDate || order.order_created_at || order.created || order.timestamp || 
-                         order.purchase_date || order.purchased_at || null;
-    
-    // Extract just the date part for display (without time)
-    const orderDate = orderDateTime ? orderDateTime.split('T')[0] : null;
-    
-    // Use order_code as unique key (each order_code is unique)
-    if (!groupedOrders[orderCode]) {
-      groupedOrders[orderCode] = {
-        order_code: orderCode,
-        salon_id: salonId,
-        salon_name: salonName,
-        subtotal: parseFloat(order.subtotal_order_price || 0),
-        tax: parseFloat(order.order_tax || 0),
-        total: parseFloat(order.total_order_price || 0),
-        order_date: orderDate, // Date only for display
-        order_datetime: orderDateTime, // Full datetime for sorting
-        items: []
-      };
-      
-      // Debug: log if date was found
-      if (orderDate) {
-        console.log(`Order ${orderCode} date found:`, orderDate, 'Type:', typeof orderDate);
-      } else {
-        console.warn(`Order ${orderCode} - no date found. Available fields:`, Object.keys(order));
-        console.warn(`Order ${orderCode} - ordered_date specifically:`, order.ordered_date);
-      }
-    }
-    
-    // Add each item - backend now returns quantity field
-    const itemQuantity = order.quantity || 1;
-    groupedOrders[orderCode].items.push({
-      product_id: order.product_id,
-      name: order.name || 'Product',
-      description: order.description || '',
-      category: order.category || 'Product',
-      purchase_price: parseFloat(order.purchase_price || 0),
-      quantity: itemQuantity
-    });
-  });
-  
-  // Consolidate duplicate items in the same order (same product_id and purchase_price)
-  Object.keys(groupedOrders).forEach(orderCode => {
-    const order = groupedOrders[orderCode];
-    const itemMap = {};
-    
-    order.items.forEach(item => {
-      const key = `${item.product_id}_${item.purchase_price}`;
-      if (itemMap[key]) {
-        // Sum quantities for same product and price
-        itemMap[key].quantity = (itemMap[key].quantity || 0) + (item.quantity || 0);
-      } else {
-        // First occurrence
-        itemMap[key] = { ...item, quantity: item.quantity || 0 };
-      }
-    });
-    
-    order.items = Object.values(itemMap);
-  });
-  
-  // Sort orders by time (most recent first) - use order_datetime for accurate time sorting
-  const sortedOrders = Object.values(groupedOrders).sort((a, b) => {
-    if (a.order_datetime && b.order_datetime) {
-      const timeA = new Date(a.order_datetime).getTime();
-      const timeB = new Date(b.order_datetime).getTime();
-      return timeB - timeA; // Most recent first
-    }
-    if (a.order_datetime && !b.order_datetime) return -1;
-    if (!a.order_datetime && b.order_datetime) return 1;
-    // Fallback to order_code
-    return b.order_code.localeCompare(a.order_code);
-  });
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -325,83 +336,8 @@ export default function OrderHistoryPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            {sortedOrders.map((order, idx) => (
-              <Card key={idx} className="shadow-sm">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <CardTitle className="text-lg">Order #{order.order_code}</CardTitle>
-                        <Badge variant="outline" className="text-xs">
-                          {order.salon_name}
-                        </Badge>
-                      </div>
-                    </div>
-                    {order.order_date && (
-                      <p className="text-xs text-muted-foreground ml-4 whitespace-nowrap">
-                        {(() => {
-                          try {
-                            const date = new Date(order.order_date);
-                            if (isNaN(date.getTime())) {
-                              // If date parsing fails, try to format the string directly
-                              return order.order_date;
-                            }
-                            return date.toLocaleDateString('en-US', { 
-                              year: 'numeric', 
-                              month: 'short', 
-                              day: 'numeric' 
-                            });
-                          } catch (e) {
-                            return order.order_date;
-                          }
-                        })()}
-                      </p>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {order.items.map((item, itemIdx) => (
-                      <div key={itemIdx}>
-                        <div className="flex justify-between items-start py-3">
-                          <div className="flex-1 pr-4">
-                            <p className="font-medium text-sm text-foreground">{item.name}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{item.category || 'Product'}</p>
-                            {item.description && (
-                              <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
-                            )}
-                          </div>
-                          <div className="text-right min-w-[120px]">
-                            <p className="text-sm font-medium text-foreground">${(item.purchase_price || 0).toFixed(2)}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">Qty: {item.quantity || 1}</p>
-                            <p className="text-xs font-medium text-foreground mt-1">
-                              ${((item.purchase_price || 0) * (item.quantity || 1)).toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                        {itemIdx < order.items.length - 1 && (
-                          <div className="border-b border-gray-200"></div>
-                        )}
-                      </div>
-                    ))}
-                    <div className="border-b border-gray-200 mt-4"></div>
-                    <div className="pt-4 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span className="font-medium text-foreground">${order.subtotal.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Tax (6.625%)</span>
-                        <span className="font-medium text-foreground">${order.tax.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-lg font-bold pt-2">
-                        <span className="text-foreground">Total</span>
-                        <span className="text-foreground">${order.total.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            {sortedOrders.map((order) => (
+              <OrderCard key={order.order_code} order={order} />
             ))}
           </div>
         )}
@@ -435,3 +371,89 @@ export default function OrderHistoryPage() {
     </div>
   );
 }
+
+// Memoized Order Card Component for better performance
+const OrderCard = memo(({ order }) => {
+  const formatDate = (dateString) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString;
+      }
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <CardTitle className="text-lg">Order #{order.order_code}</CardTitle>
+              <Badge variant="outline" className="text-xs">
+                {order.salon_name}
+              </Badge>
+            </div>
+          </div>
+          {order.order_date && (
+            <p className="text-xs text-muted-foreground ml-4 whitespace-nowrap">
+              {formatDate(order.order_date)}
+            </p>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {order.items.map((item, itemIdx) => (
+            <div key={`${item.product_id}_${item.purchase_price}_${itemIdx}`}>
+              <div className="flex justify-between items-start py-3">
+                <div className="flex-1 pr-4">
+                  <p className="font-medium text-sm text-foreground">{item.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{item.category || 'Product'}</p>
+                  {item.description && (
+                    <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                  )}
+                </div>
+                <div className="text-right min-w-[120px]">
+                  <p className="text-sm font-medium text-foreground">${(item.purchase_price || 0).toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Qty: {item.quantity || 1}</p>
+                  <p className="text-xs font-medium text-foreground mt-1">
+                    ${((item.purchase_price || 0) * (item.quantity || 1)).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              {itemIdx < order.items.length - 1 && (
+                <div className="border-b border-gray-200"></div>
+              )}
+            </div>
+          ))}
+          <div className="border-b border-gray-200 mt-4"></div>
+          <div className="pt-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium text-foreground">${order.subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Tax (6.625%)</span>
+              <span className="font-medium text-foreground">${order.tax.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-lg font-bold pt-2">
+              <span className="text-foreground">Total</span>
+              <span className="text-foreground">${order.total.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
+
+OrderCard.displayName = 'OrderCard';

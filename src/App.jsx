@@ -31,7 +31,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [rewardsCount, setRewardsCount] = useState(0);
 
-  // Fetch rewards count for user - optimized with single endpoint
+  // Fetch rewards count for user
   const fetchRewardsCount = async (userId) => {
     try {
       const token = localStorage.getItem('auth_token');
@@ -39,14 +39,13 @@ export default function App() {
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Use optimized endpoint that returns total rewards directly
+      // Use the new optimized endpoint
       const response = await fetch(`${apiUrl}/user/loyalty/total-rewards`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       if (!response.ok) {
-        // Fallback to 0 if endpoint fails
-        setRewardsCount(0);
+        console.error('Failed to fetch total rewards:', response.status);
         return;
       }
 
@@ -55,8 +54,6 @@ export default function App() {
       setRewardsCount(totalRewards);
     } catch (error) {
       console.error('Error fetching rewards count:', error);
-      // Set to 0 on error to avoid showing stale data
-      setRewardsCount(0);
     }
   };
 
