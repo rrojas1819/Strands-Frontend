@@ -366,38 +366,36 @@ export default function SalonDetail() {
     return currentTime >= startTime && currentTime < endTime;
   };
 
-  if (loading) {
+  if (error && !salon) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-muted/30">
+        <UserNavbar activeTab="dashboard" title="Salon Details" subtitle="View salon information" />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <Alert className="max-w-md mx-auto">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <Button onClick={() => navigate('/dashboard')} className="mt-4">
+              Back to Dashboard
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
 
-  if (error) {
+  if (!salon && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <Alert className="max-w-md">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-          <Button onClick={() => navigate('/dashboard')} className="mt-4">
-            Back to Dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!salon) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Salon not found</h2>
-          <Button onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
-          </Button>
-        </div>
+      <div className="min-h-screen bg-muted/30">
+        <UserNavbar activeTab="dashboard" title="Salon Details" subtitle="View salon information" />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Salon not found</h2>
+            <Button onClick={() => navigate('/dashboard')}>
+              Back to Dashboard
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -412,6 +410,43 @@ export default function SalonDetail() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {loading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <Card className="animate-pulse">
+                <CardHeader>
+                  <div className="h-8 bg-gray-200 rounded w-3/4 mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                    <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div>
+              <Card className="animate-pulse">
+                <CardHeader>
+                  <div className="h-6 bg-gray-200 rounded w-2/3 mb-4"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        ) : salon ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Salon Info */}
           <div className="lg:col-span-2">
@@ -902,6 +937,7 @@ export default function SalonDetail() {
             )}
           </div>
         </div>
+        ) : null}
       </main>
 
       {/* Custom Strands Modal - Redeem */}

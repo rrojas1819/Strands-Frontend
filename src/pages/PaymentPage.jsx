@@ -812,8 +812,24 @@ export default function PaymentPage() {
       if (paymentResponse.ok) {
         notifySuccess('Payment processed successfully! Booking confirmed.');
 
+        // Refetch rewards count from API to ensure accuracy
+        if (selectedReward || user) {
+          try {
+            const token = localStorage.getItem('auth_token');
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+            const totalRewardsResponse = await fetch(`${apiUrl}/user/loyalty/total-rewards`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (totalRewardsResponse.ok) {
+              const totalRewardsData = await totalRewardsResponse.json();
+              setRewardsCount(totalRewardsData.totalRewards || 0);
+            }
+          } catch (err) {
+            console.error('Error refetching rewards count:', err);
+          }
+        }
+
         if (selectedReward) {
-          setRewardsCount((prev) => Math.max((prev || 0) - 1, 0));
           setAvailableRewards((prev) => Array.isArray(prev) ? prev.filter((reward) => reward.reward_id !== selectedReward.reward_id) : []);
         }
 
