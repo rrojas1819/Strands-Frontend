@@ -9,7 +9,7 @@ import NotificationInbox from './NotificationInbox';
 import { useNotifications } from '../hooks/useNotifications';
 
 export default function OwnerNavbar({ salonStatus, handleLogout }) {
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -23,6 +23,14 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
     return isActive(path)
       ? 'border-primary text-primary'
       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground';
+  };
+
+  const handleLogoutClick = () => {
+    if (handleLogout) {
+      handleLogout();
+    } else {
+      logout();
+    }
   };
 
   return (
@@ -60,7 +68,7 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Owner
               </Badge>
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
+              <Button variant="outline" onClick={handleLogoutClick} className="flex items-center space-x-2">
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
               </Button>

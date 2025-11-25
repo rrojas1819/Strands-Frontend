@@ -46,6 +46,7 @@ import { toast } from 'sonner';
 import StrandsModal from '../components/ui/strands-modal';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { compressImage, validateImageFile } from '../utils/imageUtils';
+import { Notifications } from '../utils/notifications';
 
 
 export default function SalonOwnerDashboard() {
@@ -735,28 +736,8 @@ export default function SalonOwnerDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      setModalConfig({
-        title: 'Success',
-        message: 'Signed out successfully',
-        type: 'success',
-        onConfirm: () => {
-          setShowModal(false);
-          authContext?.logout();
-        }
-      });
-      setShowModal(true);
-    } catch (error) {
-      console.error('Logout error:', error);
-      setModalConfig({
-        title: 'Error',
-        message: 'Error signing out',
-        type: 'error',
-        onConfirm: () => setShowModal(false)
-      });
-      setShowModal(true);
-    }
+  const handleLogout = () => {
+    authContext?.logout();
   };
 
   // UPH-1.2: Fetch customers list
