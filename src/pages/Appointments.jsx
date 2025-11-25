@@ -221,7 +221,7 @@ export default function Appointments() {
 
       await Promise.allSettled(reviewPromises);
       if (!controller.signal.aborted) {
-        setStylistReviews(reviewsMap);
+      setStylistReviews(reviewsMap);
       }
     } catch (err) {
       // Silently fail - reviews are optional

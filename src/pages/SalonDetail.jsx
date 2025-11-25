@@ -13,12 +13,14 @@ import SalonReviews from '../components/SalonReviews';
 import { Textarea } from '../components/ui/textarea';
 import UserNavbar from '../components/UserNavbar';
 import HaircutGalleryModal from '../components/HaircutGalleryModal';
+import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
 export default function SalonDetail() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const { salonId } = useParams();
   const [salon, setSalon] = useState(null);
+  const [salonPhotoUrl, setSalonPhotoUrl] = useState(null);
   const [loyaltyData, setLoyaltyData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,6 +87,19 @@ export default function SalonDetail() {
             throw new Error('Salon not found');
           }
           setSalon(foundSalon);
+          
+          // Fetch salon photo
+          try {
+            const photoResponse = await fetch(`${apiUrl}/file/get-salon-photo?salon_id=${salonId}`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (photoResponse.ok) {
+              const photoData = await photoResponse.json();
+              setSalonPhotoUrl(photoData.url || null);
+            }
+          } catch (err) {
+            // Silently fail - photo is optional
+          }
         } else {
           throw new Error('Failed to fetch salon details');
         }
@@ -403,22 +418,42 @@ export default function SalonDetail() {
             <Card>
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-3xl font-bold">{salon.name}</CardTitle>
-                    <CardDescription className="text-lg mt-2">{salon.category}</CardDescription>
-                    <div className="flex items-center mt-4">
-                      {reviewsMeta.avg_rating ? (
-                        <>
-                          <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                          <span className="ml-2 text-lg font-semibold">{reviewsMeta.avg_rating}</span>
-                          <span className="ml-1 text-muted-foreground">({reviewsMeta.total} {reviewsMeta.total === 1 ? 'review' : 'reviews'})</span>
-                        </>
-                      ) : (
-                        <>
-                          <Star className="w-5 h-5 text-gray-300" />
-                          <span className="ml-2 text-lg font-semibold text-muted-foreground">No ratings yet</span>
-                        </>
-                      )}
+                  <div className="flex items-start gap-4 flex-1">
+                    {salonPhotoUrl ? (
+                      <img 
+                        src={salonPhotoUrl} 
+                        alt={salon.name}
+                        className="w-20 h-20 object-cover rounded-lg border flex-shrink-0"
+                        onError={(e) => {
+                          e.target.src = strandsLogo;
+                        }}
+                      />
+                    ) : (
+                      <img 
+                        src={strandsLogo} 
+                        alt="Strands"
+                        className="w-20 h-20 object-contain rounded-lg border flex-shrink-0 bg-gray-50 p-2"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-3xl font-bold">{salon.name}</CardTitle>
+                      <CardDescription className="text-lg mt-2">
+                        <span className="whitespace-nowrap">{salon.category}</span>
+                      </CardDescription>
+                      <div className="flex items-center mt-4">
+                        {reviewsMeta.avg_rating ? (
+                          <>
+                            <Star className="w-5 h-5 text-yellow-500 fill-current" />
+                            <span className="ml-2 text-lg font-semibold">{reviewsMeta.avg_rating}</span>
+                            <span className="ml-1 text-muted-foreground">({reviewsMeta.total} {reviewsMeta.total === 1 ? 'review' : 'reviews'})</span>
+                          </>
+                        ) : (
+                          <>
+                            <Star className="w-5 h-5 text-gray-300" />
+                            <span className="ml-2 text-lg font-semibold text-muted-foreground">No ratings yet</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <Badge 
