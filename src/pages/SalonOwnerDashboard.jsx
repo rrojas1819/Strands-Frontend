@@ -1129,23 +1129,23 @@ export default function SalonOwnerDashboard() {
           <>
             {/* Welcome message only on overview tab - only show after loading completes */}
             {activeTab === 'overview' && (
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold text-foreground mb-2">
-                  Welcome, {authContext?.user?.full_name}!
-                </h2>
-                <p className="text-muted-foreground">
-                  {hasSalon 
-                    ? 'Manage your salon business and grow your customer base.' 
-                    : 'Register your salon to start accepting bookings and managing your business.'
-                  }
-                </p>
-              </div>
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-foreground mb-2">
+            Welcome, {authContext?.user?.full_name}!
+          </h2>
+          <p className="text-muted-foreground">
+            {hasSalon 
+              ? 'Manage your salon business and grow your customer base.' 
+              : 'Register your salon to start accepting bookings and managing your business.'
+            }
+                      </p>
+                    </div>
             )}
 
             {/* Only show registration form if we've confirmed there's no salon */}
-            {!hasSalon && <SalonRegistrationForm />}
-            
-            {hasSalon && salonStatus !== 'APPROVED' && (
+        {!hasSalon && <SalonRegistrationForm />}
+        
+        {hasSalon && salonStatus !== 'APPROVED' && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-background border rounded-lg p-8 text-center">
               <div className="flex justify-center mb-6">
@@ -1334,9 +1334,9 @@ export default function SalonOwnerDashboard() {
                             <Upload className="w-4 h-4 mr-2" />
                             Upload Photo
                           </Button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                        )}
                   </div>
                 </div>
                         </div>
@@ -1467,7 +1467,7 @@ export default function SalonOwnerDashboard() {
                 )}
               </CardContent>
             </Card>
-          </div>
+                      </div>
         )}
 
         {activeTab === 'staff-services' && salonStatus === 'APPROVED' && (
@@ -1844,26 +1844,26 @@ export default function SalonOwnerDashboard() {
             </div>
 
             {loyaltySubTab === 'loyalty-config' && (
-              <LoyaltyConfiguration 
-                onSuccess={(message) => {
-                  setModalConfig({
-                    title: 'Success',
-                    message: message,
-                    type: 'success',
-                    onConfirm: () => setShowModal(false)
-                  });
-                  setShowModal(true);
-                }}
-                onError={(error) => {
-                  setModalConfig({
-                    title: 'Error',
-                    message: error,
-                    type: 'error',
-                    onConfirm: () => setShowModal(false)
-                  });
-                  setShowModal(true);
-                }}
-              />
+          <LoyaltyConfiguration 
+            onSuccess={(message) => {
+              setModalConfig({
+                title: 'Success',
+                message: message,
+                type: 'success',
+                onConfirm: () => setShowModal(false)
+              });
+              setShowModal(true);
+            }}
+            onError={(error) => {
+              setModalConfig({
+                title: 'Error',
+                message: error,
+                type: 'error',
+                onConfirm: () => setShowModal(false)
+              });
+              setShowModal(true);
+            }}
+          />
             )}
 
             {loyaltySubTab === 'promotions' && salonInfo && (

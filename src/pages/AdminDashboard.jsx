@@ -23,14 +23,82 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('user-analytics');
+  const [userAnalyticsSubTab, setUserAnalyticsSubTab] = useState('overview'); // 'overview' or 'activity-retention'
   const [peakView, setPeakView] = useState('hours');
   const authContext = useContext(AuthContext);
   const location = useLocation();
 
   useEffect(() => {
-    fetchDemographics();
-    fetchUserEngagement();
-    fetchCustomerRetention();
+    // Fetch all initial data in parallel for maximum speed
+    const fetchInitialData = async () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setError('No authentication token found');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+
+      try {
+        // Fetch only Overview tab data initially (demographics + engagement)
+        // Customer retention will be fetched when Activity & Retention tab is active
+        const [demographicsResponse, engagementResponse, salonsResponse] = await Promise.allSettled([
+          fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/demographics`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+          }),
+          fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/user-engagement`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+          }),
+          fetch(`${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+          })
+        ]);
+
+        // Process demographics
+        if (demographicsResponse.status === 'fulfilled' && demographicsResponse.value.ok) {
+          const data = await demographicsResponse.value.json();
+          setDemographics(data.data);
+        } else {
+          setError('Failed to fetch demographics data');
+        }
+
+        // Process user engagement
+        if (engagementResponse.status === 'fulfilled' && engagementResponse.value.ok) {
+          const data = await engagementResponse.value.json();
+          setUserEngagement(data.data);
+        }
+
+        // Process approved salons count
+        if (salonsResponse.status === 'fulfilled' && salonsResponse.value.ok) {
+          const salonsData = await salonsResponse.value.json();
+          const count = Array.isArray(salonsData) ? salonsData.length : (salonsData.data?.length || salonsData.length || 0);
+          setApprovedSalonsCount(count);
+        }
+      } catch (err) {
+        console.error('Error fetching initial data:', err);
+        setError('Failed to fetch analytics data');
+      } finally {
+        setLoading(false);
+        setEngagementLoading(false);
+        setRetentionLoading(false);
+      }
+    };
+
+    fetchInitialData();
   }, []);
 
   useEffect(() => {
@@ -42,6 +110,15 @@ export default function AdminDashboard() {
       setActiveTab('user-analytics');
     }
   }, [location.search]);
+
+  // Fetch customer retention only when Activity & Retention tab is active
+  useEffect(() => {
+    if (activeTab === 'user-analytics' && userAnalyticsSubTab === 'activity-retention') {
+      if (!customerRetention && !retentionLoading) {
+        fetchCustomerRetention();
+      }
+    }
+  }, [activeTab, userAnalyticsSubTab]);
 
   useEffect(() => {
     if (activeTab === 'business-insights') {
@@ -63,49 +140,41 @@ export default function AdminDashboard() {
         return;
       }
 
-      console.log('Fetching demographics data...');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/demographics`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-      });
+      // Fetch demographics and salons count in parallel for speed
+      const [demographicsResponse, salonsResponse] = await Promise.allSettled([
+        fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/demographics`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+        }),
+        fetch(`${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+        })
+      ]);
 
-      console.log('Demographics response status:', response.status);
-      const data = await response.json();
-      console.log('Demographics response data:', data);
-
-      if (response.ok) {
+      // Process demographics
+      if (demographicsResponse.status === 'fulfilled' && demographicsResponse.value.ok) {
+        const data = await demographicsResponse.value.json();
         setDemographics(data.data);
       } else {
-        setError(data.message || 'Failed to fetch demographics data');
-    }
+        setError('Failed to fetch demographics data');
+      }
 
-      // Fetch approved salons count
-      console.log('Fetching approved salons count...');
-      const salonsResponse = await fetch(`${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-      });
-
-      if (salonsResponse.ok) {
-        const salonsData = await salonsResponse.json();
-        console.log('Salons API response:', salonsData);
-        // Handle both array and object response formats
+      // Process approved salons count
+      if (salonsResponse.status === 'fulfilled' && salonsResponse.value.ok) {
+        const salonsData = await salonsResponse.value.json();
         const count = Array.isArray(salonsData) ? salonsData.length : (salonsData.data?.length || salonsData.length || 0);
         setApprovedSalonsCount(count);
-        console.log('Approved salons count:', count);
       } else {
-        const errorData = await salonsResponse.json().catch(() => ({}));
-        console.log('Failed to fetch approved salons:', salonsResponse.status, errorData);
         setApprovedSalonsCount(0);
       }
     } catch (err) {
-      console.error('Demographics fetch error:', err);
       setError('Failed to fetch demographics data');
     } finally {
       setLoading(false);
@@ -123,7 +192,6 @@ export default function AdminDashboard() {
         return;
       }
 
-      console.log('Fetching user engagement data...');
       const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/user-engagement`, {
         method: 'GET',
         headers: {
@@ -132,26 +200,14 @@ export default function AdminDashboard() {
         },
       });
 
-      console.log('User engagement response status:', response.status);
       const data = await response.json();
-      console.log('User engagement response data:', data);
-      console.log('Top 3 viewed salons:', data.data?.top3ViewedSalons);
 
       if (response.ok) {
         setUserEngagement(data.data);
-        // Log the top3ViewedSalons specifically to debug
-        if (data.data?.top3ViewedSalons) {
-          console.log('Top viewed salons array:', data.data.top3ViewedSalons);
-          console.log('Array length:', data.data.top3ViewedSalons.length);
-        } else {
-          console.log('top3ViewedSalons is missing or undefined');
-        }
       } else {
-        console.error('Failed to fetch user engagement:', data.message);
         toast.error(data.message || 'Failed to fetch user engagement data');
       }
     } catch (err) {
-      console.error('User engagement fetch error:', err);
       toast.error('Failed to fetch user engagement data');
     } finally {
       setEngagementLoading(false);
@@ -261,20 +317,12 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading) {
-  return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-muted/30">
       <AdminNavbar 
         title="Admin Dashboard"
         subtitle="Platform Analytics & Insights"
-        activeKey={activeTab}
+        activeKey={activeTab === 'user-analytics' ? 'user-analytics' : activeTab === 'business-insights' ? 'business-insights' : activeTab === 'revenue-analytics' ? 'revenue-analytics' : 'user-analytics'}
         onLogout={() => authContext.logout()}
       />
 
@@ -285,9 +333,15 @@ export default function AdminDashboard() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-
-        {/* Tab Content */}
-        {activeTab === 'user-analytics' ? (
+        
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <>
+            {/* Tab Content */}
+            {activeTab === 'user-analytics' ? (
           <>
             {/* Welcome Section */}
             <div className="mb-8">
@@ -296,8 +350,36 @@ export default function AdminDashboard() {
               </h2>
               <p className="text-muted-foreground">
                 View user demographics and engagement metrics to understand your platform's user base.
-                      </p>
-                    </div>
+              </p>
+              
+              {/* Sub-tabs for User Analytics */}
+              <div className="mt-4 flex space-x-1 border-b">
+                <button
+                  onClick={() => setUserAnalyticsSubTab('overview')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    userAnalyticsSubTab === 'overview'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Overview
+                </button>
+                <button
+                  onClick={() => setUserAnalyticsSubTab('activity-retention')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    userAnalyticsSubTab === 'activity-retention'
+                      ? 'border-b-2 border-primary text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Activity & Retention
+                </button>
+              </div>
+            </div>
+            
+            {/* Sub-tab Content */}
+            {userAnalyticsSubTab === 'overview' ? (
+              <>
 
         {/* Analytics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -444,23 +526,23 @@ export default function AdminDashboard() {
               </Card>
                   </div>
 
-        {/* User Engagement Stats Section */}
-        <div className="mt-8 mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
-            User Engagement Statistics
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            Monitor platform usage and user activity metrics.
-          </p>
-                            </div>
+                {/* User Engagement Stats Section */}
+                <div className="mt-8 mb-8">
+                  <h2 className="text-3xl font-bold text-foreground mb-2">
+                    User Engagement Statistics
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    Monitor platform usage and user activity metrics.
+                  </p>
+                </div>
 
-        {engagementLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading engagement data...</p>
-                          </div>
-        ) : userEngagement ? (
-          <div className="space-y-6">
+                {engagementLoading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading engagement data...</p>
+                  </div>
+                ) : userEngagement ? (
+                  <div className="space-y-6">
             {/* Login Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
@@ -556,36 +638,71 @@ export default function AdminDashboard() {
 
             {/* Booking Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
                     <Calendar className="w-5 h-5" />
-                    <span>Booking Statistics</span>
-                </CardTitle>
-                <CardDescription>
-                    Overview of platform booking activity
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                    <span>Total Bookings</span>
+                  </CardTitle>
+                  <CardDescription>
+                    All platform bookings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Bookings</p>
                       <p className="text-3xl font-bold text-blue-600">{userEngagement.total_bookings || 0}</p>
-                  </div>
+                      <p className="text-sm text-muted-foreground mt-1">Total bookings</p>
+                    </div>
                     <Calendar className="w-12 h-12 text-blue-500" />
-                </div>
-                  <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
-                <div>
-                      <p className="text-sm font-medium text-muted-foreground">Repeat Customers</p>
-                      <p className="text-3xl font-bold text-purple-600">{userEngagement.repeat_bookers || 0}</p>
                   </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Repeat className="w-5 h-5" />
+                    <span>Repeat Customers</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Customers with multiple bookings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-3xl font-bold text-purple-600">{userEngagement.repeat_bookers || 0}</p>
+                      <p className="text-sm text-muted-foreground mt-1">Repeat customers</p>
+                    </div>
                     <Repeat className="w-12 h-12 text-purple-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-              {/* Top Services */}
-            <Card>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-white rounded-lg border">
+                    <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No engagement data available</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Engagement statistics will appear here once data is available.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Activity & Retention Tab Content */}
+                {engagementLoading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading engagement data...</p>
+                  </div>
+                ) : userEngagement ? (
+                  <>
+                    <div className="space-y-6">
+                      {/* Top Services */}
+                      <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                     <Scissors className="w-5 h-5" />
@@ -620,7 +737,6 @@ export default function AdminDashboard() {
                   )}
               </CardContent>
             </Card>
-            </div>
 
             {/* Top Viewed Salons */}
             <Card>
@@ -660,27 +776,18 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </CardContent>
-            </Card>
-                            </div>
-        ) : (
-          <div className="text-center py-12 bg-white rounded-lg border">
-            <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No engagement data available</h3>
-            <p className="text-sm text-muted-foreground">
-              Engagement statistics will appear here once data is available.
-                    </p>
-                          </div>
-        )}
+                    </Card>
+                    </div>
 
-        {/* Customer Retention Metrics Section */}
-        <div className="mt-8 mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
-            Customer Retention Metrics
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            Track customer loyalty, rebooking rates, and stylist preferences.
-          </p>
-        </div>
+                    {/* Customer Retention Metrics Section */}
+                    <div className="mt-8 mb-8">
+                  <h2 className="text-3xl font-bold text-foreground mb-2">
+                    Customer Retention Metrics
+                  </h2>
+                  <p className="text-muted-foreground mb-6">
+                    Track customer loyalty, rebooking rates, and stylist preferences.
+                  </p>
+                </div>
 
         {retentionLoading ? (
           <div className="text-center py-12">
@@ -924,14 +1031,32 @@ export default function AdminDashboard() {
               Customer retention metrics will appear here once data is available.
             </p>
           </div>
-        )}
+                    )}
 
-            {/* Action Buttons */}
-            <div className="mt-8 flex space-x-4">
-              <Button onClick={() => { fetchDemographics(); fetchUserEngagement(); }} variant="outline">
-                Refresh Data
-              </Button>
-                        </div>
+                    {/* Action Buttons */}
+                    <div className="mt-8 flex space-x-4">
+                      {userAnalyticsSubTab === 'overview' ? (
+                        <Button onClick={() => { fetchDemographics(); fetchUserEngagement(); }} variant="outline">
+                          Refresh Data
+                        </Button>
+                      ) : (
+                        <Button onClick={() => { fetchUserEngagement(); fetchCustomerRetention(); }} variant="outline">
+                          Refresh Data
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-12 bg-white rounded-lg border">
+                    <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No engagement data available</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Engagement statistics will appear here once data is available.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </>
         ) : activeTab === 'business-insights' ? (
           <>
@@ -1716,6 +1841,8 @@ export default function AdminDashboard() {
             )}
           </>
         ) : null}
+          </>
+        )}
       </main>
     </div>
   );

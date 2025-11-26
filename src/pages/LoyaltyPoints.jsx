@@ -225,12 +225,12 @@ export default function LoyaltyPoints() {
           }),
           fetch(`${apiUrl}/user/loyalty/all-rewards`, {
             method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
+          headers: {
+            'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
           }),
-          fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+          fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=100&offset=0`, {
             headers: { 'Authorization': `Bearer ${token}` },
           })
         ]);
@@ -275,14 +275,33 @@ export default function LoyaltyPoints() {
           }
         }
 
-        // Process salons data
-        if (salonsResponse.status !== 'fulfilled' || !salonsResponse.value.ok) {
+        // Fetch a reasonable sample of salons for loyalty progress tracking
+        // We need to check loyalty data for salons, not just those with rewards
+        let salons = [];
+        if (salonsResponse.status === 'fulfilled' && salonsResponse.value.ok) {
+          const salonsData = await salonsResponse.value.json();
+          const allSalons = salonsData.data || [];
+          
+          // Limit to first 100 salons to avoid performance issues
+          // This is enough to show progress for most users
+          if (allSalons.length > 100) {
+            salons = allSalons.slice(0, 100);
+          } else {
+            salons = allSalons;
+          }
+        } else {
           console.log('Failed to fetch salons');
-          throw new Error('Failed to fetch salons');
+          // Don't throw error - continue without salon data
+          salons = [];
         }
-
-        const salonsData = await salonsResponse.value.json();
-        const salons = salonsData.data || [];
+        
+        // Extract unique salon names from rewards for matching
+        const uniqueSalonNames = new Set();
+        allAvailableRewards.forEach(reward => {
+          if (reward.salon_name) {
+            uniqueSalonNames.add(reward.salon_name);
+          }
+        });
         
         // Create a map of salon_name to salon_id for matching rewards to salons
         const salonNameToId = {};
@@ -290,21 +309,28 @@ export default function LoyaltyPoints() {
           salonNameToId[salon.name] = salon.salon_id;
         });
         
-        // Fetch ALL salon loyalty data in parallel (this is the big speedup!)
-        const loyaltyPromises = salons.map(salon => 
-          fetch(`${apiUrl}/user/loyalty/view?salon_id=${salon.salon_id}`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }).then(response => ({
-            salon,
-            response,
-            ok: response.ok
-          })).catch(err => ({
-            salon,
-            response: null,
-            ok: false,
-            error: err
-          }))
-        );
+        // Fetch loyalty data for all salons (to show progress, not just rewards)
+        // Cache 404s to avoid refetching salons without loyalty data
+        const loyalty404Cache = new Set(JSON.parse(sessionStorage.getItem('loyalty_404_cache') || '[]'));
+        
+        const loyaltyPromises = salons
+          .filter(salon => !loyalty404Cache.has(salon.salon_id)) // Skip cached 404s
+          .map(salon => 
+            fetch(`${apiUrl}/user/loyalty/view?salon_id=${salon.salon_id}`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            }).then(response => ({
+              salon,
+              response,
+              ok: response.ok,
+              status: response.status
+            })).catch(err => ({
+              salon,
+              response: null,
+              ok: false,
+              status: 0,
+              error: err
+            }))
+          );
 
         // Process results as they come in (progressive loading)
         const salonProgress = [];
@@ -314,20 +340,29 @@ export default function LoyaltyPoints() {
         
         // Use Promise.allSettled but process incrementally
         const loyaltyResults = await Promise.allSettled(loyaltyPromises);
+        const new404s = [];
         
         for (const result of loyaltyResults) {
-          if (result.status === 'fulfilled' && result.value.ok) {
-            try {
-              const { salon, response } = result.value;
-              const loyaltyData = await response.json();
-              const userData = loyaltyData.userData;
-              const userRewards = loyaltyData.userRewards || [];
-              
-              // Get available rewards count for this salon from the allAvailableRewards array
-              const availableCount = allAvailableRewards.filter(r => {
-                const salonId = r.salon_id || salonNameToId[r.salon_name];
-                return salonId === salon.salon_id;
-              }).length;
+          if (result.status === 'fulfilled') {
+            const { salon, response, ok, status } = result.value;
+            
+            // Cache 404s to avoid refetching
+            if (status === 404) {
+              new404s.push(salon.salon_id);
+              continue; // Skip processing 404s
+            }
+            
+            if (ok && response) {
+              try {
+                const loyaltyData = await response.json();
+                const userData = loyaltyData.userData;
+                const userRewards = loyaltyData.userRewards || [];
+                
+                // Get available rewards count for this salon from the allAvailableRewards array
+                const availableCount = allAvailableRewards.filter(r => {
+                  const salonId = r.salon_id || salonNameToId[r.salon_name];
+                  return salonId === salon.salon_id;
+                }).length;
               
               if (userData) {
                 const visits = userData.visits_count || 0;  
@@ -393,10 +428,17 @@ export default function LoyaltyPoints() {
                   });
                 }
               }
-            } catch (err) {
-              console.log('Error processing loyalty data for salon:', err.message);
+              } catch (err) {
+                console.log('Error processing loyalty data for salon:', err.message);
+              }
             }
           }
+        }
+        
+        // Save 404 cache to sessionStorage
+        if (new404s.length > 0) {
+          const updatedCache = Array.from(new Set([...Array.from(loyalty404Cache), ...new404s]));
+          sessionStorage.setItem('loyalty_404_cache', JSON.stringify(updatedCache.slice(0, 100))); // Limit cache size
         }
 
         // Process all rewards from the endpoint - convert to display format (optimized with Map for faster lookups)
@@ -545,15 +587,15 @@ export default function LoyaltyPoints() {
           </div>
         )}
 
-        {/* Salon Progress Overview */}
-        <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Your Salon Progress</h2>
+            {/* Salon Progress Overview */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4">Your Salon Progress</h2>
             {displayData?.salonProgress?.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {displayData.salonProgress.map((salon) => (
                     <SalonProgressCard key={salon.salonId} salon={salon} />
                   ))}
-                </div>
+                        </div>
               ) : loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[1, 2, 3].map((i) => (
@@ -663,7 +705,7 @@ export default function LoyaltyPoints() {
                             <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                           </div>
                         ))}
-                      </div>
+                        </div>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
                         <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -702,7 +744,7 @@ export default function LoyaltyPoints() {
                             </div>
                           </div>
                         ))}
-                      </div>
+                        </div>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
                         <Gift className="w-12 h-12 mx-auto mb-4 opacity-50" />
