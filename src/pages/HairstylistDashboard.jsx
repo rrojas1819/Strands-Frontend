@@ -1871,15 +1871,15 @@ const handleCancelSelectedAppointment = async () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section - Only on Schedule Page */}
         {activeTab === 'schedule' && (
-          <div className="mb-8">
+        <div className="mb-8">
             <div className="flex items-start gap-6 mb-4">
               <div className="flex-1">
-                <h2 className="text-3xl font-bold text-foreground mb-2">
-                  Welcome, {authContext.user?.full_name}!
-                </h2>
-                <p className="text-muted-foreground">
-                  Manage your appointments, customers, and professional profile at {salonData?.name}.
-                </p>
+           <h2 className="text-3xl font-bold text-foreground mb-2">
+             Welcome, {authContext.user?.full_name}!
+           </h2>
+          <p className="text-muted-foreground">
+            Manage your appointments, customers, and professional profile at {salonData?.name}.
+          </p>
               </div>
               <div className="flex-shrink-0">
                 <img 
@@ -1979,7 +1979,7 @@ const handleCancelSelectedAppointment = async () => {
                 </div>
               </div>
             </div>
-          </div>
+        </div>
         )}
 
         {/* Tab Content */}

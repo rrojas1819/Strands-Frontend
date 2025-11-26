@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -32,19 +32,21 @@ export default function ProductsPage() {
     fetchCartCount();
   }, [user, salonId, navigate]);
 
-  const fetchSalonName = async () => {
+  // Memoize salon name fetch to prevent unnecessary calls
+  const fetchSalonName = useCallback(async () => {
+    if (salonName) return; // Already have salon name
+    
     try {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      const response = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+      const response = await fetch(`${apiUrl}/salons/browse?status=APPROVED&salon_id=${salonId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       if (response.ok) {
         const data = await response.json();
-        const salons = data.data || [];
-        const salon = salons.find(s => s.salon_id == salonId);
+        const salon = data.data?.[0]; // Expecting an array with one salon
         if (salon) {
           setSalonName(salon.name);
         }
@@ -52,7 +54,7 @@ export default function ProductsPage() {
     } catch (err) {
       console.error('Error fetching salon name:', err);
     }
-  };
+  }, [salonId, salonName]);
 
   const fetchProducts = async () => {
     setLoading(true);

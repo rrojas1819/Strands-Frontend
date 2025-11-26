@@ -114,10 +114,11 @@ export default function BookingPage() {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Fetch salon and stylists only
+      // Fetch only the specific salon and stylists (much faster than fetching all salons!)
       const timestamp = Date.now();
       const [salonResponse, stylistsResponse] = await Promise.allSettled([
-        fetch(`${apiUrl}/salons/browse?status=APPROVED&_t=${timestamp}`, {
+        // Fetch only the specific salon - much faster!
+        fetch(`${apiUrl}/salons/browse?status=APPROVED&salon_id=${salonId}&_t=${timestamp}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         }),
         fetch(`${apiUrl}/salons/${salonId}/stylists?_t=${timestamp}`, {
@@ -128,8 +129,7 @@ export default function BookingPage() {
       // Handle salon data
       if (salonResponse.status === 'fulfilled' && salonResponse.value.ok) {
         const salonData = await salonResponse.value.json();
-        const salons = salonData.data || [];
-        const foundSalon = salons.find(s => s.salon_id == salonId);
+        const foundSalon = salonData.data?.[0]; // Expecting an array with one salon
         if (foundSalon) {
           setSalon(foundSalon);
         } else {

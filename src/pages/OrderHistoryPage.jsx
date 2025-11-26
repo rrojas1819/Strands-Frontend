@@ -33,27 +33,42 @@ export default function OrderHistoryPage() {
       return;
     }
 
-    // Fetch salons and orders in parallel for faster loading
+    // Optimized: Fetch orders from a reasonable sample, then build salon list from orders
     const initializeData = async () => {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Fetch salons first (needed for order fetching)
       try {
-        const salonsResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+        // Fetch a reasonable sample of salons (first 50) to check for orders
+        // This is much faster than fetching all salons
+        const sampleResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=50&offset=0`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        if (salonsResponse.ok) {
-          const salonsData = await salonsResponse.json();
-          const fetchedSalons = salonsData.data || [];
-          setSalons(fetchedSalons);
-          
-          // Now fetch all orders in parallel
-          fetchAllOrdersOptimized(fetchedSalons, token, apiUrl);
+        
+        let salonsToCheck = [];
+        if (sampleResponse.ok) {
+          const sampleData = await sampleResponse.json();
+          salonsToCheck = sampleData.data || [];
+        }
+        
+        // If no salons in sample, try without limit
+        if (salonsToCheck.length === 0) {
+          const fallbackResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            salonsToCheck = fallbackData.data || [];
+          }
+        }
+        
+        if (salonsToCheck.length > 0) {
+          fetchAllOrdersOptimized(salonsToCheck, token, apiUrl);
+        } else {
+          setLoading(false);
         }
       } catch (err) {
-        console.error('Error fetching salons:', err);
+        console.error('Error initializing orders:', err);
         setLoading(false);
       }
     };
@@ -112,8 +127,67 @@ export default function OrderHistoryPage() {
   const handleSalonChange = useCallback((salonId) => {
     const selectedId = salonId === 'all' ? null : salonId;
     setSelectedSalonId(selectedId);
+    const token = localStorage.getItem('auth_token');
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    
     if (salonId === 'all') {
-      fetchAllOrders(0);
+      // Fetch all orders from all salons
+      const salonsToFetch = salons.length > 0 ? salons : [];
+      if (salonsToFetch.length > 0) {
+        fetchAllOrdersOptimized(salonsToFetch, token, apiUrl);
+      } else {
+        // If no salons loaded yet, fetch them first in batches
+        let allSalons = [];
+        let offset = 0;
+        const limit = 100;
+        let hasMore = true;
+
+        const fetchSalonsBatch = async () => {
+          while (hasMore) {
+            try {
+              const salonsResponse = await fetch(
+                `${apiUrl}/salons/browse?status=APPROVED&limit=${limit}&offset=${offset}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+              );
+
+              if (!salonsResponse.ok) {
+                if (offset === 0) {
+                  const fallbackResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                  });
+                  if (fallbackResponse.ok) {
+                    const fallbackData = await fallbackResponse.json();
+                    allSalons = fallbackData.data || [];
+                  }
+                }
+                hasMore = false;
+              } else {
+                const salonsData = await salonsResponse.json();
+                const batchSalons = salonsData.data || [];
+                allSalons = [...allSalons, ...batchSalons];
+                
+                if (batchSalons.length < limit) {
+                  hasMore = false;
+                } else {
+                  offset += limit;
+                }
+              }
+            } catch (err) {
+              console.error('Error fetching salons:', err);
+              hasMore = false;
+            }
+          }
+          
+          setSalons(allSalons);
+          if (allSalons.length > 0) {
+            fetchAllOrdersOptimized(allSalons, token, apiUrl);
+          } else {
+            setLoading(false);
+          }
+        };
+        
+        fetchSalonsBatch();
+      }
     } else {
       fetchOrders(salonId, 0);
     }
@@ -134,7 +208,7 @@ export default function OrderHistoryPage() {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            salon_id: parseInt(salon.salon_id),
+            salon_id: typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id,
             limit: 100,
             offset: 0
           })
@@ -154,7 +228,8 @@ export default function OrderHistoryPage() {
 
       const orderResults = await Promise.allSettled(orderPromises);
       
-      // Process all results
+      // Process all results and build salon list from salons with orders
+      const uniqueSalonIds = new Set();
       for (const result of orderResults) {
         if (result.status === 'fulfilled' && result.value.ok) {
           try {
@@ -162,9 +237,15 @@ export default function OrderHistoryPage() {
             const data = await response.json();
             const orders = data.orders || [];
             
+            if (orders.length > 0) {
+              const salonIdValue = typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id;
+              uniqueSalonIds.add(salonIdValue);
+            }
+            
             // Add salon info to each order item
+            const salonIdValue = typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id;
             orders.forEach(order => {
-              order.salon_id = salon.salon_id;
+              order.salon_id = salonIdValue;
               order.salon_name = salon.name;
             });
             allOrders.push(...orders);
@@ -176,6 +257,19 @@ export default function OrderHistoryPage() {
           continue;
         }
       }
+      
+      // Build salon list only from salons that have orders
+      const salonsWithOrders = Array.from(uniqueSalonIds).map(id => {
+        const salon = salonsToFetch.find(s => {
+          const sId = typeof s.salon_id === 'string' ? parseInt(s.salon_id, 10) : s.salon_id;
+          return sId === id;
+        });
+        return {
+          salon_id: id,
+          name: salon?.name || 'Unknown Salon'
+        };
+      });
+      setSalons(salonsWithOrders);
       
       setOrders(allOrders);
       setPagination(prev => ({ ...prev, total_pages: 1, current_page: 1 }));
