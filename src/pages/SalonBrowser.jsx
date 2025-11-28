@@ -16,13 +16,12 @@ export default function SalonBrowser() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [salons, setSalons] = useState([]);
-  const [salonRatings, setSalonRatings] = useState({});
   const [salonPhotos, setSalonPhotos] = useState({}); // Map of salon_id -> photo URL
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortBy, setSortBy] = useState('none'); // none, name-asc, name-desc, rating-desc
+  const [sortBy, setSortBy] = useState('recent'); // recent, a-z, z-a, highest-rated (backend handles sorting)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -41,10 +40,10 @@ export default function SalonBrowser() {
   ];
 
   const sortOptions = [
-    { value: 'none', label: 'Default' },
-    { value: 'name-asc', label: 'Name (A-Z)' },
-    { value: 'name-desc', label: 'Name (Z-A)' },
-    { value: 'rating-desc', label: 'Highest Rating' }
+    { value: 'recent', label: 'Default' },
+    { value: 'name_asc', label: 'Name (A-Z)' },
+    { value: 'name_desc', label: 'Name (Z-A)' },
+    { value: 'rating', label: 'Highest Rating' }
   ];
 
   useEffect(() => {
@@ -72,98 +71,8 @@ export default function SalonBrowser() {
     };
   }, [isDropdownOpen, isSortDropdownOpen]);
 
-  // Track which salons have already had their ratings fetched to prevent duplicates
-  const fetchedRatingsRef = useRef(new Set());
   // Track if we're currently fetching to prevent infinite loops
   const isFetchingRef = useRef(false);
-  // Store observer ref for cleanup
-  const observerRef = useRef(null);
-  
-  // Lazy load ratings only when salon cards are visible
-  const setupLazyRatingFetch = useCallback((salonsList, token) => {
-    if (!salonsList || salonsList.length === 0) return;
-    
-    // Clean up previous observer if it exists
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
-    
-    // Use Intersection Observer to fetch ratings only when salon cards are visible
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const salonId = entry.target.dataset.salonId;
-            // Use ref to check if already fetched (prevents infinite loop)
-            if (salonId && !fetchedRatingsRef.current.has(salonId)) {
-              fetchedRatingsRef.current.add(salonId);
-              
-              // Fetch rating for this salon
-              fetch(
-                `${import.meta.env.VITE_API_URL}/reviews/salon/${salonId}/all?limit=1&offset=0`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                  },
-                }
-              )
-                .then(response => {
-                  if (response.ok) {
-                    return response.json();
-                  }
-                  return null;
-                })
-                .then(ratingData => {
-                  if (ratingData) {
-                    setSalonRatings(prev => ({
-                      ...prev,
-                      [salonId]: {
-                        avg_rating: ratingData.meta?.avg_rating || null,
-                        total: ratingData.meta?.total || 0
-                      }
-                    }));
-                  }
-                })
-                .catch(() => {
-                  // Silently fail - rating is optional
-                  // Remove from set on error so it can be retried
-                  fetchedRatingsRef.current.delete(salonId);
-                });
-              
-              // Unobserve after fetching to avoid duplicate requests
-              observer.unobserve(entry.target);
-            }
-          }
-        });
-      },
-      {
-        rootMargin: '50px' // Start fetching 50px before card is visible
-      }
-    );
-    
-    observerRef.current = observer;
-    
-    // Observe all salon cards after DOM renders
-    // Use requestAnimationFrame for better timing
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        const cards = document.querySelectorAll('[data-salon-id]');
-        cards.forEach(card => {
-          observer.observe(card);
-        });
-      }, 50);
-    });
-  }, []); // No dependencies - function is stable
-
-  // Cleanup observer on unmount
-  useEffect(() => {
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-        observerRef.current = null;
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -182,16 +91,17 @@ export default function SalonBrowser() {
       setError('');
       try {
         const token = localStorage.getItem('auth_token');
-        // Fetch all salons in batches to ensure we get all of them
+        
+        // Fetch ALL salons in batches to ensure we get all of them
+        // Backend sorts ALL salons before pagination, so we fetch all with sort parameter
         let allSalons = [];
         let offset = 0;
-        const limit = 100; // Fetch 100 at a time
+        const limit = 1000; // Use high limit to get all salons in fewer requests
         let hasMore = true;
 
-        // Fetch all salons in batches until we get all of them
         while (hasMore) {
           const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&limit=${limit}&offset=${offset}`,
+            `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&sort=${sortBy}&limit=${limit}&offset=${offset}`,
             {
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -200,23 +110,26 @@ export default function SalonBrowser() {
           );
 
           if (!response.ok) {
-            // If limit/offset not supported, try without them
+            // If limit/offset not supported with sort, try without limit/offset
             if (offset === 0) {
-              const fallbackResponse = await fetch(`${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+              const fallbackResponse = await fetch(
+                `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&sort=${sortBy}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                }
+              );
               if (!fallbackResponse.ok) {
-                const errorData = await fallbackResponse.json();
+                const errorData = await fallbackResponse.json().catch(() => ({}));
                 throw new Error(errorData.message || 'Failed to fetch salons');
               }
               const fallbackData = await fallbackResponse.json();
               allSalons = fallbackData.data || [];
               hasMore = false;
             } else {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to fetch salons');
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.message || 'Failed to fetch salons');
             }
           } else {
             const data = await response.json();
@@ -232,59 +145,76 @@ export default function SalonBrowser() {
           }
         }
 
+        // Backend has sorted ALL salons, so we just set them
+        // Filtering happens client-side and maintains the sort order
         setSalons(allSalons);
         setLoading(false);
         
-        // Only fetch photos immediately (needed for display)
-        // Reviews/ratings will be fetched on-demand when salon cards are visible
-        // Use existing photos if available to prevent refetching
+        // Backend returns photo_url in response - use it directly
         const photosMap = { ...salonPhotos }; // Start with existing photos
-        const salonsToFetch = allSalons.filter(salon => !photosMap.hasOwnProperty(salon.salon_id));
+        allSalons.forEach(salon => {
+          if (salon.photo_url) {
+            photosMap[salon.salon_id] = salon.photo_url;
+          } else if (!photosMap.hasOwnProperty(salon.salon_id)) {
+            // Only fetch if not already cached
+            photosMap[salon.salon_id] = undefined; // Mark as pending
+          }
+        });
+        
+        // Update photos state with backend-provided photos
+        setSalonPhotos(photosMap);
+        
+        // Fetch photos for salons that don't have photo_url from backend (batch fetch for speed)
+        const salonsToFetch = allSalons.filter(salon => !salon.photo_url && photosMap[salon.salon_id] === undefined);
         
         if (salonsToFetch.length > 0) {
+          // Batch fetch photos in parallel for faster loading
           const photoPromises = salonsToFetch.map(async (salon) => {
             try {
               const photoResponse = await fetch(
                 `${import.meta.env.VITE_API_URL}/file/get-salon-photo?salon_id=${salon.salon_id}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                },
-              }
-            );
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                }
+              );
               if (photoResponse.ok) {
                 try {
                   const photoData = await photoResponse.json();
-                  photosMap[salon.salon_id] = photoData.url || null;
-              } catch (parseErr) {
-                  // Silently fail - photo parsing error, cache null
-                  photosMap[salon.salon_id] = null;
+                  return { salonId: salon.salon_id, url: photoData.url || null };
+                } catch (parseErr) {
+                  return { salonId: salon.salon_id, url: null };
                 }
               } else {
-                // 404 or other error - cache null to prevent refetching
-                photosMap[salon.salon_id] = null;
+                return { salonId: salon.salon_id, url: null };
               }
             } catch (err) {
-              // Network error - cache null to prevent retries
-              photosMap[salon.salon_id] = null;
+              return { salonId: salon.salon_id, url: null };
             }
           });
           
-          // Update photos as they come in
-          Promise.allSettled(photoPromises).then(() => {
-            setSalonPhotos(prev => ({ ...prev, ...photosMap }));
+          // Update photos as they come in (use allSettled to handle failures gracefully)
+          Promise.allSettled(photoPromises).then((results) => {
+            const newPhotos = {};
+            results.forEach(result => {
+              if (result.status === 'fulfilled' && result.value) {
+                newPhotos[result.value.salonId] = result.value.url;
+              } else {
+                // Mark failed fetches as null to prevent retries
+                const salonId = salonsToFetch[results.indexOf(result)]?.salon_id;
+                if (salonId) {
+                  newPhotos[salonId] = null;
+                }
+              }
+            });
+            if (Object.keys(newPhotos).length > 0) {
+              setSalonPhotos(prev => ({ ...prev, ...newPhotos }));
+            }
           });
         }
         
-        // Fetch ratings on-demand using Intersection Observer (lazy load when visible)
-        // Delay to ensure DOM is ready and clear previous fetched set
-        fetchedRatingsRef.current.clear();
-        // Use requestAnimationFrame for better timing
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            setupLazyRatingFetch(allSalons, token);
-          }, 100);
-        });
+        // Ratings are now included with salon data from backend - no need to fetch separately
       } catch (err) {
         setError(err.message || 'Failed to load salons.');
         setLoading(false);
@@ -294,10 +224,9 @@ export default function SalonBrowser() {
     };
 
     fetchSalons();
-  }, [user, navigate]); // Remove setupLazyRatingFetch from dependencies
+  }, [user, navigate, sortBy]); // Refetch when sortBy changes (backend handles sorting)
 
-
-  // Memoize filtered and sorted salons to avoid recalculating on every render
+  // Memoize filtered salons (client-side filtering only, sorting is done by backend)
   const filteredSalons = useMemo(() => {
     if (!salons || salons.length === 0) return [];
     
@@ -307,101 +236,105 @@ export default function SalonBrowser() {
         salon.name.toLowerCase().includes(searchLower) ||
         salon.description?.toLowerCase().includes(searchLower) ||
         salon.city?.toLowerCase().includes(searchLower);
-    const matchesCategory = selectedCategory === 'all' || salon.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+      const matchesCategory = selectedCategory === 'all' || salon.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
 
-    // Apply sorting
-    if (sortBy === 'name-asc') {
-      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortBy === 'name-desc') {
-      filtered = [...filtered].sort((a, b) => b.name.localeCompare(a.name));
-    } else if (sortBy === 'rating-desc') {
-      filtered = [...filtered].sort((a, b) => {
-        const ratingA = salonRatings[a.salon_id]?.avg_rating;
-        const ratingB = salonRatings[b.salon_id]?.avg_rating;
-        
-        // If both have ratings, sort by rating descending
-        if (ratingA != null && ratingB != null) {
-          return ratingB - ratingA;
-        }
-        // If only one has rating, prioritize it
-        if (ratingA != null && ratingB == null) return -1;
-        if (ratingA == null && ratingB != null) return 1;
-        // If neither has rating, maintain original order (chronological)
-        return b.salon_id - a.salon_id;
-      });
-    } else {
-      // Default: chronological order (most recent first - higher salon_id = more recent)
-      filtered = [...filtered].sort((a, b) => b.salon_id - a.salon_id);
-    }
-
+    // Backend handles sorting, so we just return filtered results
     return filtered;
-  }, [salons, searchTerm, selectedCategory, sortBy, salonRatings]);
+  }, [salons, searchTerm, selectedCategory]);
 
-  // Reset to page 1 when filters, search, or sort change
+  // Reset to page 1 when filters or search change
   useEffect(() => {
     setCurrentPage(1);
     setPageInputValue('1');
-  }, [searchTerm, selectedCategory, sortBy]);
+  }, [searchTerm, selectedCategory]);
+  
+  // Refetch salons when sort changes (backend handles sorting for ALL salons)
+  useEffect(() => {
+    if (user && salons.length > 0) {
+      const fetchSalons = async () => {
+        if (isFetchingRef.current) return; // Prevent duplicate fetches
+        isFetchingRef.current = true;
+        setLoading(true);
+        try {
+          const token = localStorage.getItem('auth_token');
+          
+          // Fetch ALL salons in batches to ensure we get all of them
+          // Backend sorts ALL salons before pagination, so we fetch all with sort parameter
+          let allSalons = [];
+          let offset = 0;
+          const limit = 1000; // Use high limit to get all salons in fewer requests
+          let hasMore = true;
+
+          while (hasMore) {
+            const response = await fetch(
+              `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&sort=${sortBy}&limit=${limit}&offset=${offset}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              }
+            );
+
+            if (!response.ok) {
+              // If limit/offset not supported with sort, try without limit/offset
+              if (offset === 0) {
+                const fallbackResponse = await fetch(
+                  `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&sort=${sortBy}`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                    },
+                  }
+                );
+                if (!fallbackResponse.ok) {
+                  const errorData = await fallbackResponse.json().catch(() => ({}));
+                  throw new Error(errorData.message || 'Failed to fetch salons');
+                }
+                const fallbackData = await fallbackResponse.json();
+                allSalons = fallbackData.data || [];
+                hasMore = false;
+              } else {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to fetch salons');
+              }
+            } else {
+              const data = await response.json();
+              const batchSalons = data.data || [];
+              allSalons = [...allSalons, ...batchSalons];
+              
+              // If we got fewer than the limit, we've reached the end
+              if (batchSalons.length < limit) {
+                hasMore = false;
+              } else {
+                offset += limit;
+              }
+            }
+          }
+
+          // Backend has sorted ALL salons, so we just set them
+          // Filtering happens client-side and maintains the sort order
+          setSalons(allSalons);
+          setCurrentPage(1); // Reset to page 1 when sort changes
+          setPageInputValue('1');
+        } catch (err) {
+          setError(err.message || 'Failed to fetch salons');
+        } finally {
+          setLoading(false);
+          isFetchingRef.current = false;
+        }
+      };
+
+      fetchSalons();
+    }
+  }, [sortBy, user]);
 
   // Calculate pagination (must be before useEffect that uses it)
   const totalPages = Math.ceil(filteredSalons.length / salonsPerPage);
   const startIndex = (currentPage - 1) * salonsPerPage;
   const endIndex = startIndex + salonsPerPage;
   const paginatedSalons = filteredSalons.slice(startIndex, endIndex);
-
-  // Load ratings when needed (for lazy loading or when sorting by rating)
-  useEffect(() => {
-    if (!loading) {
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        // If sorting by rating, load ratings for all filtered salons
-        if (sortBy === 'rating-desc') {
-          const salonsToFetch = filteredSalons.filter(salon => 
-            !fetchedRatingsRef.current.has(salon.salon_id)
-          );
-          
-          if (salonsToFetch.length > 0) {
-            // Fetch ratings for all filtered salons in parallel
-            const ratingPromises = salonsToFetch.map(salon => {
-              fetchedRatingsRef.current.add(salon.salon_id);
-              return fetch(
-                `${import.meta.env.VITE_API_URL}/reviews/salon/${salon.salon_id}/all?limit=1&offset=0`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
-              )
-                .then(response => response.ok ? response.json() : null)
-                .then(ratingData => {
-                  if (ratingData) {
-                    setSalonRatings(prev => ({
-                      ...prev,
-                      [salon.salon_id]: {
-                        avg_rating: ratingData.meta?.avg_rating || null,
-                        total: ratingData.meta?.total || 0
-                      }
-                    }));
-                  }
-                })
-                .catch(() => {
-                  fetchedRatingsRef.current.delete(salon.salon_id);
-                });
-            });
-            
-            Promise.allSettled(ratingPromises);
-          }
-        } else {
-          // Otherwise, lazy load ratings only for visible salons
-          if (paginatedSalons.length > 0) {
-            requestAnimationFrame(() => {
-              setTimeout(() => {
-                setupLazyRatingFetch(paginatedSalons, token);
-              }, 100);
-            });
-          }
-        }
-      }
-    }
-  }, [paginatedSalons, filteredSalons, loading, sortBy, setupLazyRatingFetch]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {
@@ -669,11 +602,11 @@ export default function SalonBrowser() {
             {paginatedSalons.map((salon) => (
               <Card key={salon.salon_id} data-salon-id={salon.salon_id} className="hover:shadow-lg transition-shadow h-full flex flex-col">
               <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="flex items-start gap-3 flex-1">
-                    {salonPhotos[salon.salon_id] ? (
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {(salon.photo_url || salonPhotos[salon.salon_id]) ? (
                       <img 
-                        src={salonPhotos[salon.salon_id]} 
+                        src={salon.photo_url || salonPhotos[salon.salon_id]} 
                         alt={salon.name}
                         className="w-16 h-16 object-cover rounded-lg border flex-shrink-0"
                         onError={(e) => {
@@ -688,23 +621,27 @@ export default function SalonBrowser() {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg">{salon.name}</CardTitle>
+                    <CardTitle className="text-lg break-words">{salon.name}</CardTitle>
                       <div className="mt-1">
                       {getCategoryBadge(salon.category)}
                       </div>
                     </div>
                   </div>
-                  {salonRatings[salon.salon_id]?.avg_rating ? (
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                      <span className="text-sm font-medium">{salonRatings[salon.salon_id].avg_rating}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4 text-gray-300" />
-                      <span className="text-sm font-medium text-muted-foreground">N/A</span>
-                    </div>
-                  )}
+                  <div className="flex-shrink-0">
+                    {salon.rating || salon.avg_rating || salon.average_rating ? (
+                      <div className="flex items-center space-x-1">
+                        <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                        <span className="text-sm font-medium">
+                          {(salon.rating || salon.avg_rating || salon.average_rating).toFixed(1)}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-1">
+                        <Star className="w-4 h-4 text-gray-300" />
+                        <span className="text-sm font-medium text-muted-foreground">N/A</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col h-full">
@@ -729,10 +666,10 @@ export default function SalonBrowser() {
                       )) : <div>N/A</div>}
                     </div>
                   </div>
-                </div>
-                
-                <div className="pt-2 border-t mt-4">
-                  <p className="text-sm text-muted-foreground">{salon.description}</p>
+                  
+                  <div className="pt-3 mt-2">
+                    <p className="text-sm text-muted-foreground line-clamp-2">{salon.description}</p>
+                  </div>
                 </div>
 
                 {/* Bottom section with status and buttons - perfectly aligned */}

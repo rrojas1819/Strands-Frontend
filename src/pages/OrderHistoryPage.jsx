@@ -43,8 +43,8 @@ export default function OrderHistoryPage() {
         // This is much faster than fetching all salons
         const sampleResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=50&offset=0`, {
           headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
+      });
+
         let salonsToCheck = [];
         if (sampleResponse.ok) {
           const sampleData = await sampleResponse.json();
@@ -66,12 +66,12 @@ export default function OrderHistoryPage() {
           fetchAllOrdersOptimized(salonsToCheck, token, apiUrl);
         } else {
           setLoading(false);
-        }
-      } catch (err) {
+      }
+    } catch (err) {
         console.error('Error initializing orders:', err);
         setLoading(false);
-      }
-    };
+    }
+  };
 
     initializeData();
   }, [user, navigate]);
@@ -202,16 +202,16 @@ export default function OrderHistoryPage() {
       // Fetch all salon orders in parallel (major speedup!)
       const orderPromises = salonsToFetch.map(salon => 
         fetch(`${apiUrl}/products/customer/view-orders`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
             salon_id: typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id,
-            limit: 100,
-            offset: 0
-          })
+              limit: 100,
+              offset: 0
+            })
         }).then(response => ({
           salon,
           response,
@@ -254,8 +254,8 @@ export default function OrderHistoryPage() {
           }
         } else if (result.status === 'fulfilled' && result.value.status === 500) {
           // No orders for this salon, skip
-          continue;
-        }
+            continue;
+          }
       }
       
       // Build salon list only from salons that have orders
@@ -303,80 +303,80 @@ export default function OrderHistoryPage() {
   // Memoize expensive order processing operations (must be before any conditional returns)
   const sortedOrders = useMemo(() => {
     if (orders.length === 0) return [];
+
+  // Group orders by order_code (each order has a unique order_code)
+  const groupedOrders = {};
+  orders.forEach(order => {
+    const orderCode = order.order_code || 'unknown';
+    const salonId = order.salon_id || 'unknown';
+    const salonName = order.salon_name || 'Unknown Salon';
     
-    // Group orders by order_code (each order has a unique order_code)
-    const groupedOrders = {};
-    orders.forEach(order => {
-      const orderCode = order.order_code || 'unknown';
-      const salonId = order.salon_id || 'unknown';
-      const salonName = order.salon_name || 'Unknown Salon';
-      
-      // Extract order date/time from various possible field names (prioritize created_at for time sorting)
-      const orderDateTime = order.created_at || order.createdAt || order.ordered_date || order.order_date || 
-                           order.orderDate || order.order_created_at || order.created || order.timestamp || 
-                           order.purchase_date || order.purchased_at || null;
-      
-      // Extract just the date part for display (without time)
-      const orderDate = orderDateTime ? orderDateTime.split('T')[0] : null;
-      
-      // Use order_code as unique key (each order_code is unique)
-      if (!groupedOrders[orderCode]) {
-        groupedOrders[orderCode] = {
-          order_code: orderCode,
-          salon_id: salonId,
-          salon_name: salonName,
-          subtotal: parseFloat(order.subtotal_order_price || 0),
-          tax: parseFloat(order.order_tax || 0),
-          total: parseFloat(order.total_order_price || 0),
-          order_date: orderDate, // Date only for display
-          order_datetime: orderDateTime, // Full datetime for sorting
-          items: []
-        };
+    // Extract order date/time from various possible field names (prioritize created_at for time sorting)
+    const orderDateTime = order.created_at || order.createdAt || order.ordered_date || order.order_date || 
+                         order.orderDate || order.order_created_at || order.created || order.timestamp || 
+                         order.purchase_date || order.purchased_at || null;
+    
+    // Extract just the date part for display (without time)
+    const orderDate = orderDateTime ? orderDateTime.split('T')[0] : null;
+    
+    // Use order_code as unique key (each order_code is unique)
+    if (!groupedOrders[orderCode]) {
+      groupedOrders[orderCode] = {
+        order_code: orderCode,
+        salon_id: salonId,
+        salon_name: salonName,
+        subtotal: parseFloat(order.subtotal_order_price || 0),
+        tax: parseFloat(order.order_tax || 0),
+        total: parseFloat(order.total_order_price || 0),
+        order_date: orderDate, // Date only for display
+        order_datetime: orderDateTime, // Full datetime for sorting
+        items: []
+      };
+    }
+    
+    // Add each item - backend now returns quantity field
+    const itemQuantity = order.quantity || 1;
+    groupedOrders[orderCode].items.push({
+      product_id: order.product_id,
+      name: order.name || 'Product',
+      description: order.description || '',
+      category: order.category || 'Product',
+      purchase_price: parseFloat(order.purchase_price || 0),
+      quantity: itemQuantity
+    });
+  });
+  
+  // Consolidate duplicate items in the same order (same product_id and purchase_price)
+  Object.keys(groupedOrders).forEach(orderCode => {
+    const order = groupedOrders[orderCode];
+    const itemMap = {};
+    
+    order.items.forEach(item => {
+      const key = `${item.product_id}_${item.purchase_price}`;
+      if (itemMap[key]) {
+        // Sum quantities for same product and price
+        itemMap[key].quantity = (itemMap[key].quantity || 0) + (item.quantity || 0);
+      } else {
+        // First occurrence
+        itemMap[key] = { ...item, quantity: item.quantity || 0 };
       }
-      
-      // Add each item - backend now returns quantity field
-      const itemQuantity = order.quantity || 1;
-      groupedOrders[orderCode].items.push({
-        product_id: order.product_id,
-        name: order.name || 'Product',
-        description: order.description || '',
-        category: order.category || 'Product',
-        purchase_price: parseFloat(order.purchase_price || 0),
-        quantity: itemQuantity
-      });
     });
     
-    // Consolidate duplicate items in the same order (same product_id and purchase_price)
-    Object.keys(groupedOrders).forEach(orderCode => {
-      const order = groupedOrders[orderCode];
-      const itemMap = {};
-      
-      order.items.forEach(item => {
-        const key = `${item.product_id}_${item.purchase_price}`;
-        if (itemMap[key]) {
-          // Sum quantities for same product and price
-          itemMap[key].quantity = (itemMap[key].quantity || 0) + (item.quantity || 0);
-        } else {
-          // First occurrence
-          itemMap[key] = { ...item, quantity: item.quantity || 0 };
-        }
-      });
-      
-      order.items = Object.values(itemMap);
-    });
-    
-    // Sort orders by time (most recent first) - use order_datetime for accurate time sorting
+    order.items = Object.values(itemMap);
+  });
+  
+  // Sort orders by time (most recent first) - use order_datetime for accurate time sorting
     return Object.values(groupedOrders).sort((a, b) => {
-      if (a.order_datetime && b.order_datetime) {
-        const timeA = new Date(a.order_datetime).getTime();
-        const timeB = new Date(b.order_datetime).getTime();
-        return timeB - timeA; // Most recent first
-      }
-      if (a.order_datetime && !b.order_datetime) return -1;
-      if (!a.order_datetime && b.order_datetime) return 1;
-      // Fallback to order_code
-      return b.order_code.localeCompare(a.order_code);
-    });
+    if (a.order_datetime && b.order_datetime) {
+      const timeA = new Date(a.order_datetime).getTime();
+      const timeB = new Date(b.order_datetime).getTime();
+      return timeB - timeA; // Most recent first
+    }
+    if (a.order_datetime && !b.order_datetime) return -1;
+    if (!a.order_datetime && b.order_datetime) return 1;
+    // Fallback to order_code
+    return b.order_code.localeCompare(a.order_code);
+  });
   }, [orders]);
 
   if (loading && orders.length === 0) {
@@ -487,66 +487,66 @@ const OrderCard = memo(({ order }) => {
 
   return (
     <Card className="shadow-sm">
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <CardTitle className="text-lg">Order #{order.order_code}</CardTitle>
-              <Badge variant="outline" className="text-xs">
-                {order.salon_name}
-              </Badge>
-            </div>
-          </div>
-          {order.order_date && (
-            <p className="text-xs text-muted-foreground ml-4 whitespace-nowrap">
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <CardTitle className="text-lg">Order #{order.order_code}</CardTitle>
+                        <Badge variant="outline" className="text-xs">
+                          {order.salon_name}
+                        </Badge>
+                      </div>
+                    </div>
+                    {order.order_date && (
+                      <p className="text-xs text-muted-foreground ml-4 whitespace-nowrap">
               {formatDate(order.order_date)}
-            </p>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {order.items.map((item, itemIdx) => (
+                      </p>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {order.items.map((item, itemIdx) => (
             <div key={`${item.product_id}_${item.purchase_price}_${itemIdx}`}>
-              <div className="flex justify-between items-start py-3">
-                <div className="flex-1 pr-4">
-                  <p className="font-medium text-sm text-foreground">{item.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{item.category || 'Product'}</p>
-                  {item.description && (
-                    <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
-                  )}
-                </div>
-                <div className="text-right min-w-[120px]">
-                  <p className="text-sm font-medium text-foreground">${(item.purchase_price || 0).toFixed(2)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Qty: {item.quantity || 1}</p>
-                  <p className="text-xs font-medium text-foreground mt-1">
-                    ${((item.purchase_price || 0) * (item.quantity || 1)).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-              {itemIdx < order.items.length - 1 && (
-                <div className="border-b border-gray-200"></div>
-              )}
-            </div>
-          ))}
-          <div className="border-b border-gray-200 mt-4"></div>
-          <div className="pt-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-medium text-foreground">${order.subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Tax (6.625%)</span>
-              <span className="font-medium text-foreground">${order.tax.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-lg font-bold pt-2">
-              <span className="text-foreground">Total</span>
-              <span className="text-foreground">${order.total.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+                        <div className="flex justify-between items-start py-3">
+                          <div className="flex-1 pr-4">
+                            <p className="font-medium text-sm text-foreground">{item.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{item.category || 'Product'}</p>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                            )}
+                          </div>
+                          <div className="text-right min-w-[120px]">
+                            <p className="text-sm font-medium text-foreground">${(item.purchase_price || 0).toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Qty: {item.quantity || 1}</p>
+                            <p className="text-xs font-medium text-foreground mt-1">
+                              ${((item.purchase_price || 0) * (item.quantity || 1)).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                        {itemIdx < order.items.length - 1 && (
+                          <div className="border-b border-gray-200"></div>
+                        )}
+                      </div>
+                    ))}
+                    <div className="border-b border-gray-200 mt-4"></div>
+                    <div className="pt-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="font-medium text-foreground">${order.subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Tax (6.625%)</span>
+                        <span className="font-medium text-foreground">${order.tax.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-lg font-bold pt-2">
+                        <span className="text-foreground">Total</span>
+                        <span className="text-foreground">${order.total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
   );
 });
 

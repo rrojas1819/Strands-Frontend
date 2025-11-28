@@ -35,7 +35,7 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
     setReviewsLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
       const response = await fetch(`${apiUrl}/reviews/salon/${salonId}/all?limit=20&offset=${offset}`, {
         headers: {
@@ -43,24 +43,52 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
         }
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData = {};
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          // If not JSON, use the text
+        }
+        console.error('Failed to fetch reviews:', errorData.message || errorText);
+        if (onError) onError(errorData.message || 'Failed to load reviews');
+        setReviews([]);
+        setReviewsMeta({
+          total: 0,
+          avg_rating: null,
+          limit: 20,
+          offset: 0,
+          hasMore: false
+        });
+        return;
+      }
+
       const data = await response.json();
       
-      if (response.ok) {
-        setReviews(data.data || []);
-        setReviewsMeta({
-          total: data.meta?.total || 0,
-          avg_rating: data.meta?.avg_rating || null,
-          limit: data.meta?.limit || 20,
-          offset: data.meta?.offset || 0,
-          hasMore: data.meta?.hasMore || false
-        });
-      } else {
-        console.error('Failed to fetch reviews:', data.message);
-        if (onError) onError(data.message || 'Failed to load reviews');
-      }
+      // Backend returns { data: [...], meta: {...} }
+      const reviewsArray = Array.isArray(data.data) ? data.data : [];
+      const meta = data.meta || {};
+      
+      setReviews(reviewsArray);
+      setReviewsMeta({
+        total: meta.total || 0,
+        avg_rating: meta.avg_rating || null,
+        limit: meta.limit || 20,
+        offset: meta.offset || 0,
+        hasMore: meta.hasMore !== undefined ? meta.hasMore : (reviewsArray.length < (meta.total || 0))
+      });
     } catch (error) {
       console.error('Fetch reviews error:', error);
       if (onError) onError('Failed to load reviews');
+      setReviews([]);
+      setReviewsMeta({
+        total: 0,
+        avg_rating: null,
+        limit: 20,
+        offset: 0,
+        hasMore: false
+      });
     } finally {
       setReviewsLoading(false);
     }
@@ -221,7 +249,7 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading reviews...</p>
         </div>
-      ) : reviewsMeta.total === 0 ? (
+      ) : (reviewsMeta.total === 0 || reviews.length === 0) ? (
         <Card>
           <CardContent className="text-center py-12">
             <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

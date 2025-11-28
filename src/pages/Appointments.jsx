@@ -65,6 +65,9 @@ export default function Appointments() {
       return;
     }
 
+    // Reset to page 1 when filter changes
+    setPagination(prev => ({ ...prev, current_page: 1 }));
+    setPageInputValue('1');
     fetchAppointments(1, 10, filter);
     // Refetch appointments when navigating back to this page (e.g., after rescheduling)
   }, [user, navigate, location.pathname, filter]);
@@ -110,8 +113,8 @@ export default function Appointments() {
         // Backend has already filtered by status, so we use the response directly
         setAppointments(appointmentsList);
         
-        // Clear previous notes when appointments change
-        setPrivateNotes({});
+        // Don't clear notes - keep cached notes to avoid refetching
+        // Only fetch notes for appointments we don't have yet
         
         // Update pagination from backend response
         if (data.pagination) {
@@ -142,26 +145,31 @@ export default function Appointments() {
           setPageInputValue(page.toString());
         }
         
-        // Defer non-critical data fetching to improve initial load
-        // Fetch private notes and reviews after a short delay to prioritize main content
-        if (window.requestIdleCallback) {
-          requestIdleCallback(() => {
-            fetchPrivateNotesInParallel(appointmentsList);
-            fetchStylistReviews(appointmentsList);
-          }, { timeout: 1000 });
-        } else {
-          setTimeout(() => {
-            fetchPrivateNotesInParallel(appointmentsList);
-            fetchStylistReviews(appointmentsList);
-          }, 300);
-        }
+        // Stop loading immediately - show appointments right away
+        setLoading(false);
+        
+        // Fetch non-critical data (notes/reviews) asynchronously after UI updates
+        // Only fetch for appointments we don't already have cached
+        Promise.resolve().then(() => {
+          // Use requestIdleCallback if available for best performance
+          if (window.requestIdleCallback) {
+            requestIdleCallback(() => {
+              fetchPrivateNotesInParallel(appointmentsList);
+              fetchStylistReviews(appointmentsList);
+            }, { timeout: 2000 });
+          } else {
+            // Fallback: fetch after a short delay to not block UI
+            setTimeout(() => {
+              fetchPrivateNotesInParallel(appointmentsList);
+              fetchStylistReviews(appointmentsList);
+            }, 50);
+          }
+        });
       } else {
         const errorText = await response.text();
         console.error('Failed to fetch appointments:', errorText);
         throw new Error('Failed to fetch appointments');
       }
-
-      setLoading(false);
     } catch (err) {
       console.error('Error fetching appointments:', err);
       setError(err.message || 'Failed to load appointments.');
@@ -177,72 +185,84 @@ export default function Appointments() {
       .filter(Boolean);
     
     if (bookingIds.length === 0) {
-      setPrivateNotes({});
-      return;
+      return; // Don't set state if no bookings
     }
 
-    setLoadingNotes(true);
+    // Don't set loading state - notes are non-critical and shouldn't block UI
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        setLoadingNotes(false);
         return;
       }
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Fetch all notes in parallel using Promise.allSettled
-      const notePromises = bookingIds.map(async (bookingId) => {
-        try {
-          const response = await fetch(
-            `${apiUrl}/appointment-notes/booking/${bookingId}/my-note`,
-            {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+      // Only fetch notes for bookings we don't already have cached
+      // This prevents refetching when navigating pages/filters
+      setPrivateNotes(prevNotes => {
+        const notesToFetch = bookingIds.filter(id => !(id in prevNotes));
+        
+        if (notesToFetch.length === 0) {
+          return prevNotes; // All notes already cached
+        }
+        
+        // Fetch only missing notes in parallel (non-blocking)
+        const notePromises = notesToFetch.map(async (bookingId) => {
+          try {
+            const response = await fetch(
+              `${apiUrl}/appointment-notes/booking/${bookingId}/my-note`,
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                // Add cache control for faster subsequent loads
+                cache: 'default'
               }
+            );
+
+            if (response.status === 404) {
+              // No note exists - return null
+              return { bookingId, note: null };
             }
-          );
 
-          if (response.status === 404) {
-            // No note exists - return null
+            if (!response.ok) {
+              return { bookingId, note: null };
+            }
+
+            const result = await response.json();
+            const noteEntry = Array.isArray(result.data) && result.data.length > 0 
+              ? result.data[0] 
+              : null;
+            
+            return { bookingId, note: noteEntry };
+          } catch (err) {
+            // Silently fail for individual notes
             return { bookingId, note: null };
           }
+        });
 
-          if (!response.ok) {
-            return { bookingId, note: null };
-          }
-
-          const result = await response.json();
-          const noteEntry = Array.isArray(result.data) && result.data.length > 0 
-            ? result.data[0] 
-            : null;
-          
-          return { bookingId, note: noteEntry };
-        } catch (err) {
-          // Silently fail for individual notes
-          return { bookingId, note: null };
-        }
+        // Fetch missing notes in parallel and merge with cached ones
+        Promise.allSettled(notePromises).then((results) => {
+          // Merge new notes with existing cached notes
+          setPrivateNotes(currentNotes => {
+            const newNotes = { ...currentNotes };
+            results.forEach((result) => {
+              if (result.status === 'fulfilled' && result.value) {
+                const { bookingId, note } = result.value;
+                newNotes[bookingId] = note;
+              }
+            });
+            return newNotes;
+          });
+        });
+        
+        // Return current notes immediately (don't wait for fetch)
+        return prevNotes;
       });
-
-      const results = await Promise.allSettled(notePromises);
-      
-      // Build notes map
-      const notesMap = {};
-      results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value) {
-          const { bookingId, note } = result.value;
-          notesMap[bookingId] = note;
-        }
-      });
-
-      setPrivateNotes(notesMap);
     } catch (err) {
-      console.error('Error fetching private notes:', err);
-      setPrivateNotes({});
-    } finally {
-      setLoadingNotes(false);
+      // Silently fail - notes are optional
     }
   }, []);
 
@@ -258,57 +278,86 @@ export default function Appointments() {
 
     try {
       const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Get unique employee_ids from past appointments
-      const employeeIds = new Set();
-      appointmentsList.forEach(appointment => {
-        const appointmentEndUtc = appointment.appointment?.scheduled_end || appointment.scheduled_end;
+      // Get unique employee_ids from past appointments only (optimize - don't check future appointments)
+      // Only check employees we don't already have cached
+      setStylistReviews(prevReviews => {
+        const employeeIds = new Set();
         const nowUtcIso = new Date().toISOString();
-        const isPast = cmpUtc(appointmentEndUtc, nowUtcIso) < 0;
-        if (isPast && appointment.stylists && appointment.stylists.length > 0) {
-          const employeeId = appointment.stylists[0].employee_id;
-          if (employeeId) {
-            employeeIds.add(employeeId);
-          }
-        }
-      });
-
-      // Fetch review for each employee - but only if photo fetch is not active
-      const reviewsMap = {};
-      const reviewPromises = Array.from(employeeIds).map(async (employeeId) => {
-        // Skip if photo fetch started
-        if (loadingPhotosRef.current || controller.signal.aborted) {
-          return;
-        }
-
-        try {
-          const reviewResponse = await fetch(
-            `${apiUrl}/staff-reviews/employee/${employeeId}/myReview`,
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              },
-              signal: controller.signal
+        
+        appointmentsList.forEach(appointment => {
+          const appointmentEndUtc = appointment.appointment?.scheduled_end || appointment.scheduled_end;
+          if (!appointmentEndUtc) return;
+          const isPast = cmpUtc(appointmentEndUtc, nowUtcIso) < 0;
+          if (isPast && appointment.stylists && appointment.stylists.length > 0) {
+            const employeeId = appointment.stylists[0].employee_id;
+            if (employeeId && !(employeeId in prevReviews)) {
+              // Only add if we don't already have this review cached
+              employeeIds.add(employeeId);
             }
-          );
+          }
+        });
+        
+        if (employeeIds.size === 0) {
+          return prevReviews; // All reviews already cached
+        }
+
+        // Fetch review for each employee - but only if photo fetch is not active
+        const reviewPromises = Array.from(employeeIds).map(async (employeeId) => {
+          // Skip if photo fetch started
+          if (loadingPhotosRef.current || controller.signal.aborted) {
+            return { employeeId, hasReview: false };
+          }
+
+          try {
+            const reviewResponse = await fetch(
+              `${apiUrl}/staff-reviews/employee/${employeeId}/myReview`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                },
+                signal: controller.signal,
+                cache: 'default' // Cache reviews for faster subsequent loads
+              }
+            );
+            
+            if (reviewResponse.ok) {
+              const reviewData = await reviewResponse.json();
+              return { employeeId, hasReview: !!reviewData.data };
+            }
+            return { employeeId, hasReview: false };
+          } catch (err) {
+            // Silently fail if review doesn't exist or was aborted
+            if (err.name === 'AbortError') return { employeeId, hasReview: false };
+            return { employeeId, hasReview: false };
+          }
+        });
+
+        // Fetch missing reviews in parallel and merge with cached ones
+        Promise.allSettled(reviewPromises).then((results) => {
+          if (controller.signal.aborted) return;
           
-          if (reviewResponse.ok) {
-            const reviewData = await reviewResponse.json();
-            if (reviewData.data) {
-              reviewsMap[employeeId] = true;
-            }
-          }
-        } catch (err) {
-          // Silently fail if review doesn't exist or was aborted
-          if (err.name === 'AbortError') return;
-        }
+          // Merge new reviews with existing cached reviews
+          setStylistReviews(currentReviews => {
+            const newReviews = { ...currentReviews };
+            results.forEach((result) => {
+              if (result.status === 'fulfilled' && result.value) {
+                const { employeeId, hasReview } = result.value;
+                if (hasReview) {
+                  newReviews[employeeId] = true;
+                }
+              }
+            });
+            return newReviews;
+          });
+        });
+        
+        // Return current reviews immediately (don't wait for fetch)
+        return prevReviews;
       });
-
-      await Promise.allSettled(reviewPromises);
-      if (!controller.signal.aborted) {
-      setStylistReviews(reviewsMap);
-      }
     } catch (err) {
       // Silently fail - reviews are optional
     } finally {
@@ -517,51 +566,17 @@ export default function Appointments() {
     return cmpUtc(appointmentEndUtc, nowUtcIso) < 0;
   }, []);
 
-  // Backend handles all filtering - just sort the appointments for display
-  // Memoize to avoid re-sorting on every render
+  // Backend handles all filtering and sorting - use appointments directly
+  // No client-side sorting needed - backend returns sorted results
   const filteredAppointments = useMemo(() => {
-    // Backend already filtered by status, just sort for display
+    // Backend already filtered and sorted by status
     if (!appointments || appointments.length === 0) {
       return [];
     }
     
-    return [...appointments].sort((a, b) => {
-      const dateAUtc = a.appointment?.scheduled_start || a.scheduled_start;
-      const dateBUtc = b.appointment?.scheduled_start || b.scheduled_start;
-      
-      // Handle null/undefined dates
-      if (!dateAUtc && !dateBUtc) return 0;
-      if (!dateAUtc) return 1;
-      if (!dateBUtc) return -1;
-      
-      // For "scheduled" filter, all are upcoming - sort ascending (soonest first)
-      if (filter === 'scheduled') {
-        return cmpUtc(dateAUtc, dateBUtc);
-      }
-      
-      // For "past" filter, sort descending (most recent first)
-      if (filter === 'past') {
-        return cmpUtc(dateBUtc, dateAUtc);
-      }
-      
-      // For "cancelled" filter, sort descending (most recent first)
-      if (filter === 'cancelled') {
-        return cmpUtc(dateBUtc, dateAUtc);
-      }
-      
-      // For "all" filter, upcoming first (soonest first), then past (most recent first)
-      const isAPast = isAppointmentPastMemo(a);
-      const isBPast = isAppointmentPastMemo(b);
-      if (isAPast && !isBPast) return 1;
-      if (!isAPast && isBPast) return -1;
-      
-      if (!isAPast && !isBPast) {
-        return cmpUtc(dateAUtc, dateBUtc);
-      } else {
-        return cmpUtc(dateBUtc, dateAUtc);
-      }
-    });
-  }, [appointments, filter, isAppointmentPastMemo]);
+    // Return appointments as-is from backend (already sorted)
+    return appointments;
+  }, [appointments]);
 
   const handlePageChange = (newPage) => {
     const pageNum = typeof newPage === 'string' ? parseInt(newPage, 10) : newPage;
@@ -626,7 +641,11 @@ export default function Appointments() {
             <Button
               variant={filter === 'all' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setFilter('all')}
+              onClick={() => {
+                if (filter !== 'all' && !loading) {
+                  setFilter('all');
+                }
+              }}
               disabled={loading}
             >
               All
@@ -634,7 +653,11 @@ export default function Appointments() {
             <Button
               variant={filter === 'scheduled' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setFilter('scheduled')}
+              onClick={() => {
+                if (filter !== 'scheduled' && !loading) {
+                  setFilter('scheduled');
+                }
+              }}
               disabled={loading}
             >
               Upcoming
@@ -642,18 +665,26 @@ export default function Appointments() {
             <Button
               variant={filter === 'past' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setFilter('past')}
+              onClick={() => {
+                if (filter !== 'past' && !loading) {
+                  setFilter('past');
+                }
+              }}
               disabled={loading}
             >
-              Past
+              Completed
             </Button>
             <Button
               variant={filter === 'cancelled' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setFilter('cancelled')}
+              onClick={() => {
+                if (filter !== 'cancelled' && !loading) {
+                  setFilter('cancelled');
+                }
+              }}
               disabled={loading}
             >
-              Canceled
+              Cancelled
             </Button>
           </div>
         </div>
@@ -886,8 +917,8 @@ export default function Appointments() {
 
                   {appointment.booking_id && (
                     <div className="mt-4 flex-shrink-0">
-                      <PrivateNoteCard
-                        bookingId={appointment.booking_id}
+                    <PrivateNoteCard
+                      bookingId={appointment.booking_id}
                         initialNote={privateNotes[appointment.booking_id]}
                         title="Private note"
                         description="Only you can see this."
@@ -898,7 +929,7 @@ export default function Appointments() {
                             [appointment.booking_id]: note
                           }));
                         }}
-                      />
+                    />
                     </div>
                   )}
                 </CardContent>
