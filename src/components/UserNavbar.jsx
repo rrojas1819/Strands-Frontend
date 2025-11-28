@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { AuthContext, RewardsContext } from '../context/AuthContext';
 import { Button } from './ui/button';
@@ -14,7 +14,19 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const { unreadCount } = useNotifications();
+  const { unreadCount, onCountChange } = useNotifications();
+  
+  // Listen for count changes to show visual feedback
+  useEffect(() => {
+    const unsubscribe = onCountChange((newCount, oldCount) => {
+      // Only show notification if count increased (new notification arrived)
+      if (newCount > oldCount && oldCount > 0) {
+        // Visual feedback - badge will update automatically via state
+        // Could add toast here if needed, but badge update is sufficient
+      }
+    });
+    return unsubscribe;
+  }, [onCountChange]);
 
   const handleLogout = () => {
     logout();

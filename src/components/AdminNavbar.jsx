@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Button } from './ui/button';
@@ -40,7 +40,15 @@ export default function AdminNavbar({ title, subtitle, activeKey, onLogout }) {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const { unreadCount } = useNotifications();
+  const { unreadCount, onCountChange } = useNotifications();
+  
+  // Listen for count changes
+  useEffect(() => {
+    const unsubscribe = onCountChange(() => {
+      // Badge will update automatically via state
+    });
+    return unsubscribe;
+  }, [onCountChange]);
 
   const handleNavClick = (path) => {
     setMobileOpen(false);

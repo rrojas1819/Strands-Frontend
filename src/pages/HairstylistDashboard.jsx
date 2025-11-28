@@ -103,7 +103,15 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [alertLoading, setAlertLoading] = useState(false);
-  const { unreadCount } = useNotifications();
+  const { unreadCount, onCountChange } = useNotifications();
+  
+  // Listen for count changes
+  useEffect(() => {
+    const unsubscribe = onCountChange(() => {
+      // Badge will update automatically via state
+    });
+    return unsubscribe;
+  }, [onCountChange]);
   const [photoModalState, setPhotoModalState] = useState({
     bookingId: null,
     beforeFile: null,
