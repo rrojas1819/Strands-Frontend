@@ -55,16 +55,16 @@ const formatDisplayDate = (value) => {
 // Memoized components for better performance (defined outside to prevent recreation)
 const SalonProgressCard = memo(({ salon }) => (
   <Card className={`p-4 ${salon.rewardEarned ? 'border-green-200 bg-green-50' : ''}`}>
-    <div className="flex items-center justify-between mb-2">
-      <h3 className="font-medium text-sm">{salon.salonName}</h3>
-      <div className="flex items-center space-x-2">
+    <div className="flex items-start justify-between mb-2 gap-2">
+      <h3 className="font-medium text-sm flex-1 min-w-0 break-words">{salon.salonName}</h3>
+      <div className="flex items-center space-x-2 flex-shrink-0">
         {salon.rewardEarned && (
-          <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+          <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs whitespace-nowrap">
             Reward Ready
           </Badge>
         )}
-        <Badge variant="secondary" className={`text-xs ${salon.tier === 'Gold' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
-          {salon.tier} Status
+        <Badge variant="secondary" className={`text-xs whitespace-nowrap ${salon.tier === 'Gold' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-orange-100 text-orange-800 border-orange-200'}`}>
+          {salon.tier}
         </Badge>
       </div>
     </div>
@@ -228,9 +228,9 @@ export default function LoyaltyPoints() {
           headers: {
             'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
-            },
+          },
           }),
-          fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=100&offset=0`, {
+          fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=1000&offset=0`, {
             headers: { 'Authorization': `Bearer ${token}` },
           })
         ]);
@@ -275,33 +275,33 @@ export default function LoyaltyPoints() {
           }
         }
 
-        // Fetch a reasonable sample of salons for loyalty progress tracking
-        // We need to check loyalty data for salons, not just those with rewards
+        // Extract unique salon names/IDs from rewards FIRST to minimize salon fetching
+        const uniqueSalonNames = new Set();
+        const uniqueSalonIds = new Set();
+        allAvailableRewards.forEach(reward => {
+          if (reward.salon_name) {
+            uniqueSalonNames.add(reward.salon_name);
+          }
+          if (reward.salon_id) {
+            uniqueSalonIds.add(reward.salon_id);
+          }
+        });
+        
+        // Only fetch salons that have rewards (much faster - only fetch what we need!)
         let salons = [];
         if (salonsResponse.status === 'fulfilled' && salonsResponse.value.ok) {
           const salonsData = await salonsResponse.value.json();
           const allSalons = salonsData.data || [];
           
-          // Limit to first 100 salons to avoid performance issues
-          // This is enough to show progress for most users
-          if (allSalons.length > 100) {
-            salons = allSalons.slice(0, 100);
-          } else {
-            salons = allSalons;
-          }
+          // Filter to only salons with rewards (dramatically reduces data)
+          salons = allSalons.filter(salon => 
+            uniqueSalonIds.has(salon.salon_id) || uniqueSalonNames.has(salon.name)
+          );
         } else {
           console.log('Failed to fetch salons');
           // Don't throw error - continue without salon data
           salons = [];
         }
-        
-        // Extract unique salon names from rewards for matching
-        const uniqueSalonNames = new Set();
-        allAvailableRewards.forEach(reward => {
-          if (reward.salon_name) {
-            uniqueSalonNames.add(reward.salon_name);
-          }
-        });
         
         // Create a map of salon_name to salon_id for matching rewards to salons
         const salonNameToId = {};
@@ -309,11 +309,24 @@ export default function LoyaltyPoints() {
           salonNameToId[salon.name] = salon.salon_id;
         });
         
-        // Fetch loyalty data for all salons (to show progress, not just rewards)
+        // Only fetch loyalty data for salons that have rewards (much faster!)
+        // Get unique salon IDs from rewards
+        const salonsWithRewards = new Set();
+        allAvailableRewards.forEach(reward => {
+          const salonId = reward.salon_id || salonNameToId[reward.salon_name];
+          if (salonId) {
+            salonsWithRewards.add(salonId);
+          }
+        });
+        
+        // Convert to array and filter to only salons we have in our list
+        const salonsToCheck = salons.filter(salon => salonsWithRewards.has(salon.salon_id));
+        
         // Cache 404s to avoid refetching salons without loyalty data
         const loyalty404Cache = new Set(JSON.parse(sessionStorage.getItem('loyalty_404_cache') || '[]'));
         
-        const loyaltyPromises = salons
+        // Only fetch loyalty data for salons with rewards (dramatically reduces API calls)
+        const loyaltyPromises = salonsToCheck
           .filter(salon => !loyalty404Cache.has(salon.salon_id)) // Skip cached 404s
           .map(salon => 
             fetch(`${apiUrl}/user/loyalty/view?salon_id=${salon.salon_id}`, {
@@ -355,8 +368,8 @@ export default function LoyaltyPoints() {
             if (ok && response) {
               try {
                 const loyaltyData = await response.json();
-                const userData = loyaltyData.userData;
-                const userRewards = loyaltyData.userRewards || [];
+              const userData = loyaltyData.userData;
+              const userRewards = loyaltyData.userRewards || [];
                 
                 // Get available rewards count for this salon from the allAvailableRewards array
                 const availableCount = allAvailableRewards.filter(r => {
@@ -426,9 +439,9 @@ export default function LoyaltyPoints() {
                     rewardEarned: availableCount > 0,
                     timestamp: visitTimestamp
                   });
-                }
               }
-              } catch (err) {
+            }
+          } catch (err) {
                 console.log('Error processing loyalty data for salon:', err.message);
               }
             }

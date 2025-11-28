@@ -51,14 +51,22 @@ export default function SalonDetail() {
         
         // Fetch only the specific salon - much faster!
         // Also fetch loyalty and reviews data in parallel
+        // Ensure salonId is a number for consistency
+        const salonIdNum = parseInt(salonId, 10);
+        if (isNaN(salonIdNum)) {
+          throw new Error('Invalid salon ID');
+        }
+        
+        // Backend's browseSalons doesn't filter by salon_id, so we need to fetch and filter client-side
+        // Fetch a reasonable number of salons and find the matching one
         const fetchPromises = [
-          fetch(`${apiUrl}/salons/browse?status=APPROVED&salon_id=${salonId}`, {
+          fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=1000&offset=0`, {
             headers: { 'Authorization': `Bearer ${token}` },
           }),
-          fetch(`${apiUrl}/user/loyalty/view?salon_id=${salonId}`, {
+          fetch(`${apiUrl}/user/loyalty/view?salon_id=${salonIdNum}`, {
             headers: { 'Authorization': `Bearer ${token}` },
           }),
-          fetch(`${apiUrl}/reviews/salon/${salonId}/all?limit=1&offset=0`, {
+          fetch(`${apiUrl}/reviews/salon/${salonIdNum}/all?limit=1&offset=0`, {
             headers: { 'Authorization': `Bearer ${token}` },
           })
         ];
@@ -66,7 +74,7 @@ export default function SalonDetail() {
         // Only fetch myReview if user is a CUSTOMER
         if (user?.role === 'CUSTOMER') {
           fetchPromises.push(
-            fetch(`${apiUrl}/reviews/salon/${salonId}/myReview`, {
+            fetch(`${apiUrl}/reviews/salon/${salonIdNum}/myReview`, {
               headers: { 'Authorization': `Bearer ${token}` },
             })
           );
@@ -81,35 +89,44 @@ export default function SalonDetail() {
         // Handle salon data
         if (salonResponse.status === 'fulfilled' && salonResponse.value.ok) {
           const salonData = await salonResponse.value.json();
-          const foundSalon = salonData.data?.[0]; // Expecting an array with one salon
+          const allSalons = salonData.data || [];
+          
+          // Find the salon with matching salon_id
+          const foundSalon = allSalons.find(s => s.salon_id === salonIdNum);
           
           if (!foundSalon) {
-            throw new Error('Salon not found');
+            throw new Error(`Salon with ID ${salonIdNum} not found`);
           }
+          
           setSalon(foundSalon);
           
-          // Fetch salon photo (non-blocking, cache 404s)
-          fetch(`${apiUrl}/file/get-salon-photo?salon_id=${salonId}`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          })
-            .then(photoResponse => {
-              if (photoResponse.ok) {
-                return photoResponse.json();
-              }
-              // 404 is expected if salon doesn't have photo - set null and don't retry
-              return null;
+          // Use photo_url from backend response if available (instant, no extra API call)
+          if (foundSalon.photo_url) {
+            setSalonPhotoUrl(foundSalon.photo_url);
+          } else {
+            // Only fetch separately if not included in response (non-blocking, cache 404s)
+            fetch(`${apiUrl}/file/get-salon-photo?salon_id=${salonIdNum}`, {
+              headers: { 'Authorization': `Bearer ${token}` },
             })
-            .then(photoData => {
-              if (photoData) {
-                setSalonPhotoUrl(photoData.url || null);
-              } else {
-                setSalonPhotoUrl(null); // Cache null to prevent refetching
-              }
-            })
-            .catch(() => {
-              // Silently fail - photo is optional, set null to prevent retries
-              setSalonPhotoUrl(null);
-            });
+              .then(photoResponse => {
+                if (photoResponse.ok) {
+                  return photoResponse.json();
+                }
+                // 404 is expected if salon doesn't have photo - set null and don't retry
+                return null;
+              })
+              .then(photoData => {
+                if (photoData) {
+                  setSalonPhotoUrl(photoData.url || null);
+                } else {
+                  setSalonPhotoUrl(null); // Cache null to prevent refetching
+                }
+              })
+              .catch(() => {
+                // Silently fail - photo is optional, set null to prevent retries
+                setSalonPhotoUrl(null);
+              });
+          }
         } else {
           throw new Error('Failed to fetch salon details');
         }
@@ -133,6 +150,7 @@ export default function SalonDetail() {
               });
             }
           } catch (err) {
+            console.error('Error parsing reviews meta:', err);
           }
         }
 
@@ -275,7 +293,8 @@ export default function SalonDetail() {
       }
 
       // Refresh reviews meta
-      const reviewsResponse = await fetch(`${apiUrl}/reviews/salon/${salonId}/all?limit=1&offset=0`, {
+      const salonIdNum = parseInt(salonId, 10);
+      const reviewsResponse = await fetch(`${apiUrl}/reviews/salon/${salonIdNum}/all?limit=1&offset=0`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (reviewsResponse.ok) {
@@ -321,7 +340,8 @@ export default function SalonDetail() {
       setShowConfirmModal(false);
 
       // Refresh reviews meta
-      const reviewsResponse = await fetch(`${apiUrl}/reviews/salon/${salonId}/all?limit=1&offset=0`, {
+      const salonIdNum = parseInt(salonId, 10);
+      const reviewsResponse = await fetch(`${apiUrl}/reviews/salon/${salonIdNum}/all?limit=1&offset=0`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (reviewsResponse.ok) {
@@ -567,7 +587,7 @@ export default function SalonDetail() {
               </CardHeader>
               <CardContent>
                 <SalonReviews 
-                  salonId={salon?.salon_id || salonId}
+                  salonId={parseInt(salonId, 10)}
                   salonName={salon?.name}
                   onError={(error) => {
                     setError(error);
@@ -632,7 +652,7 @@ export default function SalonDetail() {
                           : "bg-orange-100 text-orange-800 border-orange-200"
                         }
                       >
-                        {loyaltyData.visits_count >= loyaltyData.target_visits ? 'Gold Status' : 'Bronze Status'}
+                        {loyaltyData.visits_count >= loyaltyData.target_visits ? 'Gold' : 'Bronze'}
                       </Badge>
                     </div>
                     

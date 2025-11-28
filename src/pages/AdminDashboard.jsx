@@ -143,18 +143,18 @@ export default function AdminDashboard() {
       // Fetch demographics and salons count in parallel for speed
       const [demographicsResponse, salonsResponse] = await Promise.allSettled([
         fetch(`${import.meta.env.VITE_API_URL}/admin/analytics/demographics`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         }),
         fetch(`${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         })
       ]);
 
@@ -204,7 +204,7 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         setUserEngagement(data.data);
-      } else {
+        } else {
         toast.error(data.message || 'Failed to fetch user engagement data');
       }
     } catch (err) {
@@ -333,15 +333,15 @@ export default function AdminDashboard() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        
+
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         ) : (
           <>
-            {/* Tab Content */}
-            {activeTab === 'user-analytics' ? (
+        {/* Tab Content */}
+        {activeTab === 'user-analytics' ? (
           <>
             {/* Welcome Section */}
             <div className="mb-8">
@@ -350,7 +350,7 @@ export default function AdminDashboard() {
               </h2>
               <p className="text-muted-foreground">
                 View user demographics and engagement metrics to understand your platform's user base.
-              </p>
+                      </p>
               
               {/* Sub-tabs for User Analytics */}
               <div className="mt-4 flex space-x-1 border-b">
@@ -375,7 +375,7 @@ export default function AdminDashboard() {
                   Activity & Retention
                 </button>
               </div>
-            </div>
+                    </div>
             
             {/* Sub-tab Content */}
             {userAnalyticsSubTab === 'overview' ? (
@@ -526,23 +526,23 @@ export default function AdminDashboard() {
               </Card>
                   </div>
 
-                {/* User Engagement Stats Section */}
-                <div className="mt-8 mb-8">
-                  <h2 className="text-3xl font-bold text-foreground mb-2">
-                    User Engagement Statistics
-                  </h2>
-                  <p className="text-muted-foreground mb-6">
-                    Monitor platform usage and user activity metrics.
-                  </p>
-                </div>
+        {/* User Engagement Stats Section */}
+        <div className="mt-8 mb-8">
+          <h2 className="text-3xl font-bold text-foreground mb-2">
+            User Engagement Statistics
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Monitor platform usage and user activity metrics.
+          </p>
+                            </div>
 
-                {engagementLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Loading engagement data...</p>
-                  </div>
-                ) : userEngagement ? (
-                  <div className="space-y-6">
+        {engagementLoading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading engagement data...</p>
+                          </div>
+        ) : userEngagement ? (
+          <div className="space-y-6">
             {/* Login Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
@@ -638,24 +638,24 @@ export default function AdminDashboard() {
 
             {/* Booking Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
                     <Calendar className="w-5 h-5" />
                     <span>Total Bookings</span>
-                  </CardTitle>
-                  <CardDescription>
+                </CardTitle>
+                <CardDescription>
                     All platform bookings
-                  </CardDescription>
-                </CardHeader>
+                </CardDescription>
+              </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-3xl font-bold text-blue-600">{userEngagement.total_bookings || 0}</p>
                       <p className="text-sm text-muted-foreground mt-1">Total bookings</p>
-                    </div>
-                    <Calendar className="w-12 h-12 text-blue-500" />
                   </div>
+                    <Calendar className="w-12 h-12 text-blue-500" />
+                </div>
                 </CardContent>
               </Card>
               <Card>
@@ -670,14 +670,14 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
-                    <div>
+                <div>
                       <p className="text-3xl font-bold text-purple-600">{userEngagement.repeat_bookers || 0}</p>
                       <p className="text-sm text-muted-foreground mt-1">Repeat customers</p>
-                    </div>
-                    <Repeat className="w-12 h-12 text-purple-500" />
                   </div>
-                </CardContent>
-              </Card>
+                    <Repeat className="w-12 h-12 text-purple-500" />
+                </div>
+              </CardContent>
+            </Card>
             </div>
                   </div>
                 ) : (
@@ -701,8 +701,8 @@ export default function AdminDashboard() {
                 ) : userEngagement ? (
                   <>
                     <div className="space-y-6">
-                      {/* Top Services */}
-                      <Card>
+              {/* Top Services */}
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                     <Scissors className="w-5 h-5" />
@@ -776,18 +776,18 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </CardContent>
-                    </Card>
-                    </div>
+            </Card>
+                            </div>
 
-                    {/* Customer Retention Metrics Section */}
-                    <div className="mt-8 mb-8">
-                  <h2 className="text-3xl font-bold text-foreground mb-2">
-                    Customer Retention Metrics
-                  </h2>
-                  <p className="text-muted-foreground mb-6">
-                    Track customer loyalty, rebooking rates, and stylist preferences.
-                  </p>
-                </div>
+        {/* Customer Retention Metrics Section */}
+        <div className="mt-8 mb-8">
+          <h2 className="text-3xl font-bold text-foreground mb-2">
+            Customer Retention Metrics
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Track customer loyalty, rebooking rates, and stylist preferences.
+          </p>
+        </div>
 
         {retentionLoading ? (
           <div className="text-center py-12">
@@ -1031,20 +1031,20 @@ export default function AdminDashboard() {
               Customer retention metrics will appear here once data is available.
             </p>
           </div>
-                    )}
+        )}
 
-                    {/* Action Buttons */}
-                    <div className="mt-8 flex space-x-4">
+            {/* Action Buttons */}
+            <div className="mt-8 flex space-x-4">
                       {userAnalyticsSubTab === 'overview' ? (
-                        <Button onClick={() => { fetchDemographics(); fetchUserEngagement(); }} variant="outline">
-                          Refresh Data
-                        </Button>
+              <Button onClick={() => { fetchDemographics(); fetchUserEngagement(); }} variant="outline">
+                Refresh Data
+              </Button>
                       ) : (
                         <Button onClick={() => { fetchUserEngagement(); fetchCustomerRetention(); }} variant="outline">
                           Refresh Data
                         </Button>
                       )}
-                    </div>
+                        </div>
                   </>
                 ) : (
                   <div className="text-center py-12 bg-white rounded-lg border">

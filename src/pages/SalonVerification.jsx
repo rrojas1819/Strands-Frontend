@@ -10,6 +10,7 @@ import { CheckCircle, XCircle, Clock, MapPin, Phone, Mail, Building, ChevronLeft
 import { Notifications } from '../utils/notifications';
 import ConfirmationModal from '../components/ConfirmationModal';
 import AdminNavbar from '../components/AdminNavbar';
+import StrandsSelect from '../components/ui/strands-select';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
 export default function SalonVerification() {
@@ -19,7 +20,13 @@ export default function SalonVerification() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
-  const [sortBy, setSortBy] = useState('none'); // none, name-asc, name-desc
+  const [sortBy, setSortBy] = useState('recent'); // recent, a-z, z-a (backend handles sorting, no ratings for admin)
+  
+  const sortOptions = [
+    { value: 'recent', label: 'Default' },
+    { value: 'name_asc', label: 'Name (A-Z)' },
+    { value: 'name_desc', label: 'Name (Z-A)' }
+  ];
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
   const [salonPhotos, setSalonPhotos] = useState({}); // Map of salon_id -> photo URL
@@ -39,16 +46,17 @@ export default function SalonVerification() {
       setError('');
       try {
         const token = localStorage.getItem('auth_token');
-        // Try to fetch all salons by using a high limit or fetching in batches
+        
+        // Fetch ALL salons in batches to ensure we get all of them
+        // Backend sorts ALL salons before pagination, so we fetch all with sort parameter
         let allSalons = [];
         let offset = 0;
-        const limit = 100; // Fetch 100 at a time
+        const limit = 1000; // Use high limit to get all salons in fewer requests
         let hasMore = true;
 
-        // Fetch all salons in batches until we get all of them
         while (hasMore) {
           const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/salons/browse?status=all&limit=${limit}&offset=${offset}`,
+            `${import.meta.env.VITE_API_URL}/salons/browse?status=all&sort=${sortBy}&limit=${limit}&offset=${offset}`,
             {
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -57,22 +65,25 @@ export default function SalonVerification() {
           );
 
           if (!response.ok) {
-            // If limit/offset not supported, try without them
+            // If limit/offset not supported with sort, try without limit/offset
             if (offset === 0) {
-              const fallbackResponse = await fetch(`${import.meta.env.VITE_API_URL}/salons/browse?status=all`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                },
-              });
+              const fallbackResponse = await fetch(
+                `${import.meta.env.VITE_API_URL}/salons/browse?status=all&sort=${sortBy}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                }
+              );
               if (!fallbackResponse.ok) {
-                const errorData = await fallbackResponse.json();
+                const errorData = await fallbackResponse.json().catch(() => ({}));
                 throw new Error(errorData.message || 'Failed to fetch salons');
               }
               const fallbackData = await fallbackResponse.json();
               allSalons = fallbackData.data || [];
               hasMore = false;
             } else {
-              const errorData = await response.json();
+              const errorData = await response.json().catch(() => ({}));
               throw new Error(errorData.message || 'Failed to fetch salons');
             }
           } else {
@@ -91,12 +102,28 @@ export default function SalonVerification() {
 
         setSalons(allSalons);
         
-        // Fetch photos for all salons in parallel (admin needs to see all photos)
-        const photoPromises = allSalons.map(salon => fetchSalonPhoto(salon.salon_id));
-        // Don't await - let them fetch in parallel
-        Promise.allSettled(photoPromises).catch(err => {
-          console.error('Error fetching some salon photos:', err);
+        // Use photo_url from backend response if available (instant, no extra API call)
+        const photosMap = {};
+        allSalons.forEach(salon => {
+          if (salon.photo_url) {
+            photosMap[salon.salon_id] = salon.photo_url;
+          }
         });
+        
+        // Update photos state with backend-provided photos immediately
+        if (Object.keys(photosMap).length > 0) {
+          setSalonPhotos(prev => ({ ...prev, ...photosMap }));
+        }
+        
+        // Only fetch photos separately for salons that don't have photo_url from backend (batch fetch for speed)
+        const salonsToFetch = allSalons.filter(salon => !salon.photo_url && salonPhotos[salon.salon_id] === undefined);
+        if (salonsToFetch.length > 0) {
+          // Batch fetch all missing photos in parallel for faster loading
+          const photoPromises = salonsToFetch.map(salon => fetchSalonPhoto(salon.salon_id));
+          Promise.allSettled(photoPromises).catch(err => {
+            console.error('Error fetching some salon photos:', err);
+          });
+        }
       } catch (err) {
         console.error('Error fetching salons:', err);
         setError(err.message || 'Failed to load salon registrations.');
@@ -106,7 +133,7 @@ export default function SalonVerification() {
     };
 
     fetchSalons();
-  }, [user, navigate]);
+  }, [user, navigate, sortBy]); // Refetch when sortBy changes (backend handles sorting)
 
   const fetchSalonPhoto = async (salonId) => {
     // Skip if already fetched, cached as null, or currently being fetched
@@ -248,31 +275,100 @@ export default function SalonVerification() {
     logout();
   };
 
-  // Memoize filtered and sorted salons for performance
+  // Memoize filtered salons (client-side filtering only, sorting is done by backend)
   const filteredSalons = useMemo(() => {
     let filtered = salons.filter(salon => {
       if (filter === 'all') return true;
       return salon.status === filter;
     });
 
-    // Apply sorting
-    if (sortBy === 'name-asc') {
-      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortBy === 'name-desc') {
-      filtered = [...filtered].sort((a, b) => b.name.localeCompare(a.name));
-    } else {
-      // Default: chronological order (most recent first - higher salon_id = more recent)
-      filtered = [...filtered].sort((a, b) => b.salon_id - a.salon_id);
-    }
-
+    // Backend handles sorting, so we just return filtered results
     return filtered;
-  }, [salons, filter, sortBy]);
+  }, [salons, filter]);
 
-  // Reset to page 1 when filter or sort changes
+  // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
     setPageInputValue('1');
-  }, [filter, sortBy]);
+  }, [filter]);
+  
+  // Refetch salons when sort changes (backend handles sorting for ALL salons)
+  useEffect(() => {
+    if (user && user.role === 'ADMIN' && salons.length > 0) {
+      const fetchSalons = async () => {
+        setLoading(true);
+        setError('');
+        try {
+          const token = localStorage.getItem('auth_token');
+          
+          // Fetch ALL salons in batches to ensure we get all of them
+          // Backend sorts ALL salons before pagination, so we fetch all with sort parameter
+          let allSalons = [];
+          let offset = 0;
+          const limit = 1000; // Use high limit to get all salons in fewer requests
+          let hasMore = true;
+
+          while (hasMore) {
+            const response = await fetch(
+              `${import.meta.env.VITE_API_URL}/salons/browse?status=all&sort=${sortBy}&limit=${limit}&offset=${offset}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              }
+            );
+
+            if (!response.ok) {
+              // If limit/offset not supported with sort, try without limit/offset
+              if (offset === 0) {
+                const fallbackResponse = await fetch(
+                  `${import.meta.env.VITE_API_URL}/salons/browse?status=all&sort=${sortBy}`,
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                    },
+                  }
+                );
+                if (!fallbackResponse.ok) {
+                  const errorData = await fallbackResponse.json().catch(() => ({}));
+                  throw new Error(errorData.message || 'Failed to fetch salons');
+                }
+                const fallbackData = await fallbackResponse.json();
+                allSalons = fallbackData.data || [];
+                hasMore = false;
+              } else {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to fetch salons');
+              }
+            } else {
+              const data = await response.json();
+              const batchSalons = data.data || [];
+              allSalons = [...allSalons, ...batchSalons];
+              
+              // If we got fewer than the limit, we've reached the end
+              if (batchSalons.length < limit) {
+                hasMore = false;
+              } else {
+                offset += limit;
+              }
+            }
+          }
+
+          // Backend has sorted ALL salons, so we just set them
+          // Filtering happens client-side and maintains the sort order
+          setSalons(allSalons);
+          setCurrentPage(1); // Reset to page 1 when sort changes
+          setPageInputValue('1');
+        } catch (err) {
+          setError(err.message || 'Failed to fetch salons');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchSalons();
+    }
+  }, [sortBy, user]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredSalons.length / salonsPerPage);
@@ -354,14 +450,14 @@ export default function SalonVerification() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        
+
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         ) : (
           <>
-            {/* Welcome Section */}
+        {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">Salon Management</h2>
           <p className="text-muted-foreground">Review and verify salon registrations to ensure only legitimate businesses are listed on the platform.</p>
@@ -370,41 +466,39 @@ export default function SalonVerification() {
         {/* Filter Buttons and Sort */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="flex flex-wrap gap-2">
-            <Button 
-              variant={filter === 'all' ? 'default' : 'outline'}
-              onClick={() => setFilter('all')}
-            >
-              All ({salonCounts.all})
-            </Button>
-            <Button 
-              variant={filter === 'PENDING' ? 'default' : 'outline'}
-              onClick={() => setFilter('PENDING')}
-            >
-              Pending ({salonCounts.pending})
-            </Button>
-            <Button 
-              variant={filter === 'APPROVED' ? 'default' : 'outline'}
-              onClick={() => setFilter('APPROVED')}
-            >
-              Approved ({salonCounts.approved})
-            </Button>
-            <Button 
-              variant={filter === 'REJECTED' ? 'default' : 'outline'}
-              onClick={() => setFilter('REJECTED')}
-            >
-              Rejected ({salonCounts.rejected})
-            </Button>
+          <Button 
+            variant={filter === 'all' ? 'default' : 'outline'}
+            onClick={() => setFilter('all')}
+          >
+            All ({salonCounts.all})
+          </Button>
+          <Button 
+            variant={filter === 'PENDING' ? 'default' : 'outline'}
+            onClick={() => setFilter('PENDING')}
+          >
+            Pending ({salonCounts.pending})
+          </Button>
+          <Button 
+            variant={filter === 'APPROVED' ? 'default' : 'outline'}
+            onClick={() => setFilter('APPROVED')}
+          >
+            Approved ({salonCounts.approved})
+          </Button>
+          <Button 
+            variant={filter === 'REJECTED' ? 'default' : 'outline'}
+            onClick={() => setFilter('REJECTED')}
+          >
+            Rejected ({salonCounts.rejected})
+          </Button>
           </div>
-          <div className="relative">
-            <select
+          <div className="min-w-[160px]">
+            <StrandsSelect
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 border border-input rounded-md bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm min-w-[160px]"
-            >
-              <option value="none">Default</option>
-              <option value="name-asc">Name (A-Z)</option>
-              <option value="name-desc">Name (Z-A)</option>
-            </select>
+              onValueChange={setSortBy}
+              placeholder="Sort By"
+              options={sortOptions}
+              className="w-full"
+            />
           </div>
         </div>
 
@@ -415,18 +509,18 @@ export default function SalonVerification() {
               ) : (
                 `Showing ${filteredSalons.length} salons`
               )}
-            </div>
+        </div>
 
             {/* Salon Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {paginatedSalons.map((salon) => (
                 <Card key={salon.salon_id} className="hover:shadow-lg transition-shadow flex flex-col h-full">
               <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="flex items-start gap-3 flex-1">
-                    {salonPhotos[salon.salon_id] !== undefined && salonPhotos[salon.salon_id] !== null ? (
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {(salon.photo_url || (salonPhotos[salon.salon_id] !== undefined && salonPhotos[salon.salon_id] !== null)) ? (
                       <img 
-                        src={salonPhotos[salon.salon_id]} 
+                        src={salon.photo_url || salonPhotos[salon.salon_id]} 
                         alt={salon.name}
                         className="w-16 h-16 object-cover rounded-lg border flex-shrink-0"
                         onError={(e) => {
@@ -442,14 +536,16 @@ export default function SalonVerification() {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg">{salon.name}</CardTitle>
+                      <CardTitle className="text-lg break-words">{salon.name}</CardTitle>
                       <CardDescription className="mt-1 whitespace-nowrap">
-                      <Building className="w-4 h-4 inline mr-1" />
-                      {salon.category.replace('_', ' ')}
-                    </CardDescription>
+                        <Building className="w-4 h-4 inline mr-1" />
+                        {salon.category.replace('_', ' ')}
+                      </CardDescription>
                     </div>
                   </div>
-                  {getStatusBadge(salon.status)}
+                  <div className="flex-shrink-0">
+                    {getStatusBadge(salon.status)}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col flex-grow">
@@ -471,8 +567,8 @@ export default function SalonVerification() {
                     <span>{salon.address || [salon.city, salon.state, salon.postal_code].filter(Boolean).join(', ')}</span>
                   </div>
                   
-                  <div className="pt-2 border-t">
-                    <p className="text-sm text-muted-foreground">{salon.description}</p>
+                  <div className="pt-3 mt-2">
+                    <p className="text-sm text-muted-foreground line-clamp-2">{salon.description}</p>
                   </div>
                 </div>
 
