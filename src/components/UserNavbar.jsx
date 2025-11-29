@@ -127,20 +127,9 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
               )}
             </Button>
             <div className="flex items-center justify-between px-3 py-2">
-<<<<<<< HEAD
               <span className="text-sm font-medium text-foreground px-3 py-1.5 bg-muted/80 rounded-lg border border-border/50 whitespace-nowrap max-w-[150px] truncate" title={user?.full_name || user?.name || 'User'}>
                 {user?.full_name || user?.name || 'User'}
               </span>
-=======
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-foreground">
-                  {user?.full_name || user?.name || 'User'}
-                </span>
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                  {user?.role || 'User'}
-                </Badge>
-              </div>
->>>>>>> dev
               <Button variant="outline" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="flex items-center space-x-2">
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
