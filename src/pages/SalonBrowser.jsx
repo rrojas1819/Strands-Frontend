@@ -244,11 +244,11 @@ export default function SalonBrowser() {
     return filtered;
   }, [salons, searchTerm, selectedCategory]);
 
-  // Reset to page 1 when filters or search change
+  // Reset to page 1 when filters, search, or sort change
   useEffect(() => {
     setCurrentPage(1);
     setPageInputValue('1');
-  }, [searchTerm, selectedCategory]);
+  }, [searchTerm, selectedCategory, sortBy]);
   
   // Refetch salons when sort changes (backend handles sorting for ALL salons)
   useEffect(() => {
