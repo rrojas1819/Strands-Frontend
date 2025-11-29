@@ -1106,6 +1106,7 @@ export default function PaymentPage() {
             <div className="space-y-3">
               <div className="flex gap-2">
                 <Input
+                  id="promo-code-input"
                   value={promoCode}
                   onChange={(e) => handlePromoCodeChange(e.target.value)}
                   placeholder="Enter promo code (e.g., ABC-123)"
@@ -1294,7 +1295,7 @@ export default function PaymentPage() {
                         Full Name
                       </Label>
                       <Input
-                        id="full_name"
+                        id="billing-address-full-name-input"
                         value={addressForm.full_name}
                         onChange={(e) => setAddressForm({ ...addressForm, full_name: e.target.value })}
                         className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
@@ -1308,7 +1309,7 @@ export default function PaymentPage() {
                         Street Address
                       </Label>
                       <Input
-                        id="address_line1"
+                        id="billing-address-line1-input"
                         value={addressForm.address_line1}
                         onChange={(e) => setAddressForm({ ...addressForm, address_line1: e.target.value })}
                         className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
@@ -1322,7 +1323,7 @@ export default function PaymentPage() {
                         Address Line 2 (optional)
                       </Label>
                       <Input
-                        id="address_line2"
+                        id="billing-address-line2-input"
                         value={addressForm.address_line2}
                         onChange={(e) => setAddressForm({ ...addressForm, address_line2: e.target.value })}
                         className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
@@ -1336,7 +1337,7 @@ export default function PaymentPage() {
                           City
                         </Label>
                         <Input
-                          id="city"
+                          id="billing-address-city-input"
                           value={addressForm.city}
                           onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
                           className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
@@ -1356,7 +1357,7 @@ export default function PaymentPage() {
                             setAddressForm(prev => ({ ...prev, state: value }));
                           }}
                         >
-                          <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                          <SelectTrigger id="billing-address-state-select" className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                             <SelectValue placeholder="Select state" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1375,7 +1376,7 @@ export default function PaymentPage() {
                         Postal Code
                       </Label>
                       <Input
-                        id="postal_code"
+                        id="billing-address-postal-code-input"
                         value={addressForm.postal_code}
                         onChange={(e) => setAddressForm({ ...addressForm, postal_code: e.target.value })}
                         className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
@@ -1387,6 +1388,7 @@ export default function PaymentPage() {
                   
                   <div className="flex gap-2">
                     <Button 
+                      id="save-billing-address-button"
                       type="submit" 
                       className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium" 
                       disabled={loading}
@@ -1432,6 +1434,7 @@ export default function PaymentPage() {
                     {savedCards.map((card) => (
                       <div
                         key={card.credit_card_id}
+                        id={`existing-card-button-${card.credit_card_id}`}
                         onClick={() => {
                           setSelectedCardId(card.credit_card_id);
                           setEnteringNewCard(false);
@@ -1476,6 +1479,7 @@ export default function PaymentPage() {
                 {/* Enter Card Details Button */}
                 {!enteringNewCard && (
                   <Button
+                    id="enter-card-details-button"
                     type="button"
                     variant="outline"
                     className="w-full h-11 border-gray-300 hover:bg-gray-50 mb-4"
@@ -1497,7 +1501,7 @@ export default function PaymentPage() {
                       </Label>
                       <div className="relative">
                         <Input
-                          id="card_number"
+                          id="payment-card-number-input"
                           value={cardForm.card_number}
                           onChange={(e) => {
                             const formatted = formatCardNumber(e.target.value);
@@ -1524,7 +1528,7 @@ export default function PaymentPage() {
                         Cardholder Name
                       </Label>
                       <Input
-                        id="cardholder_name"
+                        id="payment-cardholder-name-input"
                         value={cardForm.cardholder_name}
                         onChange={(e) => setCardForm({ ...cardForm, cardholder_name: e.target.value })}
                         className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
@@ -1545,7 +1549,7 @@ export default function PaymentPage() {
                             setCardForm(prev => ({ ...prev, exp_month: value }));
                           }}
                         >
-                          <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                          <SelectTrigger id="payment-exp-month-select" className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                             <SelectValue placeholder="MM" value={cardForm.exp_month}>
                               {cardForm.exp_month ? String(cardForm.exp_month).padStart(2, '0') : 'MM'}
                             </SelectValue>
@@ -1571,7 +1575,7 @@ export default function PaymentPage() {
                             setCardForm(prev => ({ ...prev, exp_year: value }));
                           }}
                         >
-                          <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                          <SelectTrigger id="payment-exp-year-select" className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                             <SelectValue placeholder="YYYY" value={cardForm.exp_year}>
                               {cardForm.exp_year || 'YYYY'}
                             </SelectValue>
@@ -1591,7 +1595,7 @@ export default function PaymentPage() {
                           CVV
                         </Label>
                         <Input
-                          id="cvc"
+                          id="payment-cvv-input"
                           type="password"
                           value={cardForm.cvc}
                           onChange={(e) => setCardForm({ ...cardForm, cvc: e.target.value.replace(/\D/g, '').substring(0, 4) })}
@@ -1606,12 +1610,12 @@ export default function PaymentPage() {
                     <div className="flex items-start gap-3 pt-2">
                       <input
                         type="checkbox"
-                        id="save_card"
+                        id="save-card-checkbox"
                         checked={saveCard}
                         onChange={(e) => setSaveCard(e.target.checked)}
                         className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
-                      <Label htmlFor="save_card" className="text-sm text-gray-600 cursor-pointer leading-5">
+                      <Label htmlFor="save-card-checkbox" className="text-sm text-gray-600 cursor-pointer leading-5">
                         Save this card for future use
                       </Label>
                     </div>
@@ -1674,6 +1678,7 @@ export default function PaymentPage() {
                 
                 {/* Process Payment Button */}
                 <Button 
+                  id="process-payment-button"
                   type="submit" 
                   className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm disabled:opacity-50 mt-3" 
                   disabled={loading || (!selectedCardId && !enteringNewCard) || !billingAddress || promoCodeValidating}

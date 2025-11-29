@@ -243,24 +243,28 @@ export default function SalonVerification() {
         {/* Filter Buttons */}
         <div className="mb-6 flex space-x-4">
           <Button 
+            id="filter-all-button"
             variant={filter === 'all' ? 'default' : 'outline'}
             onClick={() => setFilter('all')}
           >
             All ({salonCounts.all})
           </Button>
           <Button 
+            id="filter-pending-button"
             variant={filter === 'PENDING' ? 'default' : 'outline'}
             onClick={() => setFilter('PENDING')}
           >
             Pending ({salonCounts.pending})
           </Button>
           <Button 
+            id="filter-approved-button"
             variant={filter === 'APPROVED' ? 'default' : 'outline'}
             onClick={() => setFilter('APPROVED')}
           >
             Approved ({salonCounts.approved})
           </Button>
           <Button 
+            id="filter-rejected-button"
             variant={filter === 'REJECTED' ? 'default' : 'outline'}
             onClick={() => setFilter('REJECTED')}
           >
@@ -329,6 +333,7 @@ export default function SalonVerification() {
                 {salon.status === 'PENDING' && (
                   <div className="flex space-x-2 pt-4 mt-auto">
                     <Button 
+                      id={`approve-salon-${salon.salon_id}`}
                       onClick={() => handleApprove(salon.salon_id)}
                       className="flex-1 bg-green-600 hover:bg-green-700"
                     >
@@ -336,6 +341,7 @@ export default function SalonVerification() {
                       Approve
                     </Button>
                     <Button 
+                      id={`reject-salon-${salon.salon_id}`}
                       onClick={() => handleReject(salon.salon_id)}
                       variant="destructive"
                       className="flex-1"

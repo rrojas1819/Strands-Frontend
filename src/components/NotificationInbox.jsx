@@ -537,7 +537,11 @@ export default function NotificationInbox({ isOpen, onClose }) {
         }
       }}
     >
-      <Card className="w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <Card
+        id="notification-inbox-panel"
+        className="w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-2xl font-bold text-foreground">Notifications</h2>
           <div className="flex items-center gap-2">
@@ -579,7 +583,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
                 </>
               )}
             </Button>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button id="notification-inbox-close-button" variant="ghost" size="icon" onClick={onClose}>
               <X className="w-5 h-5" />
             </Button>
           </div>
@@ -678,6 +682,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
                                   {allPromoCodes.map((promoCode, index) => (
                                     <div key={index} className="flex items-center gap-2">
                                       <Input
+                                        id={`notification-promo-code-input-${notification.notification_id}-${index}`}
                                         value={promoCode}
                                         readOnly
                                         className="font-mono font-bold text-lg bg-white border-0 text-blue-900 cursor-pointer flex-1"

@@ -113,6 +113,7 @@ export default function AdminNavbar({ title, subtitle, activeKey, onLogout }) {
                 {user?.role || 'Admin'}
               </Badge>
               <Button
+                id="admin-logout-button"
                 variant="outline"
                 onClick={handleLogout}
                 className="hidden sm:flex items-center space-x-2"
@@ -144,6 +145,7 @@ export default function AdminNavbar({ title, subtitle, activeKey, onLogout }) {
                 {renderNavItems('text-left w-full px-2')}
               </div>
               <Button
+                id="admin-logout-button-mobile"
                 variant="outline"
                 onClick={handleLogout}
                 className="w-full flex items-center justify-center space-x-2 mt-2"

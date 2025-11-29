@@ -437,6 +437,7 @@ export default function SalonBrowser() {
                   </div>
                   <div className="flex items-center space-x-2 ml-4">
                     <Button 
+                      id={`view-details-button-${salon.salon_id}`}
                       variant="outline" 
                       size="sm"
                       onClick={() => {
@@ -450,6 +451,7 @@ export default function SalonBrowser() {
                       View Details
                     </Button>
                     <Button 
+                      id={`book-now-button-${salon.salon_id}`}
                       size="sm"
                       className="bg-primary hover:bg-primary/90 flex-shrink-0"
                       onClick={() => {

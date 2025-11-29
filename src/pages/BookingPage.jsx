@@ -642,6 +642,7 @@ export default function BookingPage() {
                     <div key={stylist.employee_id} className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Button
+                          id={`select-stylist-button-${stylist.employee_id}`}
                           variant={isSelected ? 'default' : 'outline'}
                           className="flex-1 justify-start"
                           onClick={() => {
@@ -731,6 +732,7 @@ export default function BookingPage() {
                   return (
                     <div
                       key={`${service.service_id}-${service.name}`}
+                      id={`select-service-button-${service.service_id}`}
                       className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                         isSelected ? 'border-primary bg-primary/10' : 'border-muted hover:border-primary/50'
                       }`}
@@ -790,6 +792,7 @@ export default function BookingPage() {
                         return (
                           <Button
                             key={dateStr}
+                            id={`select-date-button-${dateStr}`}
                             variant={isSelected ? 'default' : 'outline'}
                             className={isToday ? 'ring-2 ring-primary' : ''}
                             disabled={!hasAvailability}
@@ -891,6 +894,7 @@ export default function BookingPage() {
                           return (
                             <Button
                               key={`${slot.start_time}-${slot.end_time}`}
+                              id={`select-time-button-${slot.start_time?.replace(/:/g, '-') || 'unknown'}`}
                               variant={isSelected && isAvailable ? 'default' : 'outline'}
                               className={`w-full ${
                                 !isAvailable 
@@ -1055,6 +1059,7 @@ export default function BookingPage() {
                   </span>
                 </div>
                 <Button 
+                  id="book-appointment-submit-button"
                   className="w-full mt-4" 
                   onClick={handleBookClick}
                   disabled={!selectedTimeSlot}
@@ -1087,6 +1092,7 @@ export default function BookingPage() {
         confirmText={isReschedule ? "Reschedule" : "Confirm"}
         cancelText="Cancel"
         type="success"
+        confirmButtonId="booking-confirm-button"
       />
 
       {/* Reviews Modal */}

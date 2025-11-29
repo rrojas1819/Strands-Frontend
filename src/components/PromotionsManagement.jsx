@@ -121,7 +121,7 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
         const message = promotionType === 'individual' 
           ? 'Promotion sent to customer successfully!'
           : `Promotions sent to ${data.data?.promotions_created || 0} Gold customers!`;
-        onSuccess?.(message);
+        onSuccess?.(message, 'promotion-send');
         setPromoData({
           email: '',
           description: '',
@@ -169,7 +169,7 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
       if (response.ok) {
         const message = data.message || 'Notifications sent successfully to all customers with unused offers!';
         if (onSuccess) {
-          onSuccess(message);
+          onSuccess(message, 'promotion-reminder');
         } else {
           alert(message);
         }
@@ -216,6 +216,7 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
               </ul>
             </div>
             <Button
+              id="send-reminders-button"
               onClick={handleSendUnusedOffers}
               disabled={isSendingUnusedOffers}
               className="ml-4 bg-blue-600 hover:bg-blue-700 text-white"
@@ -338,6 +339,7 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
               <div>
                 <label className="block text-sm font-medium mb-2">Customer Email</label>
                 <input
+                  id="promotion-email-input"
                   type="email"
                   value={promoData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
@@ -354,6 +356,7 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
             <div>
               <label className="block text-sm font-medium mb-2">Discount Percentage (%)</label>
               <input
+                id="promotion-discount-input"
                 type="number"
                 min="1"
                 max="100"
@@ -373,6 +376,7 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
             <div>
               <label className="block text-sm font-medium mb-2">Promotion Description</label>
               <textarea
+                id="promotion-description-input"
                 value={promoData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -389,6 +393,7 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
           <div>
             <label className="block text-sm font-medium mb-2">Expiration Date</label>
             <input
+              id="promotion-expiration-input"
               type="date"
               value={promoData.expires_at}
               onChange={(e) => handleInputChange('expires_at', e.target.value)}
@@ -449,6 +454,7 @@ const PromotionsManagement = ({ salonId, salonName, salonTimezone, onSuccess, on
 
           <div className="flex justify-end">
             <Button 
+              id="promotion-send-button"
               type="submit" 
               disabled={isLoading}
               className="bg-blue-600 hover:bg-blue-700 text-white"

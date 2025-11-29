@@ -282,7 +282,8 @@ const PrivateNoteCard = ({
       openModal({
         title: 'Success',
         message: isUpdate ? 'Private note updated.' : 'Private note saved.',
-        type: 'success'
+        type: 'success',
+        confirmButtonId: `private-note-success-ok-button-${bookingId}`
       });
 
       if (typeof onNoteChange === 'function') {
@@ -313,6 +314,7 @@ const PrivateNoteCard = ({
       showCancel: true,
       confirmText: 'Delete',
       cancelText: 'Cancel',
+      confirmButtonId: `private-note-delete-confirm-button-${bookingId}`,
       onConfirm: () => {
         setShowModal(false);
         handleDelete();
@@ -349,7 +351,8 @@ const PrivateNoteCard = ({
       openModal({
         title: 'Note Deleted',
         message: 'Your private note has been removed.',
-        type: 'success'
+        type: 'success',
+        confirmButtonId: `private-note-delete-success-ok-button-${bookingId}`
       });
 
       if (typeof onNoteChange === 'function') {
@@ -384,6 +387,7 @@ const PrivateNoteCard = ({
       ) : noteState.editing ? (
         <div className="space-y-3">
           <Textarea
+            id={`private-note-textarea-${bookingId}`}
             value={noteState.text}
             onChange={(e) => handleNoteChange(e.target.value)}
             placeholder="Add a reminder about this visit..."
@@ -402,6 +406,7 @@ const PrivateNoteCard = ({
                 Cancel
               </Button>
               <Button
+                id={`private-note-save-button-${bookingId}`}
                 size="sm"
                 onClick={handleSave}
                 disabled={noteState.saving || noteState.text.trim().length === 0}
@@ -426,6 +431,7 @@ const PrivateNoteCard = ({
           )}
           <div className="flex justify-end gap-2 mt-3">
             <Button
+              id={`private-note-edit-button-${bookingId}`}
               variant="ghost"
               size="sm"
               onClick={handleAddNoteClick}
@@ -434,6 +440,7 @@ const PrivateNoteCard = ({
               Edit
             </Button>
             <Button
+              id={`private-note-delete-button-${bookingId}`}
               variant="ghost"
               size="sm"
               className="text-red-600 hover:text-red-700"
@@ -453,6 +460,7 @@ const PrivateNoteCard = ({
         // No note exists after fetch - show add button only
         <div className="space-y-3">
           <Button
+            id={`private-note-add-button-${bookingId}`}
             variant="outline"
             size="sm"
             onClick={handleAddNoteClick}
@@ -476,6 +484,7 @@ const PrivateNoteCard = ({
         cancelText={modalConfig.cancelText}
         confirmText={modalConfig.confirmText}
         onConfirm={modalConfig.onConfirm || closeModal}
+        confirmButtonId={modalConfig.confirmButtonId}
       />
     </div>
   );

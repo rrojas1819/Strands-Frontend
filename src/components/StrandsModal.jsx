@@ -14,7 +14,8 @@ const StrandsModal = ({
   message, 
   confirmText = "Confirm", 
   cancelText = "Cancel",
-  type = "info" // info, warning, success
+  type = "info", // info, warning, success
+  confirmButtonId = null
 }) => {
   if (!isOpen) return null;
 
@@ -78,6 +79,7 @@ const StrandsModal = ({
               {cancelText}
             </Button>
             <Button
+              id={confirmButtonId}
               onClick={onConfirm}
               className={`px-6 py-2 text-white font-medium ${
                 type === 'warning' 

@@ -1,33 +1,23 @@
-import React, { useState, useContext, useEffect, useRef } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonReviews from '../components/SalonReviews';
-import StaffReviews from '../components/StaffReviews';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import ImageCropper from '../components/ImageCropper';
-import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye, DollarSign, TrendingUp, Mail, Bell } from 'lucide-react';
+import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye } from 'lucide-react';
 import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import StrandsModal from '../components/ui/strands-modal';
-import PrivateNoteCard from '../components/PrivateNoteCard';
-import NotificationInbox from '../components/NotificationInbox';
-import { useNotifications } from '../hooks/useNotifications';
 import { toast } from 'sonner';
-import { formatLocalDate, formatLocalTime } from '../lib/utils';
-import { formatInZone, cmpUtc } from '../utils/time';
-import { compressImage, hashFile, validateImageFile } from '../utils/imageUtils';
 
 export default function HairstylistDashboard() {
   const authContext = useContext(AuthContext);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('schedule');
-  const [reviewsSubTab, setReviewsSubTab] = useState('salon'); // 'salon' or 'my'
   const [salonData, setSalonData] = useState(null);
-  const [employeeId, setEmployeeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [scheduleData, setScheduleData] = useState([]);
@@ -55,12 +45,6 @@ export default function HairstylistDashboard() {
   });
   const [blockedSlots, setBlockedSlots] = useState([]);
   const [blockLoading, setBlockLoading] = useState(false);
-const [blockConflictModal, setBlockConflictModal] = useState({
-  open: false,
-  conflicts: [],
-  payload: null
-});
-const [cancelConflictLoadingId, setCancelConflictLoadingId] = useState(null);
   
   // BS-1.01: Services management
   const [services, setServices] = useState([]);
@@ -83,7 +67,6 @@ const [cancelConflictLoadingId, setCancelConflictLoadingId] = useState(null);
   const [cancelledDate, setCancelledDate] = useState(new Date());
   const [showAppointmentPopup, setShowAppointmentPopup] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
-const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   
   // UPH-1.21: Customer visit history state
   const [customers, setCustomers] = useState([]);
@@ -98,35 +81,6 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   const [showCustomerVisitModal, setShowCustomerVisitModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerVisits, setCustomerVisits] = useState([]);
-  // Photo storage keyed by booking_id: { beforePhotoUrl, afterPhotoUrl, beforePhotoId, afterPhotoId }
-  const [visitPhotosByBookingId, setVisitPhotosByBookingId] = useState({});
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [alertLoading, setAlertLoading] = useState(false);
-  const { unreadCount } = useNotifications();
-  const [photoModalState, setPhotoModalState] = useState({
-    bookingId: null,
-    beforeFile: null,
-    afterFile: null,
-    beforePreview: null,
-    afterPreview: null,
-    originalBeforeUrl: null, // Original URL from backend when modal opened (for tracking existing photos)
-    originalAfterUrl: null, // Original URL from backend when modal opened (for tracking existing photos)
-    beforeFileToCrop: null, // File selected but not yet cropped
-    afterFileToCrop: null, // File selected but not yet cropped
-    beforeDelete: false, // Marked for deletion (only in view mode)
-    afterDelete: false, // Marked for deletion (only in view mode)
-    mode: 'upload', // 'upload' | 'view'
-    uploading: false
-  });
-  const beforeFileInputRef = useRef(null);
-  const afterFileInputRef = useRef(null);
-
-  const formatStatusLabel = (status = '') => {
-    if (!status) return '';
-    const normalized = status.toString().toLowerCase();
-    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-  };
   const [visitsLoading, setVisitsLoading] = useState(false);
   const [visitsPagination, setVisitsPagination] = useState({
     limit: 20,
@@ -138,37 +92,9 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
   
-  const [revenueData, setRevenueData] = useState(null);
-  const [revenueLoading, setRevenueLoading] = useState(false);
-  const [salonPhotoUrl, setSalonPhotoUrl] = useState(null);
-  
   useEffect(() => {
     fetchStylistSalon();
   }, []);
-
-  const fetchEmployeeId = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${apiUrl}/salons/stylist/myServices`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.data?.employee?.employee_id) {
-          setEmployeeId(data.data.employee.employee_id);
-        }
-      }
-    } catch (err) {
-      // Silently handle errors
-    }
-  };
 
   useEffect(() => {
     if (salonData && activeTab === 'schedule') {
@@ -196,12 +122,6 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       fetchCustomers();
     }
   }, [activeTab, sortOrder]);
-  
-  useEffect(() => {
-    if (activeTab === 'schedule' && viewType === 'day') {
-      fetchStylistRevenue();
-    }
-  }, [activeTab, viewType]);
 
   const fetchStylistSalon = async () => {
     try {
@@ -215,6 +135,7 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
         return;
       }
 
+      console.log('Fetching stylist salon data...');
       const response = await fetch(`${import.meta.env.VITE_API_URL}/user/stylist/getSalon`, {
         method: 'GET',
         headers: {
@@ -223,21 +144,20 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
         },
       });
 
+      console.log('Stylist salon response status:', response.status);
       const data = await response.json();
+      console.log('Stylist salon response data:', data);
+      console.log('API URL used:', `${import.meta.env.VITE_API_URL}/user/stylist/getSalon`);
 
       if (response.ok) {
         setSalonData(data.data);
-        fetchEmployeeId();
-        // Fetch salon photo if salon_id is available
-        if (data.data?.salon_id) {
-          fetchSalonPhoto(data.data.salon_id);
-        }
       } else if (response.status === 404) {
         setError('You are not an employee of any salon');
       } else {
         setError(data.message || 'Failed to fetch salon data');
       }
     } catch (err) {
+      console.error('Stylist salon fetch error:', err);
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         setError('Unable to connect to server. Please check if the backend is running.');
       } else {
@@ -248,31 +168,13 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
     }
   };
 
-  const fetchSalonPhoto = async (salonId) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${apiUrl}/file/get-salon-photo?salon_id=${salonId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSalonPhotoUrl(data.url || null);
-      }
-    } catch (error) {
-      // Silently fail - photo is optional
-    }
-  };
-
   const fetchScheduleData = async () => {
     try {
       setScheduleLoading(true);
 
       const token = localStorage.getItem('auth_token');
       if (!token) {
+        console.error('No authentication token found');
         setScheduleData([]);
         return;
       }
@@ -331,6 +233,13 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       const startDateStr = formatDateForAPI(startDate);
       const endDateStr = formatDateForAPI(endDate);
 
+      console.log('Fetching schedule data...', {
+        startDate: startDateStr,
+        endDate: endDateStr,
+        viewType,
+        selectedDate: selectedDate.toDateString(),
+        weekStartDate: weekStartDate.toDateString()
+      });
 
       const apiUrl = `${import.meta.env.VITE_API_URL}/user/stylist/weeklySchedule?start_date=${startDateStr}&end_date=${endDateStr}`;
       const response = await fetch(apiUrl, {
@@ -341,18 +250,10 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
         },
       });
 
+      console.log('Schedule response status:', response.status);
       const data = await response.json();
-      
-      // Try to extract employee_id from schedule response if not found earlier
-      if (!employeeId && data.data) {
-        const scheduleEmployeeId = data.data?.employee_id || 
-                                  data.data?.employeeId ||
-                                  data.data?.employee?.employee_id ||
-                                  data.data?.employee?.employeeId;
-        if (scheduleEmployeeId) {
-          setEmployeeId(scheduleEmployeeId);
-        }
-      }
+      console.log('Schedule response data:', data);
+      console.log('Raw schedule data:', data.data?.schedule);
 
       if (response.ok) {
         // Transform backend data to frontend format
@@ -362,11 +263,16 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
         setScheduleData(transformedData);
         setBackendSchedule(data.data.schedule); // Store raw backend schedule for availability/unavailability
       } else {
+        console.error('Failed to fetch schedule:', data.message);
         setScheduleData([]);
         setBackendSchedule(null);
       }
 
     } catch (err) {
+      console.error('Schedule fetch error:', err);
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        console.error('Unable to connect to server. Please check if the backend is running.');
+      }
       setScheduleData([]);
     } finally {
       setScheduleLoading(false);
@@ -391,12 +297,14 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       try {
         const [month, day, year] = dateKey.split('-').map(Number);
         if (isNaN(month) || isNaN(day) || isNaN(year)) {
+          console.warn(`Invalid date key format: ${dateKey}`);
           return null;
         }
         const date = new Date(year, month - 1, day); // month is 0-indexed in Date
         date.setHours(0, 0, 0, 0); // Normalize to midnight
         return date;
       } catch (err) {
+        console.error(`Error parsing date key: ${dateKey}`, err);
         return null;
       }
     };
@@ -407,13 +315,31 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
       const dayDate = parseDateFromKey(dateKey);
       
       if (!dayDate) {
+        console.warn(`Skipping invalid date key: ${dateKey}`);
         return;
       }
       
+      console.log(`Processing day: ${dateKey}`, {
+        hasBookings: dayData.bookings && dayData.bookings.length > 0,
+        bookingCount: dayData.bookings ? dayData.bookings.length : 0,
+        dayDate: dayDate.toDateString()
+      });
       
       // Process bookings for this day
       if (dayData.bookings && dayData.bookings.length > 0) {
         dayData.bookings.forEach(booking => {
+          console.log(`Processing booking ${booking.booking_id}:`, {
+            scheduled_start: booking.scheduled_start,
+            scheduled_end: booking.scheduled_end,
+            dateKey: dateKey,
+            dayDate: dayDate.toDateString()
+          });
+          
+          console.log('Processing booking:', booking.booking_id, {
+            customer: booking.customer,
+            customer_name: booking.customer?.name,
+            all_booking_keys: Object.keys(booking)
+          });
           
           // Get customer info from booking data - use the actual structure from backend
           const customerName = booking.customer?.name || 'Customer Name Not Available';
@@ -439,16 +365,6 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
             totalDuration = parseInt(booking.total_duration_minutes || 0);
             serviceInfo = 'Service Name Not Available';
           }
-
-          const rewardInfo = booking.reward || booking.rewardInfo || null;
-          const promoInfo = booking.promo || null;
-          const actualAmountPaidRaw = booking.actual_amount_paid !== undefined && booking.actual_amount_paid !== null
-            ? booking.actual_amount_paid
-            : booking.actualAmountPaid;
-          const actualAmountPaid = actualAmountPaidRaw !== undefined && actualAmountPaidRaw !== null
-            ? (typeof actualAmountPaidRaw === 'number' ? actualAmountPaidRaw : parseFloat(actualAmountPaidRaw))
-            : totalPrice;
-          const hasDiscount = (rewardInfo || promoInfo) && !Number.isNaN(actualAmountPaid) && actualAmountPaid < totalPrice;
           
           // Map backend status to frontend status - handle various possible status values
           let status = 'pending';
@@ -466,45 +382,72 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
           // Auto-update status: if appointment end time has passed and not cancelled, mark as completed (past visit)
           if (status !== 'canceled' && status !== 'completed' && booking.scheduled_end && booking.scheduled_start) {
             try {
-              // Use UTC comparison for past/upcoming checks
-              const appointmentEndUtc = booking.scheduled_end;
-              const nowUtcIso = new Date().toISOString();
-              
-              if (cmpUtc(appointmentEndUtc, nowUtcIso) < 0) {
-                status = 'completed';
+              // Parse the end time (format: "HH:MM:SS" from backend)
+              const endTimeParts = booking.scheduled_end.split(':');
+              if (endTimeParts.length >= 2) {
+                const hours = parseInt(endTimeParts[0], 10);
+                const minutes = parseInt(endTimeParts[1], 10);
+                const seconds = endTimeParts[2] ? parseInt(endTimeParts[2], 10) : 0;
+                
+                // Parse the start time (format: "HH:MM:SS" from backend)
+                const startTimeParts = booking.scheduled_start.split(':');
+                if (startTimeParts.length >= 2) {
+                  const startHours = parseInt(startTimeParts[0], 10);
+                  const startMinutes = parseInt(startTimeParts[1], 10);
+                  
+                  // Create full datetime for appointment end (use the day date from the booking)
+                  // Create new date objects to avoid mutation issues
+                  const appointmentEndDate = new Date(dayDate);
+                  appointmentEndDate.setHours(hours, minutes, seconds, 0);
+                  
+                  const appointmentStartDate = new Date(dayDate);
+                  appointmentStartDate.setHours(startHours, startMinutes, 0, 0);
+                  
+                  const now = new Date();
+                  
+                  // If appointment end time has passed, mark as completed (past visit)
+                  // Verify both dates are valid and appointment is in the past
+                  if (
+                    !isNaN(appointmentEndDate.getTime()) && 
+                    !isNaN(appointmentStartDate.getTime()) &&
+                    appointmentEndDate < now
+                  ) {
+                    status = 'completed';
+                    console.log(`Auto-updated booking ${booking.booking_id} to completed:`, {
+                      appointmentEndDate: appointmentEndDate.toISOString(),
+                      now: now.toISOString(),
+                      dateKey,
+                      dayDate: dayDate.toDateString()
+                    });
+                  }
+                }
               }
             } catch (err) {
+              console.error('Error parsing appointment time for status update:', err, {
+                booking_id: booking.booking_id,
+                scheduled_start: booking.scheduled_start,
+                scheduled_end: booking.scheduled_end
+              });
             }
           }
           
-          
-          const salonTimezone = salonData?.timezone || 'America/New_York';
-          const startTimeDisplay = booking.scheduled_start 
-            ? formatInZone(booking.scheduled_start, salonTimezone, {
-                hour: 'numeric',
-                minute: '2-digit'
-              })
-            : 'N/A';
-          const endTimeDisplay = booking.scheduled_end 
-            ? formatInZone(booking.scheduled_end, salonTimezone, {
-                hour: 'numeric',
-                minute: '2-digit'
-              })
-            : 'N/A';
+          console.log(`Booking ${booking.booking_id} status:`, {
+            backendStatus: booking.status,
+            normalizedStatus: backendStatus,
+            frontendStatus: status,
+            dateKey: dateKey,
+            dayDate: dayDate.toDateString()
+          });
           
           appointments.push({
             id: booking.booking_id,
             date: new Date(dayDate),
-            startTime: startTimeDisplay,
-            endTime: endTimeDisplay,
+            startTime: formatTime(booking.scheduled_start),
+            endTime: formatTime(booking.scheduled_end),
             customer: customerName,
             service: serviceInfo,
             duration: totalDuration,
             totalPrice: totalPrice,
-            actualAmountPaid: !Number.isNaN(actualAmountPaid) ? actualAmountPaid : totalPrice,
-            reward: rewardInfo,
-            promo: promoInfo,
-            hasDiscount,
             status: status,
             phone: phone
           });
@@ -543,65 +486,6 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
     }
   };
 
-
-  const handleAlertEveryone = async () => {
-    if (alertLoading) return;
-
-    setAlertLoading(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        toast.error('Authentication required');
-        setAlertLoading(false);
-        return;
-      }
-
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${apiUrl}/notifications/stylist/send-reminder`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      // Handle non-JSON responses (like 404 HTML pages)
-      if (!response.ok && response.status === 404) {
-        toast.error('Reminder endpoint not found. Please check backend configuration.');
-        setAlertLoading(false);
-        return;
-      }
-
-      // Check if response is JSON before parsing
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error('Non-JSON response:', text);
-        toast.error('Server error: Invalid response format');
-        setAlertLoading(false);
-        return;
-      }
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success(data.message || 'Reminders sent successfully');
-      } else {
-        // Check if it's a cooldown error
-        if (response.status === 429 || (data.message && data.message.toLowerCase().includes('cooldown'))) {
-          toast.error(data.message || 'Please wait before sending another alert');
-        } else {
-          toast.error(data.message || 'Failed to send reminders');
-        }
-      }
-    } catch (err) {
-      console.error('Error sending alerts:', err);
-      toast.error('Failed to send reminders. Please try again.');
-    } finally {
-      setAlertLoading(false);
-    }
-  };
-
   // BS-1.5: Fetch employee ID is no longer needed
   // The backend now handles employee_id lookup internally based on authenticated user
 
@@ -624,180 +508,65 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
         const data = await response.json();
         setBlockedSlots(data.data || []);
       } else if (response.status === 404) {
-        setBlockedSlots([]);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
+        // Employee not found or no blocks yet
         setBlockedSlots([]);
       }
     } catch (err) {
-      setBlockedSlots([]);
+      console.error('Failed to fetch blocked slots:', err);
     }
   };
 
-const submitBlockTimeSlot = async (payload) => {
-  setBlockLoading(true);
-  try {
-    const token = localStorage.getItem('auth_token');
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
-    const response = await fetch(`${apiUrl}/unavailability`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      toast.success('Time slot blocked successfully');
-      setShowBlockModal(false);
-      setBlockFormData({ weekday: '', start_time: '', end_time: '' });
-      setBlockConflictModal({ open: false, conflicts: [], payload: null });
-      await fetchBlockedSlots();
-      await fetchScheduleData();
+  // BS-1.5: Create blocked time slot
+  const handleBlockTimeSlot = async () => {
+    if (!blockFormData.weekday || !blockFormData.start_time || !blockFormData.end_time) {
+      toast.error('Please fill in all fields');
       return;
     }
 
-    if (
-      response.status === 409 &&
-      Array.isArray(data.conflicting_appointments) &&
-      data.conflicting_appointments.length > 0
-    ) {
-      setBlockConflictModal({
-        open: true,
-        conflicts: data.conflicting_appointments,
-        payload
-      });
-      toast.error('Conflicting appointments found. Cancel them to block this time.');
-      return;
-    }
+    setBlockLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/unavailability`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            weekday: parseInt(blockFormData.weekday),
+            start_time: blockFormData.start_time,
+            end_time: blockFormData.end_time,
+            slot_interval_minutes: 30
+          })
+        }
+      );
 
-    toast.error(data.message || 'Failed to block time slot');
-  } catch (err) {
-    toast.error('Failed to block time slot');
-  } finally {
-    setBlockLoading(false);
-  }
-};
+      const data = await response.json();
 
-// BS-1.5: Create blocked time slot
-const handleBlockTimeSlot = async () => {
-  if (!blockFormData.weekday || !blockFormData.start_time || !blockFormData.end_time) {
-    toast.error('Please fill in all fields');
-    return;
-  }
-
-  const now = new Date();
-  const tzMinutes = -now.getTimezoneOffset();
-  const sign = tzMinutes >= 0 ? '+' : '-';
-  const abs = Math.abs(tzMinutes);
-  const pad = (n) => String(n).padStart(2, '0');
-  const offHours = pad(Math.floor(abs / 60));
-  const offMinutes = pad(abs % 60);
-  const timezone_offset = `${sign}${offHours}:${offMinutes}`;
-
-  const payload = {
-    weekday: parseInt(blockFormData.weekday, 10),
-    start_time: blockFormData.start_time,
-    end_time: blockFormData.end_time,
-    slot_interval_minutes: 30,
-    timezone_offset
-  };
-
-  await submitBlockTimeSlot(payload);
-};
-
-const handleCloseConflictModal = () => {
-  setBlockConflictModal({ open: false, conflicts: [], payload: null });
-};
-
-const cancelBookingAsStylistRequest = async (bookingId) => {
-  const token = localStorage.getItem('auth_token');
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
-  const response = await fetch(`${apiUrl}/bookings/stylist/cancel`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ booking_id: bookingId })
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to cancel appointment');
-  }
-
-  return data;
-};
-
-const handleCancelConflictBooking = async (bookingId) => {
-  if (!blockConflictModal.open) return;
-
-  setCancelConflictLoadingId(bookingId);
-  try {
-    await cancelBookingAsStylistRequest(bookingId);
-    toast.success('Appointment canceled');
-    await fetchScheduleData();
-
-    const updatedConflicts = blockConflictModal.conflicts.filter(
-      (conflict) => conflict.booking_id !== bookingId
-    );
-
-    if (updatedConflicts.length === 0) {
-      const retryPayload = blockConflictModal.payload;
-      setBlockConflictModal({ open: false, conflicts: [], payload: null });
-      if (retryPayload) {
-        await submitBlockTimeSlot(retryPayload);
+      if (response.ok) {
+        toast.success('Time slot blocked successfully');
+        setShowBlockModal(false);
+        setBlockFormData({ weekday: '', start_time: '', end_time: '' });
+        fetchBlockedSlots();
+        // Refresh schedule to show new unavailability
+        fetchScheduleData();
+      } else {
+        toast.error(data.message || 'Failed to block time slot');
       }
-    } else {
-      setBlockConflictModal((prev) => ({
-        ...prev,
-        conflicts: updatedConflicts
-      }));
+    } catch (err) {
+      console.error('Failed to block time slot:', err);
+      toast.error('Failed to block time slot');
+    } finally {
+      setBlockLoading(false);
     }
-  } catch (err) {
-    console.error('Error canceling booking as stylist:', err);
-    toast.error(err.message || 'Failed to cancel appointment');
-  } finally {
-    setCancelConflictLoadingId(null);
-  }
-};
-
-const handleCancelSelectedAppointment = async () => {
-  if (!selectedAppointment || selectedAppointment.status !== 'pending') {
-    return;
-  }
-
-  setCancelAppointmentLoading(true);
-  try {
-    await cancelBookingAsStylistRequest(selectedAppointment.id);
-    toast.success('Appointment canceled');
-    setShowAppointmentPopup(false);
-    setSelectedAppointment(null);
-    await fetchScheduleData();
-  } catch (err) {
-    toast.error(err.message || 'Failed to cancel appointment');
-  } finally {
-    setCancelAppointmentLoading(false);
-  }
-};
+  };
 
   // BS-1.5: Delete blocked time slot
   const handleDeleteBlockedSlot = async (slot) => {
     try {
       const token = localStorage.getItem('auth_token');
-      const payload = {
-        weekday: slot.weekday,
-        start_time: slot.start_time,
-        end_time: slot.end_time
-      };
-      
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/unavailability`,
         {
@@ -806,20 +575,25 @@ const handleCancelSelectedAppointment = async () => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            weekday: slot.weekday,
+            start_time: slot.start_time,
+            end_time: slot.end_time
+          })
         }
       );
-
-      const data = await response.json();
 
       if (response.ok) {
         toast.success('Time slot unblocked successfully');
         fetchBlockedSlots();
+        // Refresh schedule to update unavailability display
         fetchScheduleData();
       } else {
+        const data = await response.json();
         toast.error(data.message || 'Failed to unblock time slot');
       }
     } catch (err) {
+      console.error('Failed to unblock time slot:', err);
       toast.error('Failed to unblock time slot');
     }
   };
@@ -831,6 +605,8 @@ const handleCancelSelectedAppointment = async () => {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
+      console.log('Fetching services...');
+      console.log('API URL:', `${apiUrl}/salons/stylist/myServices`);
       
       const response = await fetch(`${apiUrl}/salons/stylist/myServices`, {
         method: 'GET',
@@ -841,6 +617,8 @@ const handleCancelSelectedAppointment = async () => {
       });
 
       const data = await response.json();
+      console.log('Services response status:', response.status);
+      console.log('Services response data:', data);
       
       if (response.ok) {
         const servicesList = data.data?.services || data.services || [];
@@ -891,6 +669,7 @@ const handleCancelSelectedAppointment = async () => {
         toast.error(data.message || 'Failed to create service');
       }
     } catch (err) {
+      console.error('Failed to create service:', err);
       toast.error('Failed to create service');
     } finally {
       setServiceLoading(false);
@@ -929,6 +708,7 @@ const handleCancelSelectedAppointment = async () => {
         toast.error(data.message || 'Failed to update service');
       }
     } catch (err) {
+      console.error('Failed to update service:', err);
       toast.error('Failed to update service');
     } finally {
       setServiceLoading(false);
@@ -943,6 +723,9 @@ const handleCancelSelectedAppointment = async () => {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
+      console.log('Deleting service:', deletingService);
+      console.log('Service ID:', deletingService.service_id);
+      console.log('API URL:', `${apiUrl}/salons/stylist/removeService/${deletingService.service_id}`);
       
       const response = await fetch(`${apiUrl}/salons/stylist/removeService/${deletingService.service_id}`, {
         method: 'DELETE',
@@ -953,17 +736,23 @@ const handleCancelSelectedAppointment = async () => {
       });
 
       const data = await response.json();
+      console.log('Delete response status:', response.status);
+      console.log('Delete response data:', data);
       
       if (response.ok) {
         toast.success('Service removed successfully');
         setShowDeleteServiceModal(false);
         setDeletingService(null);
         // Refresh services list
+        console.log('Refreshing services list...');
         await fetchServices();
+        console.log('Service deleted successfully, services refreshed');
       } else {
+        console.error('Delete failed:', data);
         toast.error(data.message || 'Failed to remove service');
       }
     } catch (err) {
+      console.error('Failed to remove service:', err);
       toast.error('Failed to remove service. Please try again.');
     } finally {
       setServiceLoading(false);
@@ -986,14 +775,14 @@ const handleCancelSelectedAppointment = async () => {
     setShowEditServiceModal(true);
   };
 
-  // UPH-1.21: Fetch customers list              // Verify both dates are valid and appointment is in the past
-
+  // UPH-1.21: Fetch customers list
   const fetchCustomers = async () => {
     try {
       setCustomersLoading(true);
       
       const token = localStorage.getItem('auth_token');
       if (!token) {
+        console.error('No authentication token found');
         setCustomers([]);
         return;
       }
@@ -1087,6 +876,7 @@ const handleCancelSelectedAppointment = async () => {
         });
       }
     } catch (err) {
+      console.error('Failed to fetch customers page:', err);
       toast.error('Failed to load customers');
     } finally {
       setCustomersLoading(false);
@@ -1098,47 +888,6 @@ const handleCancelSelectedAppointment = async () => {
     const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
     setSortOrder(newOrder);
     // The useEffect will trigger fetchCustomers when sortOrder changes
-  };
-
-  const fetchStylistRevenue = async () => {
-    setRevenueLoading(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${apiUrl}/user/stylist/metrics`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        setRevenueData(data.revenueMetrics);
-      } else {
-        setModalConfig({
-          title: 'Error',
-          message: data.message || 'Failed to fetch revenue data',
-          type: 'error',
-          onConfirm: () => setShowModal(false)
-        });
-        setShowModal(true);
-      }
-    } catch (error) {
-      console.error('Fetch revenue error:', error);
-      setModalConfig({
-        title: 'Error',
-        message: 'Failed to fetch revenue data. Please try again.',
-        type: 'error',
-        onConfirm: () => setShowModal(false)
-      });
-      setShowModal(true);
-    } finally {
-      setRevenueLoading(false);
-    }
   };
 
   // UPH-1.21: Open customer visit history modal
@@ -1183,25 +932,19 @@ const handleCancelSelectedAppointment = async () => {
       const data = await response.json();
       
       if (response.ok && data.data) {
-        const visits = data.data.visits || [];
-        setCustomerVisits(visits);
+        setCustomerVisits(data.data.visits || []);
         setVisitsPagination({
           limit: data.data.limit || 20,
           offset: data.data.offset || 0,
           total_records: data.data.summary?.total_records || 0,
           has_more: data.data.has_more || false
         });
-        
-        // Fetch photos for all visits
-        visits.forEach(visit => {
-          if (visit.booking_id) {
-            fetchBookingPhotos(visit.booking_id);
-          }
-        });
       } else {
+        console.error('Failed to fetch customer visits:', data.message);
         setCustomerVisits([]);
       }
     } catch (err) {
+      console.error('Failed to fetch customer visits:', err);
       setCustomerVisits([]);
       toast.error('Failed to load visit history');
     } finally {
@@ -1217,208 +960,6 @@ const handleCancelSelectedAppointment = async () => {
     
     if (selectedCustomer) {
       fetchCustomerVisitHistory(selectedCustomer.user_id, newOffset);
-    }
-  };
-
-  // Photo API functions
-  const fetchBookingPhotos = async (bookingId) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) return { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
-
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      
-      // Fetch all photos - backend returns { before: "...", after: "..." } format
-      const response = await fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        const errorData = { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
-        setVisitPhotosByBookingId((prev) => ({
-          ...prev,
-          [bookingId]: errorData
-        }));
-        return errorData;
-      }
-
-      const data = await response.json();
-      
-      // Backend returns { before: "...", after: "..." } format
-      // Empty strings mean no photo for that type
-      // Handle both new format and legacy format for safety
-      let beforeUrl = null;
-      let afterUrl = null;
-      
-      if (data.before !== undefined || data.after !== undefined) {
-        // New format: { before: "...", after: "..." }
-        beforeUrl = (data.before && data.before.trim()) || null;
-        afterUrl = (data.after && data.after.trim()) || null;
-      } else if (data.urls && Array.isArray(data.urls)) {
-        // Legacy format fallback: { urls: [...] } - first is before, second is after
-        beforeUrl = data.urls[0] || null;
-        afterUrl = data.urls[1] || null;
-      }
-      
-      // If both are empty/null, no photos exist
-      if (!beforeUrl && !afterUrl) {
-        const errorData = { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
-        setVisitPhotosByBookingId((prev) => ({
-          ...prev,
-          [bookingId]: errorData
-        }));
-        return errorData;
-      }
-
-      const photoData = {
-        beforePhotoUrl: beforeUrl,
-        afterPhotoUrl: afterUrl,
-        hasPhotos: Boolean(beforeUrl || afterUrl)
-      };
-
-      // Update state
-      setVisitPhotosByBookingId((prev) => ({
-        ...prev,
-        [bookingId]: photoData
-      }));
-
-      return photoData;
-    } catch (err) {
-      console.error('Failed to fetch photos:', err);
-      const errorData = { beforePhotoUrl: null, afterPhotoUrl: null, hasPhotos: false };
-      setVisitPhotosByBookingId((prev) => ({
-        ...prev,
-        [bookingId]: errorData
-      }));
-      return errorData;
-    }
-  };
-
-  const uploadBookingPhoto = async (bookingId, file, type) => {
-    try {
-      const validation = validateImageFile(file);
-      if (!validation.valid) {
-        throw new Error(validation.error);
-      }
-
-      const compressedFile = await compressImage(file);
-      const hash = await hashFile(compressedFile);
-
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('No authentication token');
-      }
-
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const endpoint = type === 'BEFORE' 
-        ? `${apiUrl}/file/upload-before-photo`
-        : `${apiUrl}/file/upload-after-photo`;
-
-      const formData = new FormData();
-      formData.append('file', compressedFile);
-      formData.append('booking_id', bookingId.toString());
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        let errorMessage = 'Failed to upload photo';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-          
-          // Handle "Photo already attached" (400) and "File already exists" (409) as success
-          const errorMsgLower = (errorMessage || '').toLowerCase();
-          if (errorMsgLower.includes('already exists') || 
-              errorMsgLower.includes('already attached') || 
-              errorMsgLower.includes('already uploaded') || 
-              errorMsgLower.includes('duplicate') ||
-              response.status === 400 && errorMsgLower.includes('photo already')) {
-            return { success: true, message: 'Photo already uploaded' };
-          }
-        } catch (e) {
-          // If response isn't JSON, use status text
-          errorMessage = response.statusText || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-      return { success: true, ...data };
-    } catch (err) {
-      console.error('Upload error:', err);
-      throw err;
-    }
-  };
-
-  const deleteBookingPhoto = async (bookingId, type = null) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('No authentication token');
-      }
-
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      
-      // If type is provided, delete only that photo
-      // If type is null, delete both BEFORE and AFTER photos
-      const typesToDelete = type ? [type] : ['BEFORE', 'AFTER'];
-      
-      const deletePromises = typesToDelete.map(async (photoType) => {
-        try {
-          const response = await fetch(`${apiUrl}/file/delete-photo`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ booking_id: bookingId, type: photoType })
-          });
-
-          // If photo doesn't exist (404), that's fine - just continue
-          if (response.status === 404) {
-            return { success: true, message: `${photoType} photo not found (already deleted or never existed)` };
-          }
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || errorData.error || `Failed to delete ${photoType} photo`);
-          }
-
-          const data = await response.json();
-          return { success: true, message: `${photoType} photo deleted`, data };
-        } catch (err) {
-          // If it's a 404, that's fine - photo doesn't exist
-          if (err.message && err.message.includes('not found')) {
-            return { success: true, message: `${photoType} photo not found` };
-          }
-          // For other errors, throw to be handled by caller
-          throw err;
-        }
-      });
-
-      const results = await Promise.all(deletePromises);
-      
-      // Check if at least one deletion succeeded or was already deleted
-      const hasSuccess = results.some(r => r.success);
-      if (!hasSuccess) {
-        throw new Error('Failed to delete photo(s)');
-      }
-
-      const message = type 
-        ? `${type} photo deleted successfully` 
-        : 'Photos deleted successfully';
-      
-      return { success: true, message, results };
-    } catch (err) {
-      console.error('Delete error:', err);
-      throw err;
     }
   };
 
@@ -1640,11 +1181,17 @@ const handleCancelSelectedAppointment = async () => {
   };
 
   const getCancelledAppointmentsForDate = (date) => {
+    console.log('Getting cancelled appointments for date:', date.toDateString());
+    console.log('All schedule data:', scheduleData);
+    console.log('All cancelled appointments:', scheduleData.filter(apt => apt.status === 'canceled'));
+    
     const cancelledForDate = scheduleData.filter(apt => 
       apt.status === 'canceled' && 
       apt.date && 
       apt.date.toDateString() === date.toDateString()
     );
+    
+    console.log('Cancelled appointments for this date:', cancelledForDate);
     return cancelledForDate;
   };
 
@@ -1665,23 +1212,16 @@ const handleCancelSelectedAppointment = async () => {
     const year = day.getFullYear();
     const dateKey = `${month}-${dayOfMonth}-${year}`;
     
+    console.log(`Getting schedule for date ${dateKey}:`, weeklySchedule[dateKey]);
     return weeklySchedule ? weeklySchedule[dateKey] : null;
   };
 
   const getStatusColor = (status) => {
-    const normalized = status?.toString().toLowerCase();
-    switch (normalized) {
-      case 'completed':
-      case 'confirmed':
-        return '!bg-purple-200 !text-purple-800 border-purple-200';
-      case 'pending':
-      case 'scheduled':
-        return '!bg-yellow-200 !text-yellow-800 border-yellow-200';
-      case 'canceled':
-      case 'cancelled':
-        return '!bg-red-200 !text-red-800 border-red-200';
-      default:
-        return '!bg-gray-200 !text-gray-800 border-gray-200';
+    switch (status) {
+      case 'completed': return '!bg-purple-200 !text-purple-800 border-purple-200';
+      case 'pending': return '!bg-yellow-200 !text-yellow-800 border-yellow-200';
+      case 'canceled': return '!bg-red-200 !text-red-800 border-red-200';
+      default: return '!bg-gray-200 !text-gray-800 border-gray-200';
     }
   };
 
@@ -1760,7 +1300,7 @@ const handleCancelSelectedAppointment = async () => {
             <img 
               src={strandsLogo} 
               alt="Strands" 
-              className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer transition-opacity" 
+              className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
               onClick={() => navigate('/')}
             />
                 <div>
@@ -1772,7 +1312,7 @@ const handleCancelSelectedAppointment = async () => {
                 <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                   Hairstylist
                 </Badge>
-                <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
+                <Button id="stylist-logout-button" variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
                   <LogOut className="w-4 h-4" />
                   <span>Logout</span>
                   </Button>
@@ -1812,7 +1352,7 @@ const handleCancelSelectedAppointment = async () => {
               <img 
                 src={strandsLogo} 
                 alt="Strands" 
-                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer transition-opacity" 
+                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
                 onClick={() => navigate('/')}
               />
               <div>
@@ -1821,23 +1361,10 @@ const handleCancelSelectedAppointment = async () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowNotifications(true)}
-                className="relative"
-              >
-                <Mail className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </Badge>
-                )}
-              </Button>
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Hairstylist
               </Badge>
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
+              <Button id="stylist-logout-button" variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
               </Button>
@@ -1853,11 +1380,12 @@ const handleCancelSelectedAppointment = async () => {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
+                id={`stylist-tab-${tab.id}`}
                 onClick={() => setActiveTab(tab.id)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab.id
                     ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                 }`}
               >
                 {tab.label}
@@ -1869,35 +1397,22 @@ const handleCancelSelectedAppointment = async () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section - Only on Schedule Page */}
-        {activeTab === 'schedule' && (
-          <div className="mb-8">
-            <div className="flex items-start gap-6 mb-4">
-              <div className="flex-1">
-                <h2 className="text-3xl font-bold text-foreground mb-2">
-                  Welcome, {authContext.user?.full_name}!
-                </h2>
-                <p className="text-muted-foreground">
-                  Manage your appointments, customers, and professional profile at {salonData?.name}.
-                </p>
-              </div>
-              <div className="flex-shrink-0">
-                <img 
-                  src={salonPhotoUrl || strandsLogo} 
-                  alt={salonData?.name || 'Salon'} 
-                  className="w-24 h-24 rounded-lg object-contain border shadow-sm bg-gray-50 p-2"
-                  onError={(e) => {
-                    e.target.src = strandsLogo;
-                  }}
-                />
-              </div>
-            </div>
+        {/* Welcome Section */}
+        <div className="mb-8">
+           <h2 className="text-3xl font-bold text-foreground mb-2">
+             Welcome, {authContext.user?.full_name}!
+           </h2>
+          <p className="text-muted-foreground">
+            Manage your appointments, customers, and professional profile at {salonData?.name}.
+          </p>
+          {activeTab === 'schedule' && (
             <div className="mt-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <Button onClick={fetchStylistSalon} variant="outline" size="sm">
+                <Button id="refresh-data-button" onClick={fetchStylistSalon} variant="outline" size="sm">
                   Refresh Data
                 </Button>
                 <Button 
+                  id="block-time-button"
                   onClick={() => setShowBlockModal(true)} 
                   variant="outline" 
                   size="sm"
@@ -1907,6 +1422,7 @@ const handleCancelSelectedAppointment = async () => {
                   <span>Block Time</span>
                 </Button>
                 <Button 
+                  id="unblock-time-button"
                   onClick={() => {
                     setShowUnblockModal(true);
                     fetchBlockedSlots(); // Refresh blocked slots when opening modal
@@ -1930,16 +1446,6 @@ const handleCancelSelectedAppointment = async () => {
                   <Calendar className="w-4 h-4" />
                   <span>View Cancelled</span>
                 </Button>
-                <Button 
-                  onClick={handleAlertEveryone}
-                  variant="outline" 
-                  size="sm"
-                  className="flex items-center space-x-2"
-                  disabled={alertLoading}
-                >
-                  <Bell className="w-4 h-4" />
-                  <span>Alert Everyone</span>
-                </Button>
               </div>
               
               {/* View Settings */}
@@ -1947,6 +1453,7 @@ const handleCancelSelectedAppointment = async () => {
                 <Settings className="w-4 h-4 text-muted-foreground" />
                 <div className="flex space-x-1">
                   <Button
+                    id="schedule-view-day-button"
                     variant={viewType === 'day' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => {
@@ -1961,6 +1468,7 @@ const handleCancelSelectedAppointment = async () => {
                     Day
                   </Button>
                   <Button
+                    id="schedule-view-week-button"
                     variant={viewType === 'week' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => {
@@ -1979,8 +1487,8 @@ const handleCancelSelectedAppointment = async () => {
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Tab Content */}
         {activeTab === 'schedule' && (
@@ -1991,6 +1499,7 @@ const handleCancelSelectedAppointment = async () => {
               {viewType === 'day' ? (
                 <div className="flex items-center justify-between">
                   <Button
+                    id="previous-day-button"
                     variant="outline"
                     size="sm"
                     onClick={() => navigateDate(-1)}
@@ -1998,7 +1507,7 @@ const handleCancelSelectedAppointment = async () => {
                     className={`flex items-center space-x-2 ${
                       !canNavigatePrevious() 
                         ? 'opacity-50 cursor-not-allowed' 
-                        : ''
+                        : 'hover:bg-muted'
                     }`}
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -2015,6 +1524,7 @@ const handleCancelSelectedAppointment = async () => {
                   </div>
 
                   <Button
+                    id="next-day-button"
                     variant="outline"
                     size="sm"
                     onClick={() => navigateDate(1)}
@@ -2022,7 +1532,7 @@ const handleCancelSelectedAppointment = async () => {
                     className={`flex items-center space-x-2 ${
                       !canNavigateNext() 
                         ? 'opacity-50 cursor-not-allowed' 
-                        : ''
+                        : 'hover:bg-muted'
                     }`}
                   >
                     <span>Next Day</span>
@@ -2032,6 +1542,7 @@ const handleCancelSelectedAppointment = async () => {
               ) : (
                 <div className="flex items-center justify-between">
                   <Button
+                    id="previous-week-button"
                     variant="outline"
                     size="sm"
                     onClick={() => navigateDate(-1)}
@@ -2039,7 +1550,7 @@ const handleCancelSelectedAppointment = async () => {
                     className={`flex items-center space-x-2 ${
                       !canNavigatePrevious() 
                         ? 'opacity-50 cursor-not-allowed' 
-                        : ''
+                        : 'hover:bg-muted'
                     }`}
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -2056,6 +1567,7 @@ const handleCancelSelectedAppointment = async () => {
             </div>
 
                   <Button
+                    id="next-week-button"
                     variant="outline"
                     size="sm"
                     onClick={() => navigateDate(1)}
@@ -2063,7 +1575,7 @@ const handleCancelSelectedAppointment = async () => {
                     className={`flex items-center space-x-2 ${
                       !canNavigateNext() 
                         ? 'opacity-50 cursor-not-allowed' 
-                        : ''
+                        : 'hover:bg-muted'
                     }`}
                   >
                     <span>Next Week</span>
@@ -2072,61 +1584,6 @@ const handleCancelSelectedAppointment = async () => {
                 </div>
               )}
             </div>
-
-            {viewType === 'day' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {revenueLoading ? (
-                  <div className="col-span-full text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p className="text-xs text-muted-foreground">Loading revenue data...</p>
-                  </div>
-                ) : revenueData ? (
-                  <>
-                    <div className="bg-white rounded-lg border p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <DollarSign className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Total Revenue</p>
-                          <p className="text-2xl font-bold text-green-800">
-                            ${parseFloat(revenueData.revenue_all_time || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg border p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <TrendingUp className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Last 7 Days</p>
-                          <p className="text-2xl font-bold text-green-800">
-                            ${parseFloat(revenueData.revenue_past_week || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg border p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <Calendar className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Today</p>
-                          <p className="text-2xl font-bold text-green-800">
-                            ${parseFloat(revenueData.revenue_today || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            )}
 
             {/* Schedule Content */}
             {scheduleLoading ? (
@@ -2204,10 +1661,6 @@ const handleCancelSelectedAppointment = async () => {
                      const availability = dayScheduleData?.availability;
                      const unavailabilities = dayScheduleData?.unavailability || [];
                      
-                     const dayAppointments = scheduleData.filter(apt => 
-                       apt.date && apt.date.toDateString() === day.toDateString() && apt.status !== 'canceled'
-                     );
-                     
                      return (
                        <div key={dayIndex} className="col-span-1 relative" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
                          {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => (
@@ -2240,7 +1693,8 @@ const handleCancelSelectedAppointment = async () => {
                         ))}
                         
                         {/* Booked appointment backgrounds - Red background behind appointments */}
-                        {dayAppointments
+                        {scheduleData
+                          .filter(apt => apt.date && apt.date.toDateString() === day.toDateString() && apt.status !== 'canceled')
                           .map((appointment) => {
                             const startMinutes = timeToMinutes(appointment.startTime);
                             const endMinutes = timeToMinutes(appointment.endTime);
@@ -2261,7 +1715,8 @@ const handleCancelSelectedAppointment = async () => {
                           })}
                         
                         {/* Appointments for this day (excluding cancelled) */}
-                        {dayAppointments
+                        {scheduleData
+                          .filter(apt => apt.date && apt.date.toDateString() === day.toDateString() && apt.status !== 'canceled')
                           .map((appointment) => {
                             const startMinutes = timeToMinutes(appointment.startTime);
                             const endMinutes = timeToMinutes(appointment.endTime);
@@ -2271,7 +1726,7 @@ const handleCancelSelectedAppointment = async () => {
                             return (
                               <div
                                 key={appointment.id}
-                                className={`absolute left-1 right-1 p-2 rounded-lg text-xs border-2 shadow-lg cursor-pointer ${getStatusColor(appointment.status)}`}
+                                className={`absolute left-1 right-1 p-2 rounded-lg text-xs border-2 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 ${getStatusColor(appointment.status)}`}
                                 style={{ 
                                   top: `${top}px`, 
                                   height: `${height}px`,
@@ -2393,99 +1848,60 @@ const handleCancelSelectedAppointment = async () => {
                   </div>
                   <div className="divide-y">
                     {dayAppointments
-                      .map((appointment) => {
-                        const originalTotal = typeof appointment.totalPrice === 'number' ? appointment.totalPrice : parseFloat(appointment.totalPrice || 0);
-                        const actualPaid = appointment.actualAmountPaid !== undefined && appointment.actualAmountPaid !== null
-                          ? appointment.actualAmountPaid
-                          : originalTotal;
-                        const rewardInfo = appointment.reward || null;
-                        const promoInfo = appointment.promo || null;
-                        const hasDiscount = appointment.hasDiscount || (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
-                        const discountLabel = rewardInfo?.discount_percentage 
-                          ? `${rewardInfo.discount_percentage}% off`
-                          : promoInfo?.discount_pct
-                          ? `${promoInfo.discount_pct}% off`
-                          : 'Discount applied';
-
-                        return (
-                          <div key={appointment.id} className="p-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-3 mb-2">
-                                  <div className="flex items-center space-x-2">
-                                    <Clock className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {hasDiscount && (
-                                      <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-                                        {promoInfo ? 'Promo Applied' : 'Discounted'}
-                                      </Badge>
-                                    )}
-                                    <Badge className={getStatusColor(appointment.status)}>
-                                      {formatStatusLabel(appointment.status)}
-                                    </Badge>
-                                  </div>
+                      .map((appointment) => (
+                        <div key={appointment.id} className="p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                      <div className="flex items-center space-x-2">
+                                  <Clock className="w-4 h-4 text-muted-foreground" />
+                                  <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
                                 </div>
-                                
-                                <h4 className="font-semibold text-foreground mb-1">
-                                  {appointment.customer}
-                                </h4>
-                                
-                                <p className="text-sm text-muted-foreground mb-2">
-                                  {appointment.service}
-                                </p>
-                                
-                                <div className="flex flex-col space-y-1 text-sm text-muted-foreground mb-2">
-                                  <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
-                                  {appointment.totalPrice > 0 && (
-                                    hasDiscount ? (
-                                      <div className="flex flex-col">
-                                        <div className="flex items-baseline gap-2">
-                                          <span className="text-xs text-muted-foreground line-through">
-                                            ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
-                                          </span>
-                                          <span className="text-sm font-semibold text-green-800">
-                                            ${!Number.isNaN(actualPaid) ? Number(actualPaid).toFixed(2) : '0.00'}
-                            </span>
-                          </div>
-                                        <span className="text-xs text-muted-foreground">
-                                          {discountLabel}
-                                          {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
-                                        </span>
-                        </div>
-                                    ) : (
-                                      <span>Total: <span className="text-green-800 font-medium">${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}</span></span>
-                                    )
-                                  )}
-                      </div>
-                                
-                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                                  {appointment.phone && (
-                                    <div className="flex items-center space-x-1">
-                                      <Phone className="w-4 h-4" />
-                                      <span>{appointment.phone}</span>
-                                    </div>
-                                  )}
-                                </div>
+                                <Badge className={getStatusColor(appointment.status)}>
+                                  {appointment.status}
+                                </Badge>
                               </div>
                               
-                              <div className="ml-4">
+                              <h4 className="font-semibold text-foreground mb-1">
+                                {appointment.customer}
+                              </h4>
+                              
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {appointment.service}
+                              </p>
+                              
+                              <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                                <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
+                                {appointment.totalPrice > 0 && (
+                                  <span>Total: <span className="text-green-800 font-medium">${appointment.totalPrice.toFixed(2)}</span></span>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                {appointment.phone && (
+                                  <div className="flex items-center space-x-1">
+                                    <Phone className="w-4 h-4" />
+                                    <span>{appointment.phone}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="ml-4">
                             <Button 
                               variant="outline" 
                               size="sm"
-                                  onClick={() => {
-                                    setSelectedAppointment(appointment);
-                                    setShowAppointmentPopup(true);
-                                  }}
+                                onClick={() => {
+                                  setSelectedAppointment(appointment);
+                                  setShowAppointmentPopup(true);
+                                }}
                             >
-                                  View Details
+                                View Details
                             </Button>
-                              </div>
                             </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -2611,79 +2027,18 @@ const handleCancelSelectedAppointment = async () => {
         )}
 
         {activeTab === 'reviews' && (
-          <div className="space-y-6">
-            {/* Sub-tabs for Salon Reviews vs My Reviews */}
-            <div className="border-b border-muted">
-              <div className="flex space-x-8">
-                <button
-                  onClick={() => setReviewsSubTab('salon')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    reviewsSubTab === 'salon'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Salon Reviews
-                </button>
-                <button
-                  onClick={() => setReviewsSubTab('my')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    reviewsSubTab === 'my'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  My Reviews
-                </button>
-              </div>
-            </div>
-
-            {/* Salon Reviews Tab */}
-            {reviewsSubTab === 'salon' && (
-              <SalonReviews 
-                salonId={salonData?.salon_id}
-                salonName={salonData?.name}
-                onError={(error) => {
-                  setModalConfig({
-                    title: 'Error',
-                    message: error,
-                    type: 'error',
-                    onConfirm: () => setShowModal(false)
-                  });
-                  setShowModal(true);
-                }}
-              />
-            )}
-
-            {/* My Reviews Tab */}
-            {reviewsSubTab === 'my' && (
-              (employeeId || authContext?.user?.user_id) ? (
-                <StaffReviews
-                  employeeId={employeeId || authContext?.user?.user_id}
-                  canReply={true}
-                  onError={(error) => {
-                    setModalConfig({
-                      title: 'Error',
-                      message: error,
-                      type: 'error',
-                      onConfirm: () => setShowModal(false)
-                    });
-                    setShowModal(true);
-                  }}
-                />
-              ) : (
-                <Card>
-                  <CardContent className="text-center py-12">
-                    <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">Unable to Load Reviews</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Could not find employee information. Please refresh the page.
-                    </p>
-                  </CardContent>
-                </Card>
-              )
-            )}
-          </div>
+          <SalonReviews 
+            salonId={salonData?.salon_id}
+            onError={(error) => {
+              setModalConfig({
+                title: 'Error',
+                message: error,
+                type: 'error',
+                onConfirm: () => setShowModal(false)
+              });
+              setShowModal(true);
+            }}
+          />
         )}
 
         {activeTab === 'services' && (
@@ -2693,7 +2048,7 @@ const handleCancelSelectedAppointment = async () => {
                 <h2 className="text-2xl font-bold text-foreground">My Services</h2>
                 <p className="text-muted-foreground">Manage the services you offer</p>
                         </div>
-              <Button onClick={() => setShowServiceModal(true)} className="flex items-center space-x-2">
+              <Button id="add-service-page-button" onClick={() => setShowServiceModal(true)} className="flex items-center space-x-2">
                 <Plus className="w-4 h-4" />
                 <span>Add Service</span>
               </Button>
@@ -2711,39 +2066,41 @@ const handleCancelSelectedAppointment = async () => {
                 <p className="text-sm text-muted-foreground mb-4">
                   Add services that you offer to help customers book with you.
                 </p>
-                <Button onClick={() => setShowServiceModal(true)} className="flex items-center space-x-2">
+                <Button id="add-service-page-button" onClick={() => setShowServiceModal(true)} className="flex items-center space-x-2">
                   <Plus className="w-4 h-4" />
                   <span>Add Your First Service</span>
                 </Button>
               </div>
             ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                  {services.map((service) => (
-                   <Card key={service.service_id} className="hover:shadow-lg transition-shadow flex flex-col">
-                     <CardContent className="p-6 pt-5 flex flex-col flex-grow">
+                   <Card key={service.service_id} className="hover:shadow-lg transition-shadow h-full flex flex-col">
+                    <CardContent className="p-6 pt-5 flex flex-col flex-1">
                                              <div className="flex justify-between items-start mb-4">
-                         <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
-                         <div className="flex space-x-2">
-                        <Button 
-                             variant="ghost"
-                          size="sm"
-                             onClick={() => openEditModal(service)}
-                             className="h-10 w-10 p-0"
-                        >
-                             <Edit className="w-6 h-6" />
-                        </Button>
-                        <Button 
-                             variant="ghost"
-                          size="sm"
-                             onClick={() => openDeleteModal(service)}
-                             className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
-                        >
-                             <Trash2 className="w-6 h-6" />
-                        </Button>
-                      </div>
-                    </div>
-                      <p className="text-sm text-muted-foreground mb-4 flex-grow">{service.description}</p>
-                      <div className="flex justify-between items-center mt-auto">
+                        <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
+                        <div className="flex space-x-2">
+                       <Button 
+                            id={`edit-service-button-${service.service_id}`}
+                            variant="ghost"
+                         size="sm"
+                            onClick={() => openEditModal(service)}
+                            className="h-10 w-10 p-0"
+                       >
+                            <Edit className="w-6 h-6" />
+                       </Button>
+                       <Button 
+                            id={`delete-service-button-${service.service_id}`}
+                            variant="ghost"
+                         size="sm"
+                            onClick={() => openDeleteModal(service)}
+                            className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
+                       >
+                            <Trash2 className="w-6 h-6" />
+                       </Button>
+                     </div>
+                   </div>
+                     <p className="text-sm text-muted-foreground mb-4 flex-1">{service.description}</p>
+                     <div className="flex justify-between items-center mt-auto">
                         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4" />
                           <span className="text-blue-600 font-medium">{service.duration_minutes} min</span>
@@ -2793,6 +2150,7 @@ const handleCancelSelectedAppointment = async () => {
                     Day of Week
                   </label>
                   <select
+                    id="block-time-day-select"
                     value={blockFormData.weekday}
                     onChange={(e) => setBlockFormData({ ...blockFormData, weekday: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -2813,6 +2171,7 @@ const handleCancelSelectedAppointment = async () => {
                     Start Time
                   </label>
                   <input
+                    id="block-time-start-time"
                     type="time"
                     value={blockFormData.start_time}
                     onChange={(e) => setBlockFormData({ ...blockFormData, start_time: e.target.value })}
@@ -2825,6 +2184,7 @@ const handleCancelSelectedAppointment = async () => {
                     End Time
                   </label>
                   <input
+                    id="block-time-end-time"
                     type="time"
                     value={blockFormData.end_time}
                     onChange={(e) => setBlockFormData({ ...blockFormData, end_time: e.target.value })}
@@ -2854,6 +2214,7 @@ const handleCancelSelectedAppointment = async () => {
                   Cancel
                         </Button>
                         <Button 
+                  id="block-time-modal-submit-button"
                   onClick={handleBlockTimeSlot}
                   disabled={blockLoading}
                   className="px-6 py-2 text-white font-medium bg-orange-600 hover:bg-orange-700"
@@ -2863,99 +2224,6 @@ const handleCancelSelectedAppointment = async () => {
                       </div>
               </CardContent>
             </Card>
-        </div>
-      )}
-
-      {blockConflictModal.open && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl mx-auto shadow-2xl">
-            <CardContent className="pt-8 px-6 pb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3 bg-red-50 p-3 rounded-lg">
-                  <AlertCircle className="w-6 h-6 text-red-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">Conflicting Appointments</h3>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCloseConflictModal}
-                  className="text-gray-400 hover:text-gray-600"
-                  disabled={cancelConflictLoadingId !== null}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-
-              <p className="text-sm text-muted-foreground mb-4">
-                There are scheduled appointments during this time block. Cancel the appointments below or adjust the block time.
-              </p>
-
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {blockConflictModal.conflicts.length === 0 ? (
-                  <div className="text-center py-10 bg-muted/30 rounded-lg border border-dashed border-red-200">
-                    <Clock className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">
-                      No conflicts remaining. You can close this window or attempt to block again.
-                    </p>
-                  </div>
-                ) : (
-                  blockConflictModal.conflicts.map((conflict) => (
-                    <div
-                      key={conflict.booking_id}
-                      className="flex items-start justify-between p-4 bg-white border border-red-200 rounded-lg shadow-sm"
-                    >
-                      <div className="pr-4">
-                        <p className="font-semibold text-foreground">
-                          {conflict.customer_name || 'Customer'}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Date:{' '}
-                          {new Date(conflict.scheduled_start).toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            month: 'long',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Time:{' '}
-                          {new Date(conflict.scheduled_start).toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit'
-                          })}{' '}
-                          -{' '}
-                          {new Date(conflict.scheduled_end).toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleCancelConflictBooking(conflict.booking_id)}
-                        disabled={cancelConflictLoadingId === conflict.booking_id}
-                        className="whitespace-nowrap"
-                      >
-                        {cancelConflictLoadingId === conflict.booking_id ? 'Canceling...' : 'Cancel Appointment'}
-                      </Button>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <Button
-                  variant="outline"
-                  onClick={handleCloseConflictModal}
-                  className="px-6 py-2 border-gray-300 text-gray-700 hover:bg-gray-50"
-                  disabled={cancelConflictLoadingId !== null}
-                >
-                  Close
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
 
@@ -2971,6 +2239,7 @@ const handleCancelSelectedAppointment = async () => {
                   <h3 className="text-lg font-semibold text-gray-900">Unblock Time Slot</h3>
                 </div>
                 <Button
+                  id="unblock-time-modal-close-button"
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowUnblockModal(false)}
@@ -3010,7 +2279,7 @@ const handleCancelSelectedAppointment = async () => {
                           <div className="flex items-center space-x-3">
                             <div className="bg-orange-100 p-2 rounded-lg">
                               <Clock className="w-4 h-4 text-orange-600" />
-                        </div>
+                            </div>
                         <div>
                               <p className="font-medium text-foreground text-sm">
                                 {dayNames[slot.weekday]}
@@ -3018,9 +2287,10 @@ const handleCancelSelectedAppointment = async () => {
                               <p className="text-xs text-muted-foreground">
                                 {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
                             </p>
-                          </div>
                         </div>
+                      </div>
                         <Button 
+                            id={`unblock-time-remove-button-${slot.unavailability_id}`}
                             variant="ghost"
                           size="sm"
                             onClick={() => {
@@ -3044,8 +2314,9 @@ const handleCancelSelectedAppointment = async () => {
 
               {/* Actions */}
               <div className="flex justify-end">
-                        <Button 
-                          variant="outline" 
+                <Button
+                  id="unblock-time-modal-cancel-button"
+                  variant="outline"
                   onClick={() => setShowUnblockModal(false)}
                   className="px-6 py-2 border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
@@ -3069,7 +2340,7 @@ const handleCancelSelectedAppointment = async () => {
                   </div>
                 <Button
                   variant="ghost"
-                          size="sm"
+                  size="sm"
                   onClick={() => {
                     setShowServiceModal(false);
                     setServiceFormData({ name: '', description: '', duration_minutes: '', price: '' });
@@ -3077,23 +2348,23 @@ const handleCancelSelectedAppointment = async () => {
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" />
-                        </Button>
+                </Button>
               </div>
 
               <div className="space-y-4 mb-6">
                         <div>
-                  <Label htmlFor="name">Service Name</Label>
+                  <Label htmlFor="add-service-name-input">Service Name</Label>
                   <Input
-                    id="name"
+                    id="add-service-name-input"
                     value={serviceFormData.name}
                     onChange={(e) => setServiceFormData({ ...serviceFormData, name: e.target.value })}
                     placeholder="e.g., Haircut"
                   />
                           </div>
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="add-service-description-input">Description</Label>
                   <textarea
-                    id="description"
+                    id="add-service-description-input"
                     value={serviceFormData.description}
                     onChange={(e) => setServiceFormData({ ...serviceFormData, description: e.target.value })}
                     placeholder="Describe your service..."
@@ -3103,9 +2374,9 @@ const handleCancelSelectedAppointment = async () => {
                         </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="duration">Duration (minutes)</Label>
+                    <Label htmlFor="add-service-duration-input">Duration (minutes)</Label>
                     <Input
-                      id="duration"
+                      id="add-service-duration-input"
                       type="number"
                       value={serviceFormData.duration_minutes}
                       onChange={(e) => setServiceFormData({ ...serviceFormData, duration_minutes: e.target.value })}
@@ -3113,9 +2384,9 @@ const handleCancelSelectedAppointment = async () => {
                     />
                       </div>
                   <div>
-                    <Label htmlFor="price">Price ($)</Label>
+                    <Label htmlFor="add-service-price-input">Price ($)</Label>
                     <Input
-                      id="price"
+                      id="add-service-price-input"
                       type="number"
                       step="0.01"
                       value={serviceFormData.price}
@@ -3137,13 +2408,13 @@ const handleCancelSelectedAppointment = async () => {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleCreateService} disabled={serviceLoading}>
+                <Button id="add-service-modal-submit-button" onClick={handleCreateService} disabled={serviceLoading}>
                   {serviceLoading ? 'Creating...' : 'Create Service'}
-                        </Button>
-                      </div>
+                </Button>
+              </div>
               </CardContent>
             </Card>
-                    </div>
+        </div>
       )}
 
       {/* BS-1.01: Edit Service Modal */}
@@ -3172,17 +2443,17 @@ const handleCancelSelectedAppointment = async () => {
 
               <div className="space-y-4 mb-6">
                     <div>
-                  <Label htmlFor="edit-name">Service Name</Label>
+                  <Label htmlFor="edit-service-name-input">Service Name</Label>
                   <Input
-                    id="edit-name"
+                    id="edit-service-name-input"
                     value={serviceFormData.name}
                     onChange={(e) => setServiceFormData({ ...serviceFormData, name: e.target.value })}
                   />
                     </div>
                     <div>
-                  <Label htmlFor="edit-description">Description</Label>
+                  <Label htmlFor="edit-service-description-input">Description</Label>
                   <textarea
-                    id="edit-description"
+                    id="edit-service-description-input"
                     value={serviceFormData.description}
                     onChange={(e) => setServiceFormData({ ...serviceFormData, description: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary resize-none"
@@ -3191,18 +2462,18 @@ const handleCancelSelectedAppointment = async () => {
                     </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                    <Label htmlFor="edit-duration">Duration (minutes)</Label>
+                    <Label htmlFor="edit-service-duration-input">Duration (minutes)</Label>
                     <Input
-                      id="edit-duration"
+                      id="edit-service-duration-input"
                       type="number"
                       value={serviceFormData.duration_minutes}
                       onChange={(e) => setServiceFormData({ ...serviceFormData, duration_minutes: e.target.value })}
                     />
                     </div>
                     <div>
-                    <Label htmlFor="edit-price">Price ($)</Label>
+                    <Label htmlFor="edit-service-price-input">Price ($)</Label>
                     <Input
-                      id="edit-price"
+                      id="edit-service-price-input"
                       type="number"
                       step="0.01"
                       value={serviceFormData.price}
@@ -3224,7 +2495,7 @@ const handleCancelSelectedAppointment = async () => {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleUpdateService} disabled={serviceLoading}>
+                <Button id="update-service-modal-submit-button" onClick={handleUpdateService} disabled={serviceLoading}>
                   {serviceLoading ? 'Updating...' : 'Update Service'}
                 </Button>
                 </div>
@@ -3265,12 +2536,12 @@ const handleCancelSelectedAppointment = async () => {
                     <AlertCircle className="w-4 h-4 inline mr-1" />
                     This will permanently remove the service from your list.
                   </p>
-                        </div>
-                      </div>
+                  </div>
+                    </div>
 
               <div className="flex space-x-3 justify-end">
-                        <Button 
-                          variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setShowDeleteServiceModal(false);
                     setDeletingService(null);
@@ -3281,6 +2552,7 @@ const handleCancelSelectedAppointment = async () => {
                   Cancel
                 </Button>
                 <Button
+                  id="delete-service-modal-submit-button"
                   onClick={handleDeleteService}
                   disabled={serviceLoading}
                   className="px-6 py-2 text-white font-medium bg-red-600 hover:bg-red-700"
@@ -3305,7 +2577,7 @@ const handleCancelSelectedAppointment = async () => {
                 </div>
                 <Button
                   variant="ghost"
-                          size="sm"
+                  size="sm"
                   onClick={() => {
                     setShowAppointmentPopup(false);
                     setSelectedAppointment(null);
@@ -3313,26 +2585,19 @@ const handleCancelSelectedAppointment = async () => {
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" />
-                        </Button>
-                      </div>
+                </Button>
+              </div>
 
               <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium text-foreground">
-                      {selectedAppointment.startTime} - {selectedAppointment.endTime}
+                <div className="flex items-center space-x-3">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium text-foreground">
+                    {selectedAppointment.startTime} - {selectedAppointment.endTime}
                   </span>
-                  <div className="flex items-center gap-2">
-                    {selectedAppointment.hasDiscount && (
-                      <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-                        {selectedAppointment.promo ? 'Promo Applied' : 'Discounted'}
+                  <Badge className={getStatusColor(selectedAppointment.status)}>
+                    {selectedAppointment.status}
                       </Badge>
-                    )}
-                    <Badge className={getStatusColor(selectedAppointment.status)}>
-                      {formatStatusLabel(selectedAppointment.status)}
-                    </Badge>
-                  </div>
-                </div>
+                    </div>
                 
                     <div>
                   <h4 className="font-semibold text-foreground mb-1">
@@ -3341,35 +2606,13 @@ const handleCancelSelectedAppointment = async () => {
                   <p className="text-sm text-muted-foreground mb-2">
                     {selectedAppointment.service}
                   </p>
-                  <div className="flex flex-col space-y-1 text-sm text-muted-foreground mb-2">
+                  <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
                     <span>Duration: <span className="text-blue-600 font-medium">{selectedAppointment.duration} minutes</span></span>
                     {selectedAppointment.totalPrice > 0 && (
-                      selectedAppointment.hasDiscount ? (
-                        <div className="flex flex-col">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-xs text-muted-foreground line-through">
-                              Total: ${selectedAppointment.totalPrice.toFixed(2)}
-                            </span>
-                            <span className="text-sm font-semibold text-green-800">
-                              ${((selectedAppointment.actualAmountPaid ?? selectedAppointment.totalPrice) || 0).toFixed(2)}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {selectedAppointment.reward?.discount_percentage 
-                              ? `${selectedAppointment.reward.discount_percentage}% off`
-                              : selectedAppointment.promo?.discount_pct
-                              ? `${selectedAppointment.promo.discount_pct}% off (Promo: ${selectedAppointment.promo.promo_code})`
-                              : 'Discount applied'}
-                            {selectedAppointment.reward?.note ? ` ${selectedAppointment.reward.note}` : ''}
-                            {selectedAppointment.promo?.promo_code && !selectedAppointment.reward ? ` Promo Code: ${selectedAppointment.promo.promo_code}` : ''}
-                          </span>
-                  </div>
-                ) : (
-                        <span>Total: <span className="text-green-800 font-medium">${selectedAppointment.totalPrice.toFixed(2)}</span></span>
-                      )
+                      <span>Total: <span className="text-green-800 font-medium">${selectedAppointment.totalPrice.toFixed(2)}</span></span>
                     )}
-                  </div>
-                          <p className="text-sm text-muted-foreground">
+                    </div>
+                    <p className="text-sm text-muted-foreground">
                     Date: {selectedAppointment.date ? selectedAppointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
                     </p>
                   </div>
@@ -3380,28 +2623,12 @@ const handleCancelSelectedAppointment = async () => {
                       <Phone className="w-4 h-4" />
                       <span>{selectedAppointment.phone}</span>
                   </div>
-                          )}
-                        </div>
+                  )}
+                </div>
+              </div>
 
-                {selectedAppointment?.id && (
-                  <PrivateNoteCard
-                    bookingId={selectedAppointment.id}
-                    className="mt-6"
-                  />
-                )}
-                      </div>
-
-              <div className="flex justify-end mt-6 gap-2">
-                {selectedAppointment.status === 'pending' && (
-                  <Button
-                    variant="destructive"
-                    onClick={handleCancelSelectedAppointment}
-                    disabled={cancelAppointmentLoading}
-                  >
-                    {cancelAppointmentLoading ? 'Canceling...' : 'Cancel Appointment'}
-                  </Button>
-                )}
-                <Button
+              <div className="flex justify-end mt-6">
+                <Button 
                   onClick={() => {
                     setShowAppointmentPopup(false);
                     setSelectedAppointment(null);
@@ -3410,7 +2637,7 @@ const handleCancelSelectedAppointment = async () => {
                 >
                   Close
                 </Button>
-              </div>
+                </div>
               </CardContent>
             </Card>
         </div>
@@ -3446,14 +2673,14 @@ const handleCancelSelectedAppointment = async () => {
                   const allCancelledAppointments = scheduleData.filter(apt => apt.status === 'canceled');
                   
                   return allCancelledAppointments.length === 0 ? (
-                  <div className="text-center py-12">
+                    <div className="text-center py-12">
                       <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-foreground mb-2">No cancelled appointments</h3>
-                    <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         You have no cancelled appointments.
-                    </p>
-                  </div>
-                ) : (
+                      </p>
+                    </div>
+                  ) : (
                     <div className="space-y-4">
                       {allCancelledAppointments
                         .sort((a, b) => {
@@ -3467,90 +2694,50 @@ const handleCancelSelectedAppointment = async () => {
                           }
                           return dateB - dateA; // Most recent first
                         })
-                        .map((appointment) => {
-                          const originalTotal = typeof appointment.totalPrice === 'number' ? appointment.totalPrice : parseFloat(appointment.totalPrice || 0);
-                          const actualPaid = appointment.actualAmountPaid !== undefined && appointment.actualAmountPaid !== null
-                            ? appointment.actualAmountPaid
-                            : originalTotal;
-                          const rewardInfo = appointment.reward || null;
-                          const promoInfo = appointment.promo || null;
-                          const hasDiscount = appointment.hasDiscount || (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
-                          const discountLabel = rewardInfo?.discount_percentage 
-                            ? `${rewardInfo.discount_percentage}% off`
-                            : promoInfo?.discount_pct
-                            ? `${promoInfo.discount_pct}% off`
-                            : 'Discount applied';
-
-                          return (
-                            <div key={appointment.id} className="border rounded-lg p-4 bg-red-50 border-red-200">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-3 mb-2">
-                                    <div className="flex items-center space-x-2">
-                                      <Clock className="w-4 h-4 text-muted-foreground" />
-                                      <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
-                          </div>
-                                <div className="flex items-center gap-2">
-                                       {hasDiscount && (
-                                         <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-                                           {promoInfo ? 'Promo Applied' : 'Discounted'}
-                                         </Badge>
-                                      )}
-                                  <Badge className={getStatusColor(appointment.status)}>
-                                    {formatStatusLabel(appointment.status)}
+                        .map((appointment) => (
+                          <div key={appointment.id} className="border rounded-lg p-4 bg-red-50 border-red-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3 mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Clock className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
+                  </div>
+                                  <Badge className="bg-red-200 text-red-800 border-red-200">
+                                    Cancelled
                                   </Badge>
-                        </div>
                         <span className="text-sm text-muted-foreground">
-                                      {appointment.date ? appointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
+                                    {appointment.date ? appointment.date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'No date'}
                         </span>
                       </div>
-                                  
-                                  <h4 className="font-semibold text-foreground mb-1">
-                                    {appointment.customer}
-                                  </h4>
-                                  
-                                  <p className="text-sm text-muted-foreground mb-2">
-                                    {appointment.service}
-                                  </p>
-                                  
-                                  <div className="flex flex-col space-y-1 text-sm text-muted-foreground mb-2">
-                                    <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
-                                    {appointment.totalPrice > 0 && (
-                                      hasDiscount ? (
-                                        <div className="flex flex-col">
-                                          <div className="flex items-baseline gap-2">
-                                            <span className="text-xs text-muted-foreground line-through">
-                                              Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
-                                            </span>
-                                            <span className="text-sm font-semibold text-green-800">
-                                              ${!Number.isNaN(actualPaid) ? Number(actualPaid).toFixed(2) : '0.00'}
-                                            </span>
+                                
+                                <h4 className="font-semibold text-foreground mb-1">
+                                  {appointment.customer}
+                                </h4>
+                                
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  {appointment.service}
+                                </p>
+                                
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                                  <span>Duration: <span className="text-blue-600 font-medium">{appointment.duration} minutes</span></span>
+                                  {appointment.totalPrice > 0 && (
+                                    <span>Total: <span className="text-green-800 font-medium">${appointment.totalPrice.toFixed(2)}</span></span>
+                                  )}
                     </div>
-                                          <span className="text-xs text-muted-foreground">
-                                            {discountLabel}
-                                            {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
-                                            {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <span>Total: <span className="text-green-800 font-medium">${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}</span></span>
-                                      )
-                                    )}
-                                  </div>
-                                  
-                                  <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                                    {appointment.phone && (
-                                      <div className="flex items-center space-x-1">
-                                        <Phone className="w-4 h-4" />
-                                        <span>{appointment.phone}</span>
-                                      </div>
-                                    )}
-                                  </div>
+                                
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                  {appointment.phone && (
+                                    <div className="flex items-center space-x-1">
+                                      <Phone className="w-4 h-4" />
+                                      <span>{appointment.phone}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
-                          );
-                        })}
+                          </div>
+                        ))}
                     </div>
                   );
                 })()}
@@ -3614,181 +2801,79 @@ const handleCancelSelectedAppointment = async () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {customerVisits.map((visit) => {
-                      const originalTotal = typeof visit.total_price === 'number' ? visit.total_price : parseFloat(visit.total_price || 0);
-                      const actualPaid = visit.actual_amount_paid !== undefined && visit.actual_amount_paid !== null
-                        ? (typeof visit.actual_amount_paid === 'number' ? visit.actual_amount_paid : parseFloat(visit.actual_amount_paid))
-                        : originalTotal;
-                      const rewardInfo = visit.reward || null;
-                      const promoInfo = visit.promo || null;
-                      const hasDiscount = (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
-                      const discountLabel = rewardInfo?.discount_percentage 
-                        ? `${rewardInfo.discount_percentage}% off`
-                        : promoInfo?.discount_pct
-                        ? `${promoInfo.discount_pct}% off`
-                        : 'Discount applied';
-
-                      return (
-                        <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
-                          <CardContent className="p-4 pt-4">
-                            <div className="flex justify-between items-start mb-3">
-                              <div className="flex items-center space-x-3">
-                                <Clock className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium text-foreground">
-                                  {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                  })}
-                                </span>
+                    {customerVisits.map((visit) => (
+                      <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4 pt-4">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center space-x-3">
+                              <Clock className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium text-foreground">
+                                {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </span>
                     </div>
-                                <div className="flex items-center gap-2">
-                                 {hasDiscount && (
-                                   <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-                                      {promoInfo ? 'Promo Applied' : 'Discounted'}
-                                    </Badge>
-                                )}
-                                  <Badge className="bg-purple-200 text-purple-800 border-purple-200">
-                                  Completed
+                            <Badge className="bg-purple-200 text-purple-800 border-purple-200 hover:bg-purple-200">
+                              Completed
                       </Badge>
                     </div>
+                          
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              <Clock className="w-4 h-4" />
+                              <span>
+                                {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })} - {new Date(visit.scheduled_end).toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
+                              </span>
                             </div>
+                            {visit.notes && (
+                              <p className="text-sm text-muted-foreground">
+                                <span className="font-medium">Notes:</span> {visit.notes}
+                              </p>
+                            )}
+                          </div>
 
-                            <div className="space-y-2 mb-3">
-                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                <Clock className="w-4 h-4" />
-                                <span>
-                                  {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    hour12: true
-                                  })} - {new Date(visit.scheduled_end).toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    hour12: true
-                                  })}
-                                </span>
-                              </div>
-                              {visit.notes && (
-                                <p className="text-sm text-muted-foreground">
-                                  <span className="font-medium">Notes:</span> {visit.notes}
-                                </p>
-                              )}
-                            </div>
-
-                            {visit.services && visit.services.length > 0 && (
-                              <div className="mt-3 pt-3 border-t">
-                                <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
-                                <div className="space-y-2">
-                          {visit.services.map((service, idx) => {
-                            return (
-                              <div key={idx} className="text-sm bg-gray-50 p-3 rounded">
-                                <div className="flex justify-between items-center">
+                          {visit.services && visit.services.length > 0 && (
+                            <div className="mt-3 pt-3 border-t">
+                              <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
+                              <div className="space-y-2">
+                                {visit.services.map((service, idx) => (
+                                  <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
                     <div>
-                                        <span className="font-medium text-foreground">{service.service_name}</span>
-                                        {service.employee && (
-                                          <p className="text-xs text-muted-foreground">
-                                            By: {service.employee.name}
-                                            {service.employee.title && ` (${service.employee.title})`}
-                                          </p>
-                                        )}
+                                      <span className="font-medium text-foreground">{service.service_name}</span>
+                                      {service.employee && (
+                                        <p className="text-xs text-muted-foreground">
+                                          By: {service.employee.name}
+                                          {service.employee.title && ` (${service.employee.title})`}
+                                        </p>
+                                      )}
                     </div>
-                                      <div className="text-right">
-                                    <div className="font-medium text-green-800">
-                                      ${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}
-                                    </div>
-                                        <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
+                                    <div className="text-right">
+                                      <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
+                                      <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
                   </div>
                 </div>
+                                ))}
                               </div>
-                            );
-                          })}
-                                </div>
-                          {/* Booking-level upload/view (one per booking) */}
-                          <div className="mt-3 flex justify-start">
-                            {visitPhotosByBookingId[visit.booking_id]?.hasPhotos ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={async () => {
-                                  const bookingId = visit.booking_id;
-                                  // Fetch latest photos and get data directly
-                                  const photoData = await fetchBookingPhotos(bookingId);
-                                  setPhotoModalState({
-                                    bookingId,
-                                    beforeFile: null,
-                                    afterFile: null,
-                                    beforePreview: photoData?.beforePhotoUrl || null,
-                                    afterPreview: photoData?.afterPhotoUrl || null,
-                                    originalBeforeUrl: photoData?.beforePhotoUrl || null, // Store original to track existing photos
-                                    originalAfterUrl: photoData?.afterPhotoUrl || null, // Store original to track existing photos
-                                    beforeFileToCrop: null,
-                                    afterFileToCrop: null,
-                                    beforeDelete: false,
-                                    afterDelete: false,
-                                    mode: 'view',
-                                    uploading: false
-                                  });
-                                  setShowPhotoModal(true);
-                                }}
-                              >
-                                View Photos
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setPhotoModalState({
-                                    bookingId: visit.booking_id,
-                                    beforeFile: null,
-                                    afterFile: null,
-                                    beforePreview: null,
-                                    afterPreview: null,
-                                    originalBeforeUrl: null, // No existing photos in upload mode
-                                    originalAfterUrl: null, // No existing photos in upload mode
-                                    beforeFileToCrop: null,
-                                    afterFileToCrop: null,
-                                    beforeDelete: false,
-                                    afterDelete: false,
-                                    mode: 'upload',
-                                    uploading: false
-                                  });
-                                  setShowPhotoModal(true);
-                                }}
-                              >
-                                Upload Photos
-                              </Button>
-                            )}
-                                </div>
-                                <div className="flex justify-end mt-3 pt-3 border-t">
-                                  {hasDiscount ? (
-                                    <div className="text-right">
-                                      <div className="flex items-baseline gap-2 justify-end">
-                                        <span className="text-sm text-muted-foreground line-through">
-                                          Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
-                                        </span>
-                                        <span className="text-lg font-semibold text-green-800">
-                                          ${!Number.isNaN(actualPaid) ? actualPaid.toFixed(2) : '0.00'}
-                                        </span>
-                                      </div>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                          {discountLabel}
-                                          {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
-                                          {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
-                                        </p>
-                                    </div>
-                                  ) : (
-                                    <div className="text-lg font-semibold text-green-800">
-                                      Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
-                                    </div>
-                                  )}
+                              <div className="flex justify-end mt-3 pt-3 border-t">
+                                <div className="text-lg font-semibold text-green-800">
+                                  Total: ${typeof visit.total_price === 'number' ? visit.total_price.toFixed(2) : parseFloat(visit.total_price || 0).toFixed(2)}
                                 </div>
                               </div>
-                            )}
+                            </div>
+                          )}
               </CardContent>
             </Card>
-                      );
-                    })}
+                    ))}
                   </div>
                 )}
                     </div>
@@ -3826,676 +2911,6 @@ const handleCancelSelectedAppointment = async () => {
         </div>
       )}
 
-      {/* Before/After Photos Modal */}
-      {showPhotoModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
-            <CardContent className="p-0">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h3 className="text-lg font-semibold">
-                  {photoModalState.mode === 'upload' ? 'Upload Before/After Photos' : 'Before/After Photos'}
-                </h3>
-                <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)}>
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium mb-2">Before</h4>
-                    {photoModalState.mode === 'upload' ? (
-                      <>
-                        {photoModalState.beforeFileToCrop ? (
-                          <ImageCropper
-                            file={photoModalState.beforeFileToCrop}
-                            onCrop={(croppedFile) => {
-                              const preview = URL.createObjectURL(croppedFile);
-                              setPhotoModalState((s) => ({
-                                ...s,
-                                beforeFile: croppedFile,
-                                beforePreview: preview,
-                                beforeFileToCrop: null
-                              }));
-                            }}
-                            onCancel={() => {
-                              setPhotoModalState((s) => ({
-                                ...s,
-                                beforeFileToCrop: null
-                              }));
-                              // Reset file input
-                              if (beforeFileInputRef.current) {
-                                beforeFileInputRef.current.value = '';
-                              }
-                            }}
-                          />
-                        ) : (
-                          <>
-                            <div className="mb-3">
-                              {photoModalState.beforePreview ? (
-                                <img src={photoModalState.beforePreview} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
-                              ) : (
-                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
-                              )}
-                            </div>
-                            <div>
-                              <input
-                                ref={beforeFileInputRef}
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    const validation = validateImageFile(file);
-                                    if (!validation.valid) {
-                                      setShowModal(true);
-                                      setModalConfig({
-                                        title: 'Invalid File',
-                                        message: validation.error,
-                                        type: 'error'
-                                      });
-                                      return;
-                                    }
-                                    // Set file to crop instead of immediately using it
-                                    setPhotoModalState((s) => ({
-                                      ...s,
-                                      beforeFileToCrop: file
-                                    }));
-                                  }
-                                }}
-                                className="hidden"
-                              />
-                              <Button 
-                                size="sm" 
-                                type="button"
-                                onClick={() => beforeFileInputRef.current?.click()}
-                              >
-                                Choose File
-                              </Button>
-                            </div>
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      <div className="space-y-3">
-                        {photoModalState.beforePreview ? (
-                          <>
-                            <div className="relative">
-                              <img 
-                                src={photoModalState.beforePreview} 
-                                alt="before" 
-                                className={`w-full max-w-sm h-72 rounded-md object-cover border border-gray-200 ${photoModalState.beforeDelete ? 'opacity-50' : ''}`}
-                              />
-                              {photoModalState.beforeDelete && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-red-100/80 rounded-md">
-                                  <span className="text-red-700 font-semibold">Marked for Deletion</span>
-                                </div>
-                              )}
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                // Toggle delete flag instead of calling API immediately
-                                if (photoModalState.beforeDelete) {
-                                  // Undo deletion
-                                  setPhotoModalState((s) => ({
-                                    ...s,
-                                    beforeDelete: false
-                                  }));
-                                } else {
-                                  // Mark for deletion
-                                  setPhotoModalState((s) => ({
-                                    ...s,
-                                    beforeDelete: true,
-                                    beforeFile: null, // Clear any pending upload
-                                    beforeFileToCrop: null
-                                  }));
-                                  // If there was a preview from a new file, clean it up
-                                  if (photoModalState.beforeFile && photoModalState.beforePreview) {
-                                    URL.revokeObjectURL(photoModalState.beforePreview);
-                                  }
-                                }
-                              }}
-                            >
-                              {photoModalState.beforeDelete ? 'Undo Delete' : 'Delete Before Photo'}
-                            </Button>
-                          </>
-                        ) : (
-                          <div className="space-y-3">
-                            {photoModalState.beforeFileToCrop ? (
-                              <ImageCropper
-                                file={photoModalState.beforeFileToCrop}
-                                onCrop={(croppedFile) => {
-                                  const preview = URL.createObjectURL(croppedFile);
-                                  setPhotoModalState((s) => ({
-                                    ...s,
-                                    beforeFile: croppedFile,
-                                    beforePreview: preview,
-                                    beforeFileToCrop: null,
-                                    beforeDelete: false // Clear delete flag if uploading new file
-                                  }));
-                                }}
-                                onCancel={() => {
-                                  setPhotoModalState((s) => ({
-                                    ...s,
-                                    beforeFileToCrop: null
-                                  }));
-                                  if (beforeFileInputRef.current) {
-                                    beforeFileInputRef.current.value = '';
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <>
-                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
-                                <input
-                                  ref={beforeFileInputRef}
-                                  type="file"
-                                  accept="image/png,image/jpeg,image/webp"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      const validation = validateImageFile(file);
-                                      if (!validation.valid) {
-                                        setShowModal(true);
-                                        setModalConfig({
-                                          title: 'Invalid File',
-                                          message: validation.error,
-                                          type: 'error'
-                                        });
-                                        return;
-                                      }
-                                      setPhotoModalState((s) => ({
-                                        ...s,
-                                        beforeFileToCrop: file,
-                                        beforeDelete: false // Clear delete flag if selecting new file
-                                      }));
-                                    }
-                                  }}
-                                  className="hidden"
-                                />
-                                <Button 
-                                  size="sm" 
-                                  type="button"
-                                  onClick={() => beforeFileInputRef.current?.click()}
-                                >
-                                  Upload Before Photo
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="font-medium mb-2">After</h4>
-                    {photoModalState.mode === 'upload' ? (
-                      <>
-                        {photoModalState.afterFileToCrop ? (
-                          <ImageCropper
-                            file={photoModalState.afterFileToCrop}
-                            onCrop={(croppedFile) => {
-                              const preview = URL.createObjectURL(croppedFile);
-                              setPhotoModalState((s) => ({
-                                ...s,
-                                afterFile: croppedFile,
-                                afterPreview: preview,
-                                afterFileToCrop: null,
-                                afterDelete: false // Clear delete flag if uploading new file
-                              }));
-                            }}
-                            onCancel={() => {
-                              setPhotoModalState((s) => ({
-                                ...s,
-                                afterFileToCrop: null
-                              }));
-                              // Reset file input
-                              if (afterFileInputRef.current) {
-                                afterFileInputRef.current.value = '';
-                              }
-                            }}
-                          />
-                        ) : (
-                          <>
-                            <div className="mb-3">
-                              {photoModalState.afterPreview ? (
-                                <img src={photoModalState.afterPreview} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
-                              ) : (
-                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
-                              )}
-                            </div>
-                            <div>
-                              <input
-                                ref={afterFileInputRef}
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    const validation = validateImageFile(file);
-                                    if (!validation.valid) {
-                                      setShowModal(true);
-                                      setModalConfig({
-                                        title: 'Invalid File',
-                                        message: validation.error,
-                                        type: 'error'
-                                      });
-                                      return;
-                                    }
-                                    // Set file to crop instead of immediately using it
-                                    setPhotoModalState((s) => ({
-                                      ...s,
-                                      afterFileToCrop: file,
-                                      afterDelete: false // Clear delete flag if selecting new file
-                                    }));
-                                  }
-                                }}
-                                className="hidden"
-                              />
-                              <Button 
-                                size="sm" 
-                                type="button"
-                                onClick={() => afterFileInputRef.current?.click()}
-                              >
-                                Choose File
-                              </Button>
-                            </div>
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      <div className="space-y-3">
-                        {photoModalState.afterPreview ? (
-                          <>
-                            <div className="relative">
-                              <img 
-                                src={photoModalState.afterPreview} 
-                                alt="after" 
-                                className={`w-full max-w-sm h-72 rounded-md object-cover border border-gray-200 ${photoModalState.afterDelete ? 'opacity-50' : ''}`}
-                              />
-                              {photoModalState.afterDelete && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-red-100/80 rounded-md">
-                                  <span className="text-red-700 font-semibold">Marked for Deletion</span>
-                                </div>
-                              )}
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                // Toggle delete flag instead of calling API immediately
-                                if (photoModalState.afterDelete) {
-                                  // Undo deletion
-                                  setPhotoModalState((s) => ({
-                                    ...s,
-                                    afterDelete: false
-                                  }));
-                                } else {
-                                  // Mark for deletion
-                                  setPhotoModalState((s) => ({
-                                    ...s,
-                                    afterDelete: true,
-                                    afterFile: null, // Clear any pending upload
-                                    afterFileToCrop: null
-                                  }));
-                                  // If there was a preview from a new file, clean it up
-                                  if (photoModalState.afterFile && photoModalState.afterPreview) {
-                                    URL.revokeObjectURL(photoModalState.afterPreview);
-                                  }
-                                }
-                              }}
-                            >
-                              {photoModalState.afterDelete ? 'Undo Delete' : 'Delete After Photo'}
-                            </Button>
-                          </>
-                        ) : (
-                          <div className="space-y-3">
-                            {photoModalState.afterFileToCrop ? (
-                              <ImageCropper
-                                file={photoModalState.afterFileToCrop}
-                                onCrop={(croppedFile) => {
-                                  const preview = URL.createObjectURL(croppedFile);
-                                  setPhotoModalState((s) => ({
-                                    ...s,
-                                    afterFile: croppedFile,
-                                    afterPreview: preview,
-                                    afterFileToCrop: null
-                                  }));
-                                }}
-                                onCancel={() => {
-                                  setPhotoModalState((s) => ({
-                                    ...s,
-                                    afterFileToCrop: null
-                                  }));
-                                  if (afterFileInputRef.current) {
-                                    afterFileInputRef.current.value = '';
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <>
-                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
-                                <input
-                                  ref={afterFileInputRef}
-                                  type="file"
-                                  accept="image/png,image/jpeg,image/webp"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      const validation = validateImageFile(file);
-                                      if (!validation.valid) {
-                                        setShowModal(true);
-                                        setModalConfig({
-                                          title: 'Invalid File',
-                                          message: validation.error,
-                                          type: 'error'
-                                        });
-                                        return;
-                                      }
-                                      setPhotoModalState((s) => ({
-                                        ...s,
-                                        afterFileToCrop: file
-                                      }));
-                                    }
-                                  }}
-                                  className="hidden"
-                                />
-                                <Button 
-                                  size="sm" 
-                                  type="button"
-                                  onClick={() => afterFileInputRef.current?.click()}
-                                >
-                                  Upload After Photo
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {photoModalState.mode === 'upload' && (
-                  <div className="flex justify-end gap-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        // Clean up preview URLs
-                        if (photoModalState.beforePreview && photoModalState.beforeFile) {
-                          URL.revokeObjectURL(photoModalState.beforePreview);
-                        }
-                        if (photoModalState.afterPreview && photoModalState.afterFile) {
-                          URL.revokeObjectURL(photoModalState.afterPreview);
-                        }
-                        setShowPhotoModal(false);
-                      }}
-                      disabled={photoModalState.uploading}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        if (!photoModalState.beforeFile && !photoModalState.afterFile) {
-                          setShowModal(true);
-                          setModalConfig({
-                            title: 'No Photos Selected',
-                            message: 'Please select at least one photo to upload.',
-                            type: 'error'
-                          });
-                          return;
-                        }
-
-                        setPhotoModalState((s) => ({ ...s, uploading: true }));
-
-                        try {
-                          const bookingId = photoModalState.bookingId;
-                          let uploadSuccess = false;
-
-                          // Upload before photo if selected
-                          if (photoModalState.beforeFile) {
-                            await uploadBookingPhoto(bookingId, photoModalState.beforeFile, 'BEFORE');
-                            uploadSuccess = true;
-                          }
-
-                          // Upload after photo if selected
-                          if (photoModalState.afterFile) {
-                            await uploadBookingPhoto(bookingId, photoModalState.afterFile, 'AFTER');
-                            uploadSuccess = true;
-                          }
-
-                          if (!uploadSuccess) {
-                            throw new Error('No photos selected');
-                          }
-
-                          // Clean up preview URLs from file selection
-                          if (photoModalState.beforePreview && photoModalState.beforeFile) {
-                            URL.revokeObjectURL(photoModalState.beforePreview);
-                          }
-                          if (photoModalState.afterPreview && photoModalState.afterFile) {
-                            URL.revokeObjectURL(photoModalState.afterPreview);
-                          }
-
-                          // Refresh photos immediately to get the newly uploaded photos
-                          const photoData = await fetchBookingPhotos(bookingId);
-                          
-                          // Update modal state to show the newly uploaded photos in view mode
-                          setPhotoModalState({
-                            bookingId,
-                            beforeFile: null,
-                            afterFile: null,
-                            beforePreview: photoData?.beforePhotoUrl || null,
-                            afterPreview: photoData?.afterPhotoUrl || null,
-                            originalBeforeUrl: photoData?.beforePhotoUrl || null, // Update original URLs
-                            originalAfterUrl: photoData?.afterPhotoUrl || null, // Update original URLs
-                            beforeFileToCrop: null,
-                            afterFileToCrop: null,
-                            beforeDelete: false,
-                            afterDelete: false,
-                            mode: 'view',
-                            uploading: false
-                          });
-                          
-                          // Also refresh visit list to ensure UI updates
-                          if (selectedCustomer) {
-                            await fetchCustomerVisitHistory(selectedCustomer.user_id, visitsPagination.offset);
-                          }
-
-                          toast.success('Photos uploaded successfully');
-                          // Keep modal open to show the uploaded photos
-                        } catch (err) {
-                          setShowModal(true);
-                          setModalConfig({
-                            title: 'Upload Failed',
-                            message: err.message || 'Failed to upload photos. Please try again.',
-                            type: 'error'
-                          });
-                        } finally {
-                          setPhotoModalState((s) => ({ ...s, uploading: false }));
-                        }
-                      }}
-                      disabled={photoModalState.uploading}
-                    >
-                      {photoModalState.uploading ? 'Uploading...' : 'Save'}
-                    </Button>
-                  </div>
-                )}
-                {photoModalState.mode === 'view' && (
-                  <div className="flex justify-between gap-2">
-                    {(photoModalState.beforePreview && photoModalState.afterPreview) && (
-                      <Button
-                        variant="outline"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => {
-                          // Toggle delete flags for both photos
-                          const bothMarked = photoModalState.beforeDelete && photoModalState.afterDelete;
-                          if (bothMarked) {
-                            // Undo both deletions
-                            setPhotoModalState((s) => ({
-                              ...s,
-                              beforeDelete: false,
-                              afterDelete: false
-                            }));
-                          } else {
-                            // Mark both for deletion
-                            setPhotoModalState((s) => ({
-                              ...s,
-                              beforeDelete: true,
-                              afterDelete: true,
-                              beforeFile: null, // Clear any pending uploads
-                              afterFile: null,
-                              beforeFileToCrop: null,
-                              afterFileToCrop: null
-                            }));
-                            // Clean up any preview URLs from new files
-                            if (photoModalState.beforeFile && photoModalState.beforePreview) {
-                              URL.revokeObjectURL(photoModalState.beforePreview);
-                            }
-                            if (photoModalState.afterFile && photoModalState.afterPreview) {
-                              URL.revokeObjectURL(photoModalState.afterPreview);
-                            }
-                          }
-                        }}
-                      >
-                        {(photoModalState.beforeDelete && photoModalState.afterDelete) ? 'Undo Delete All' : 'Delete All Photos'}
-                      </Button>
-                    )}
-                    <div className="flex gap-2">
-                      {/* Show Save button if there are pending changes (uploads or deletes) */}
-                      {(photoModalState.beforeFile || photoModalState.afterFile || photoModalState.beforeDelete || photoModalState.afterDelete) && (
-                        <Button
-                          onClick={async () => {
-                            const bookingId = photoModalState.bookingId;
-                            const hasUploads = photoModalState.beforeFile || photoModalState.afterFile;
-                            const hasDeletes = photoModalState.beforeDelete || photoModalState.afterDelete;
-
-                            if (!hasUploads && !hasDeletes) {
-                              setShowModal(true);
-                              setModalConfig({
-                                title: 'No Changes',
-                                message: 'No changes to save.',
-                                type: 'error'
-                              });
-                              return;
-                            }
-
-                            setPhotoModalState((s) => ({ ...s, uploading: true }));
-
-                            try {
-                              // Use original URLs to determine if photos existed when modal opened
-                              // This is more reliable than checking preview URLs which may be replaced with blob URLs
-                              const hadExistingBefore = !!photoModalState.originalBeforeUrl;
-                              const hadExistingAfter = !!photoModalState.originalAfterUrl;
-                              
-                              // BEFORE and AFTER are completely independent - handle each separately
-                              
-                              // Handle BEFORE photo operations
-                              if (photoModalState.beforeDelete && hadExistingBefore) {
-                                // User wants to delete the existing BEFORE photo
-                                await deleteBookingPhoto(bookingId, 'BEFORE');
-                              }
-                              if (photoModalState.beforeFile) {
-                                // User wants to upload a new BEFORE photo
-                                // If one existed, we already deleted it above (if beforeDelete was true)
-                                // If one existed and we're replacing (beforeFile set but beforeDelete false), delete it first
-                                if (hadExistingBefore && !photoModalState.beforeDelete) {
-                                  // Replacing existing photo - delete old one first
-                                  await deleteBookingPhoto(bookingId, 'BEFORE');
-                                }
-                                // Now upload the new file
-                                await uploadBookingPhoto(bookingId, photoModalState.beforeFile, 'BEFORE');
-                              }
-                              
-                              // Handle AFTER photo operations (independent of BEFORE)
-                              if (photoModalState.afterDelete && hadExistingAfter) {
-                                // User wants to delete the existing AFTER photo
-                                await deleteBookingPhoto(bookingId, 'AFTER');
-                              }
-                              if (photoModalState.afterFile) {
-                                // User wants to upload a new AFTER photo
-                                // If one existed, we already deleted it above (if afterDelete was true)
-                                // If one existed and we're replacing (afterFile set but afterDelete false), delete it first
-                                if (hadExistingAfter && !photoModalState.afterDelete) {
-                                  // Replacing existing photo - delete old one first
-                                  await deleteBookingPhoto(bookingId, 'AFTER');
-                                }
-                                // Now upload the new file
-                                await uploadBookingPhoto(bookingId, photoModalState.afterFile, 'AFTER');
-                              }
-
-                              // Clean up preview URLs from new file selections
-                              if (photoModalState.beforePreview && photoModalState.beforeFile) {
-                                URL.revokeObjectURL(photoModalState.beforePreview);
-                              }
-                              if (photoModalState.afterPreview && photoModalState.afterFile) {
-                                URL.revokeObjectURL(photoModalState.afterPreview);
-                              }
-
-                              // Refresh photos immediately to get the updated state
-                              const photoData = await fetchBookingPhotos(bookingId);
-                              
-                              // Also refresh visit list to ensure UI updates
-                              if (selectedCustomer) {
-                                await fetchCustomerVisitHistory(selectedCustomer.user_id, visitsPagination.offset);
-                              }
-
-                              // Update modal state with fresh photos
-                              setPhotoModalState({
-                                bookingId,
-                                beforeFile: null,
-                                afterFile: null,
-                                beforePreview: photoData?.beforePhotoUrl || null,
-                                afterPreview: photoData?.afterPhotoUrl || null,
-                                originalBeforeUrl: photoData?.beforePhotoUrl || null, // Update original URLs
-                                originalAfterUrl: photoData?.afterPhotoUrl || null, // Update original URLs
-                                beforeFileToCrop: null,
-                                afterFileToCrop: null,
-                                beforeDelete: false,
-                                afterDelete: false,
-                                mode: 'view',
-                                uploading: false
-                              });
-
-                              toast.success('Changes saved successfully');
-                            } catch (err) {
-                              setShowModal(true);
-                              setModalConfig({
-                                title: 'Save Failed',
-                                message: err.message || 'Failed to save changes. Please try again.',
-                                type: 'error'
-                              });
-                            } finally {
-                              setPhotoModalState((s) => ({ ...s, uploading: false }));
-                            }
-                          }}
-                          disabled={photoModalState.uploading}
-                        >
-                          {photoModalState.uploading ? 'Saving...' : 'Save'}
-                        </Button>
-                      )}
-                      <Button variant="outline" onClick={() => {
-                        // Clean up any pending preview URLs when closing
-                        if (photoModalState.beforeFile && photoModalState.beforePreview) {
-                          URL.revokeObjectURL(photoModalState.beforePreview);
-                        }
-                        if (photoModalState.afterFile && photoModalState.afterPreview) {
-                          URL.revokeObjectURL(photoModalState.afterPreview);
-                        }
-                        setShowPhotoModal(false);
-                      }}>Close</Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              </CardContent>
-            </Card>
-        </div>
-      )}
-
       <StrandsModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
@@ -4507,7 +2922,6 @@ const handleCancelSelectedAppointment = async () => {
         showCancel={modalConfig.showCancel || false}
         cancelText={modalConfig.cancelText || 'Cancel'}
       />
-      <NotificationInbox isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
     </div>
   );
 }

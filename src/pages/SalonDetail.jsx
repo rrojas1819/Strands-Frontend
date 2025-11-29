@@ -576,6 +576,7 @@ export default function SalonDetail() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <Button 
+                  id="book-appointment-detail-button"
                   className="w-full bg-primary hover:bg-primary/90"
                   onClick={() => navigate(`/salon/${salonId}/book`)}
                 >

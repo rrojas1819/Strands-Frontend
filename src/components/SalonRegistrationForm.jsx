@@ -316,6 +316,7 @@ export default function SalonRegistrationForm() {
               <div className="space-y-2">
                 <Label htmlFor="category">Salon Type</Label>
                 <StrandsSelect
+                  id="category"
                   value={formData.category}
                   onValueChange={(value) => handleInputChange('category', value)}
                   placeholder="Select salon type"
@@ -343,6 +344,7 @@ export default function SalonRegistrationForm() {
               )}
 
               <Button
+                id="submit-for-review-button"
                 type="submit"
                 disabled={isLoading}
                 className="w-full"

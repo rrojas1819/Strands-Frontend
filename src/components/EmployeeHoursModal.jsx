@@ -227,6 +227,7 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
                           <>
                             <div className="flex items-center gap-2 flex-1">
                               <input
+                                id={`employee-${day.value.toLowerCase()}-start-time`}
                                 type="time"
                                 value={dayAvail.start_time || ''}
                                 onChange={(e) => handleDayChange(day.value, 'start_time', e.target.value)}
@@ -235,6 +236,7 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
                               />
                               <span className="text-muted-foreground">to</span>
                               <input
+                                id={`employee-${day.value.toLowerCase()}-end-time`}
                                 type="time"
                                 value={dayAvail.end_time || ''}
                                 onChange={(e) => handleDayChange(day.value, 'end_time', e.target.value)}
@@ -248,6 +250,7 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
                               </p>
                             )}
                             <button
+                              id={`employee-${day.value.toLowerCase()}-toggle-button`}
                               type="button"
                               onClick={() => toggleDay(day.value)}
                               className="px-4 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors font-medium whitespace-nowrap"
@@ -268,6 +271,7 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
                               <p className="text-xs text-muted-foreground">Salon closed</p>
                             )}
                             <button
+                              id={`employee-${day.value.toLowerCase()}-toggle-button`}
                               type="button"
                               onClick={() => toggleDay(day.value)}
                               className="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors font-medium whitespace-nowrap"
@@ -302,6 +306,7 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
                 Cancel
               </Button>
               <Button 
+                id="save-employee-hours-button"
                 type="submit" 
                 disabled={isLoading || isLoadingData}
                 className="bg-blue-600 hover:bg-blue-700 text-white"

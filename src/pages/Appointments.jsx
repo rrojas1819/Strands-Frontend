@@ -624,6 +624,7 @@ export default function Appointments() {
           {/* Filter Tabs */}
           <div className="flex flex-wrap gap-2 mt-4">
             <Button
+              id="appointments-filter-all"
               variant={filter === 'all' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('all')}
@@ -632,6 +633,7 @@ export default function Appointments() {
               All
             </Button>
             <Button
+              id="appointments-filter-upcoming"
               variant={filter === 'scheduled' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('scheduled')}
@@ -640,6 +642,7 @@ export default function Appointments() {
               Upcoming
             </Button>
             <Button
+              id="appointments-filter-past"
               variant={filter === 'past' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('past')}
@@ -648,6 +651,7 @@ export default function Appointments() {
               Past
             </Button>
             <Button
+              id="appointments-filter-canceled"
               variant={filter === 'cancelled' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('cancelled')}
@@ -862,6 +866,7 @@ export default function Appointments() {
                       )}
                       {canReschedule && (
                         <Button
+                          id={`reschedule-appointment-button-${appointment.booking_id}`}
                           size="sm"
                           variant="outline"
                           onClick={() => handleRescheduleClick(appointment)}

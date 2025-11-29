@@ -22,7 +22,7 @@ export default function LandingPage() {
             <Button variant="ghost" onClick={() => navigate('/login')}>
               Sign In
             </Button>
-            <Button onClick={() => navigate('/signup')}>
+            <Button id="get-started-header-button" onClick={() => navigate('/signup')}>
               Get Started
             </Button>
           </div>
@@ -46,7 +46,7 @@ export default function LandingPage() {
             <Button size="lg" onClick={() => navigate('/login')}>
               Sign In Now
             </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate('/signup')}>
+            <Button id="get-started-hero-button" size="lg" variant="outline" onClick={() => navigate('/signup')}>
               Get Started
             </Button>
           </div>

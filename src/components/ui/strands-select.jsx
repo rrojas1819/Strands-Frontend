@@ -7,7 +7,8 @@ const StrandsSelect = ({
   placeholder = "Select an option", 
   options = [], 
   className = "",
-  disabled = false 
+  disabled = false,
+  id = null
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -84,6 +85,7 @@ const StrandsSelect = ({
       {/* Select Trigger */}
       <button
         type="button"
+        id={id}
         onClick={handleToggle}
         disabled={disabled}
         className={`

@@ -80,7 +80,10 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
       const data = await response.json();
 
       if (response.ok) {
-        onSuccess?.(isUpdateMode ? 'Loyalty program updated successfully!' : 'Loyalty program created successfully!');
+        onSuccess?.(
+          isUpdateMode ? 'Loyalty program updated successfully!' : 'Loyalty program created successfully!',
+          'loyalty'
+        );
       } else {
         setError(data.message || 'Failed to save loyalty program');
         onError?.(data.message || 'Failed to save loyalty program');
@@ -116,6 +119,7 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
             <div>
               <label className="block text-sm font-medium mb-2">Appointments Required for Reward</label>
               <input
+                id="loyalty-target-visits-input"
                 type="number"
                 min="1"
                 max="100"
@@ -132,6 +136,7 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
             <div>
               <label className="block text-sm font-medium mb-2">Reward Discount (%)</label>
               <input
+                id="loyalty-discount-input"
                 type="number"
                 min="1"
                 max="100"
@@ -149,6 +154,7 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
           <div>
             <label className="block text-sm font-medium mb-2">Reward Description</label>
             <textarea
+              id="loyalty-description-input"
               value={loyaltyConfig.note}
               onChange={(e) => setLoyaltyConfig({...loyaltyConfig, note: e.target.value})}
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -180,6 +186,7 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
 
           <div className="flex justify-end">
             <Button 
+              id={isUpdateMode ? 'update-loyalty-settings-button' : 'create-loyalty-settings-button'}
               type="submit" 
               disabled={isLoading || isLoadingData}
               className="bg-blue-600 hover:bg-blue-700 text-white"

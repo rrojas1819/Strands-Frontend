@@ -638,7 +638,8 @@ export default function SalonOwnerDashboard() {
             setShowAddEmployeeModal(false);
             setNewEmployee({ email: '', title: '' });
             fetchEmployees(pagination.current_page);
-          }
+          },
+          confirmButtonId: 'add-employee-success-ok-button'
         });
         setShowModal(true);
       } else {
@@ -1480,7 +1481,7 @@ export default function SalonOwnerDashboard() {
                     Manage your salon employees ({pagination.total_employees} total)
                   </p>
                   </div>
-                <Button onClick={() => setShowAddEmployeeModal(true)}>
+                <Button id="add-employee-page-button" onClick={() => setShowAddEmployeeModal(true)}>
                   <Users className="w-4 h-4 mr-2" />
                     Add Employee
                   </Button>
@@ -1522,6 +1523,7 @@ export default function SalonOwnerDashboard() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button 
+                        id={`set-hours-button-${employee.employee_id}`}
                         variant="outline" 
                         size="sm"
                               onClick={() => handleSetEmployeeHours(employee)}
@@ -1815,6 +1817,7 @@ export default function SalonOwnerDashboard() {
             <div className="border-b border-muted">
               <div className="flex space-x-8">
                 <button
+                  id="loyalty-subtab-loyalty-program-button"
                   onClick={() => {
                     setLoyaltySubTab('loyalty-config');
                     localStorage.setItem('loyaltySubTab', 'loyalty-config');
@@ -1828,6 +1831,7 @@ export default function SalonOwnerDashboard() {
                   Loyalty Program
                 </button>
                 <button
+                  id="loyalty-subtab-promotions-button"
                   onClick={() => {
                     setLoyaltySubTab('promotions');
                     localStorage.setItem('loyaltySubTab', 'promotions');
@@ -1845,11 +1849,15 @@ export default function SalonOwnerDashboard() {
 
             {loyaltySubTab === 'loyalty-config' && (
               <LoyaltyConfiguration 
-                onSuccess={(message) => {
+                onSuccess={(message, context) => {
+                  const confirmButtonId = context === 'loyalty'
+                    ? 'loyalty-settings-success-ok-button'
+                    : undefined;
                   setModalConfig({
                     title: 'Success',
                     message: message,
                     type: 'success',
+                    confirmButtonId,
                     onConfirm: () => setShowModal(false)
                   });
                   setShowModal(true);
@@ -1871,11 +1879,17 @@ export default function SalonOwnerDashboard() {
                 salonId={salonInfo.salon_id}
                 salonName={salonInfo.name}
                 salonTimezone={salonInfo.timezone}
-                onSuccess={(message) => {
+                onSuccess={(message, context) => {
+                  const confirmButtonId = context === 'promotion-send'
+                    ? 'promotion-success-ok-button'
+                    : context === 'promotion-reminder'
+                      ? 'promotion-reminder-success-ok-button'
+                      : undefined;
                   setModalConfig({
                     title: 'Success',
                     message: message,
                     type: 'success',
+                    confirmButtonId,
                     onConfirm: () => setShowModal(false)
                   });
                   setShowModal(true);
@@ -2250,7 +2264,8 @@ export default function SalonOwnerDashboard() {
                 title: 'Success',
                 message: message,
                 type: 'success',
-                onConfirm: () => setShowModal(false)
+                onConfirm: () => setShowModal(false),
+                confirmButtonId: 'operating-hours-success-ok-button'
               });
               setShowModal(true);
             }}
@@ -2283,6 +2298,7 @@ export default function SalonOwnerDashboard() {
                   <div>
                   <label className="block text-sm font-medium mb-2">Employee Email</label>
                   <input
+                    id="add-employee-email-input"
                     type="email"
                     value={newEmployee.email}
                     onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
@@ -2298,6 +2314,7 @@ export default function SalonOwnerDashboard() {
                 <div>
                   <label className="block text-sm font-medium mb-2">Job Title</label>
                   <input
+                    id="add-employee-job-title-input"
                     type="text"
                     value={newEmployee.title}
                     onChange={(e) => setNewEmployee({...newEmployee, title: e.target.value})}
@@ -2314,7 +2331,7 @@ export default function SalonOwnerDashboard() {
                   }}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isAddingEmployee}>
+                  <Button id="add-employee-modal-submit-button" type="submit" disabled={isAddingEmployee}>
                     {isAddingEmployee ? 'Adding...' : 'Add Employee'}
                   </Button>
                 </div>
@@ -2333,6 +2350,7 @@ export default function SalonOwnerDashboard() {
           confirmText={modalConfig.confirmText || 'OK'}
           showCancel={modalConfig.showCancel || false}
           cancelText={modalConfig.cancelText || 'Cancel'}
+          confirmButtonId={modalConfig.confirmButtonId || null}
         />
 
         <StrandsModal
@@ -2362,7 +2380,8 @@ export default function SalonOwnerDashboard() {
               title: 'Success',
               message: message,
               type: 'success',
-              onConfirm: () => setShowModal(false)
+              onConfirm: () => setShowModal(false),
+              confirmButtonId: 'employee-hours-success-ok-button'
             });
             setShowModal(true);
           }}
