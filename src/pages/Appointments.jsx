@@ -715,8 +715,8 @@ export default function Appointments() {
           </div>
         ) : filteredAppointments.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <CardContent className="py-24 text-center flex flex-col items-center justify-center min-h-[400px]">
+              <Calendar className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold mb-2">No appointments found</h3>
               <p className="text-muted-foreground mb-4">
                 {filter === 'all' 
