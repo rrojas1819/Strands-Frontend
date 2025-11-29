@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Button } from './ui/button';
@@ -13,7 +13,15 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
-  const { unreadCount } = useNotifications();
+  const { unreadCount, onCountChange } = useNotifications();
+  
+  // Listen for count changes
+  useEffect(() => {
+    const unsubscribe = onCountChange(() => {
+      // Badge will update automatically via state
+    });
+    return unsubscribe;
+  }, [onCountChange]);
 
   const isActive = (path) => {
     return location.pathname === path;
