@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Mail, Clock, CheckCircle, Eye, Trash2, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Mail, Clock, CheckCircle, Eye, Trash2, Copy, Check, ChevronLeft, ChevronRight, Filter, CheckCheck, Trash } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -7,6 +7,10 @@ import { Input } from './ui/input';
 import StrandsModal from './ui/strands-modal';
 import { useNotifications } from '../hooks/useNotifications';
 import { toast } from 'sonner';
+import { decryptMessage, isEncrypted } from '../utils/decryption';
+
+// Notification encryption key (should match backend)
+const NOTIFICATION_ENCRYPTION_KEY = '78049334f68ba40c1b067f494995bb0128ebf739d56821917aa2d9bb0e72f3a1';
 
 export default function NotificationInbox({ isOpen, onClose }) {
   const [notifications, setNotifications] = useState([]);
@@ -18,6 +22,11 @@ export default function NotificationInbox({ isOpen, onClose }) {
   const [notificationToDelete, setNotificationToDelete] = useState(null);
   const [copiedPromoCode, setCopiedPromoCode] = useState(null);
   const [pageInputValue, setPageInputValue] = useState('1');
+  const [filter, setFilter] = useState('all'); // Filter: 'all', 'bookings', 'rewards', 'products', 'reviews'
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [decryptedMessages, setDecryptedMessages] = useState({}); // Cache for decrypted messages
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 5,
@@ -29,8 +38,9 @@ export default function NotificationInbox({ isOpen, onClose }) {
   const pollingIntervalRef = useRef(null);
   const lastNotificationIdsRef = useRef(new Set());
   const currentPageRef = useRef(1);
+  const filterRef = useRef('all');
 
-  const fetchNotifications = useCallback(async (page = 1, showToast = false) => {
+  const fetchNotifications = useCallback(async (page = 1, showToast = false, filterParam = null) => {
     setLoading(true);
     setError('');
     
@@ -44,7 +54,22 @@ export default function NotificationInbox({ isOpen, onClose }) {
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       const limit = 5; // Fixed limit
-      const response = await fetch(`${apiUrl}/notifications/inbox?page=${page}&limit=${limit}`, {
+      
+      // Use filterParam if provided, otherwise use current filter state
+      const currentFilter = filterParam !== null ? filterParam : filterRef.current;
+      
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString()
+      });
+      
+      // Add filter if not 'all'
+      if (currentFilter && currentFilter !== 'all') {
+        params.append('filter', currentFilter);
+      }
+      
+      const response = await fetch(`${apiUrl}/notifications/inbox?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -62,9 +87,29 @@ export default function NotificationInbox({ isOpen, onClose }) {
       if (data.data && data.data.notifications) {
         const newNotifications = data.data.notifications;
         
+        // Decrypt messages if encrypted
+        const decryptionPromises = newNotifications.map(async (notif) => {
+          if (isEncrypted(notif.message)) {
+            try {
+              const decrypted = await decryptMessage(notif.message, NOTIFICATION_ENCRYPTION_KEY);
+              setDecryptedMessages(prev => ({
+                ...prev,
+                [notif.notification_id]: decrypted
+              }));
+              return { ...notif, message: decrypted };
+            } catch (err) {
+              console.error('Failed to decrypt message:', err);
+              return notif; // Return original if decryption fails
+            }
+          }
+          return notif;
+        });
+        
+        const decryptedNotifications = await Promise.all(decryptionPromises);
+        
         // Check for new notifications (compare IDs)
         if (lastNotificationIdsRef.current.size > 0) {
-          const newIds = new Set(newNotifications.map(n => n.notification_id));
+          const newIds = new Set(decryptedNotifications.map(n => n.notification_id));
           const hasNewNotifications = Array.from(newIds).some(id => !lastNotificationIdsRef.current.has(id));
           
           if (hasNewNotifications) {
@@ -78,9 +123,9 @@ export default function NotificationInbox({ isOpen, onClose }) {
         }
         
         // Update last known notification IDs
-        lastNotificationIdsRef.current = new Set(newNotifications.map(n => n.notification_id));
+        lastNotificationIdsRef.current = new Set(decryptedNotifications.map(n => n.notification_id));
         
-        setNotifications(newNotifications);
+        setNotifications(decryptedNotifications);
         const newPagination = {
           page: data.data.pagination.page,
           limit: data.data.pagination.limit,
@@ -243,25 +288,134 @@ export default function NotificationInbox({ isOpen, onClose }) {
     }
   }, [deletingId, refreshUnreadCount, notifications, pagination, fetchNotifications]);
 
+  const markAllAsRead = useCallback(async () => {
+    if (markingAllRead) return;
+    
+    setMarkingAllRead(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setMarkingAllRead(false);
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const count = data.data?.count || 0;
+        
+        // Update all notifications to read status
+        setNotifications((prev) =>
+          prev.map((notif) => ({
+            ...notif,
+            status: 'READ',
+            read_at: data.data?.read_at || new Date().toISOString(),
+            read_at_formatted: data.data?.read_at ? new Date(data.data.read_at).toLocaleString() : new Date().toLocaleString()
+          }))
+        );
+        
+        // Update unread count
+        setUnreadCount(0);
+        
+        // Refresh unread count in background
+        refreshUnreadCount();
+        
+        toast.success(`Marked ${count} notification${count !== 1 ? 's' : ''} as read`);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to mark all as read');
+      }
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+      toast.error('Failed to mark all as read');
+    } finally {
+      setMarkingAllRead(false);
+    }
+  }, [markingAllRead, refreshUnreadCount, setUnreadCount]);
+
+  const deleteAllNotifications = useCallback(async () => {
+    if (deletingAll) return;
+    
+    setDeletingAll(true);
+    setShowDeleteAllConfirm(false);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setDeletingAll(false);
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/notifications/delete-all`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const count = data.data?.count || 0;
+        
+        // Clear all notifications
+        setNotifications([]);
+        setPagination(prev => ({
+          ...prev,
+          total: 0,
+          total_pages: 0,
+          page: 1
+        }));
+        currentPageRef.current = 1;
+        
+        // Update unread count
+        setUnreadCount(0);
+        
+        // Refresh unread count in background
+        refreshUnreadCount();
+        
+        toast.success(`Deleted ${count} notification${count !== 1 ? 's' : ''}`);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to delete all notifications');
+      }
+    } catch (err) {
+      console.error('Error deleting all notifications:', err);
+      toast.error('Failed to delete all notifications');
+    } finally {
+      setDeletingAll(false);
+    }
+  }, [deletingAll, refreshUnreadCount, setUnreadCount]);
+
   useEffect(() => {
     if (isOpen) {
-      // Reset to page 1 when modal opens
+      // Reset to page 1 and filter to 'all' when modal opens
       currentPageRef.current = 1;
+      filterRef.current = 'all';
+      setFilter('all');
       setPagination(prev => ({ ...prev, page: 1 }));
-      fetchNotifications(1);
+      fetchNotifications(1, false, 'all');
     } else {
       // Clear notification IDs when modal closes
       lastNotificationIdsRef.current.clear();
     }
   }, [isOpen, fetchNotifications]);
 
-  // Separate effect for polling - uses ref to track current page
+  // Separate effect for polling - uses ref to track current page and filter
   useEffect(() => {
     if (isOpen) {
       // Start polling for new notifications every 5 seconds when inbox is open
       pollingIntervalRef.current = setInterval(() => {
-        // Use ref to get current page (avoids stale closure issues)
-        fetchNotifications(currentPageRef.current, false); // Don't show toast when inbox is open
+        // Use refs to get current page and filter (avoids stale closure issues)
+        fetchNotifications(currentPageRef.current, false, filterRef.current); // Don't show toast when inbox is open
       }, 5000); // Poll every 5 seconds
     } else {
       // Clear polling when modal closes
@@ -279,11 +433,25 @@ export default function NotificationInbox({ isOpen, onClose }) {
     };
   }, [isOpen, fetchNotifications]);
 
+  // Update filter ref when filter changes
+  useEffect(() => {
+    filterRef.current = filter;
+  }, [filter]);
+
+  // Handle filter change
+  const handleFilterChange = useCallback((newFilter) => {
+    setFilter(newFilter);
+    filterRef.current = newFilter;
+    currentPageRef.current = 1;
+    setPagination(prev => ({ ...prev, page: 1 }));
+    fetchNotifications(1, false, newFilter);
+  }, [fetchNotifications]);
+
   const handlePageChange = useCallback((newPage) => {
     if (newPage >= 1 && newPage <= pagination.total_pages && newPage !== pagination.page) {
       currentPageRef.current = newPage;
       setPagination(prev => ({ ...prev, page: newPage }));
-      fetchNotifications(newPage);
+      fetchNotifications(newPage, false, filterRef.current);
     }
   }, [pagination.page, pagination.total_pages, fetchNotifications]);
 
@@ -369,12 +537,76 @@ export default function NotificationInbox({ isOpen, onClose }) {
         }
       }}
     >
-      <Card className="w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <Card
+        id="notification-inbox-panel"
+        className="w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-2xl font-bold text-foreground">Notifications</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={markAllAsRead}
+              disabled={markingAllRead || notifications.length === 0 || notifications.every(n => n.status === 'READ')}
+              className="flex items-center gap-1"
+            >
+              {markingAllRead ? (
+                <>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
+                  Marking...
+                </>
+              ) : (
+                <>
+                  <CheckCheck className="w-4 h-4" />
+                  Mark All Read
+                </>
+              )}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowDeleteAllConfirm(true)}
+              disabled={deletingAll || notifications.length === 0}
+              className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              {deletingAll ? (
+                <>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash className="w-4 h-4" />
+                  Delete All
+                </>
+              )}
+            </Button>
+            <Button id="notification-inbox-close-button" variant="ghost" size="icon" onClick={onClose}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Filter Buttons */}
+        <div className="px-6 pt-4 pb-2 border-b">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground mr-2">Filter:</span>
+            {['all', 'bookings', 'rewards', 'products', 'reviews'].map((filterOption) => (
+              <Button
+                key={filterOption}
+                variant={filter === filterOption ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleFilterChange(filterOption)}
+                disabled={loading}
+                className="capitalize"
+              >
+                {filterOption === 'all' ? 'All' : filterOption}
+              </Button>
+            ))}
+          </div>
         </div>
 
         <CardContent className="flex-1 overflow-y-auto p-6">
@@ -425,7 +657,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
                             )}
                           </div>
                           <div className="text-sm text-foreground mb-2 whitespace-pre-line break-words overflow-wrap-anywhere leading-relaxed">
-                            {notification.message}
+                            {decryptedMessages[notification.notification_id] || notification.message}
                           </div>
                           {/* Promo Code Copy Section - Only show if not already redeemed */}
                           {(() => {
@@ -450,6 +682,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
                                   {allPromoCodes.map((promoCode, index) => (
                                     <div key={index} className="flex items-center gap-2">
                                       <Input
+                                        id={`notification-promo-code-input-${notification.notification_id}-${index}`}
                                         value={promoCode}
                                         readOnly
                                         className="font-mono font-bold text-lg bg-white border-0 text-blue-900 cursor-pointer flex-1"
@@ -605,6 +838,27 @@ export default function NotificationInbox({ isOpen, onClose }) {
               }
             }}
             confirmText="Delete"
+            showCancel={true}
+            cancelText="Cancel"
+          />
+        </div>
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteAllConfirm && (
+        <div className="fixed inset-0 z-[60]" onClick={(e) => e.stopPropagation()}>
+          <StrandsModal
+            isOpen={showDeleteAllConfirm}
+            onClose={() => {
+              setShowDeleteAllConfirm(false);
+            }}
+            title="Delete All Notifications"
+            message={`Are you sure you want to delete all ${pagination.total} notification${pagination.total !== 1 ? 's' : ''}? This action cannot be undone.`}
+            type="warning"
+            onConfirm={() => {
+              deleteAllNotifications();
+            }}
+            confirmText="Delete All"
             showCancel={true}
             cancelText="Cancel"
           />

@@ -316,7 +316,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
             Manage your salon products ({products.length} total)
           </p>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>
+        <Button id="add-product-page-button" onClick={() => setShowAddModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Add Product
         </Button>
@@ -328,7 +328,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
             <Package className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
             <p className="text-muted-foreground text-lg mb-2">No products yet</p>
             <p className="text-muted-foreground text-sm mb-4">Start selling by adding your first product</p>
-            <Button onClick={() => setShowAddModal(true)}>
+            <Button id="add-product-empty-button" onClick={() => setShowAddModal(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Add Your First Product
             </Button>
@@ -440,7 +440,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
                   <Input
                     id="price"
                     type="number"
-                    step="1.00"
+                    step="0.01"
                     min="0"
                     value={formData.price}
                     onChange={(e) => setFormData({...formData, price: e.target.value})}
@@ -464,7 +464,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
               <div>
                 <Label htmlFor="category">Category *</Label>
                 <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
-                  <SelectTrigger>
+                  <SelectTrigger id="category">
                     <SelectValue placeholder="Select category">
                       {formData.category || null}
                     </SelectValue>
@@ -483,7 +483,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
                 }}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={submitting}>
+                <Button id="add-product-modal-submit-button" type="submit" disabled={submitting}>
                   {submitting ? 'Adding...' : 'Add Product'}
                 </Button>
               </div>
@@ -545,7 +545,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
                   <Input
                     id="edit-price"
                     type="number"
-                    step="1.00"
+                    step="0.01"
                     min="0"
                     value={formData.price}
                     onChange={(e) => setFormData({...formData, price: e.target.value})}

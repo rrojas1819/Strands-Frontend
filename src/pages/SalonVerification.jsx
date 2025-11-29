@@ -9,6 +9,7 @@ import { CheckCircle, XCircle, Clock, MapPin, Phone, Mail, Building } from 'luci
 import { Notifications } from '../utils/notifications';
 import ConfirmationModal from '../components/ConfirmationModal';
 import AdminNavbar from '../components/AdminNavbar';
+import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
 export default function SalonVerification() {
   const { user, logout } = useContext(AuthContext);
@@ -19,6 +20,7 @@ export default function SalonVerification() {
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
+  const [salonPhotos, setSalonPhotos] = useState({}); // Map of salon_id -> photo URL
 
   useEffect(() => {
     if (!user || user.role !== 'ADMIN') {
@@ -44,6 +46,12 @@ export default function SalonVerification() {
 
         const data = await response.json();
         setSalons(data.data);
+        
+        // Fetch photos for approved salons
+        const approvedSalons = data.data.filter(s => s.status === 'APPROVED');
+        approvedSalons.forEach(salon => {
+          fetchSalonPhoto(salon.salon_id);
+        });
       } catch (err) {
         console.error('Error fetching salons:', err);
         setError(err.message || 'Failed to load salon registrations.');
@@ -54,6 +62,28 @@ export default function SalonVerification() {
 
     fetchSalons();
   }, [user, navigate]);
+
+  const fetchSalonPhoto = async (salonId) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/file/get-salon-photo?salon_id=${salonId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSalonPhotos(prev => ({
+          ...prev,
+          [salonId]: data.url || null
+        }));
+      }
+    } catch (error) {
+      // Silently fail - photo is optional
+    }
+  };
 
   const handleApprove = (salonId) => {
     const salon = salons.find(s => s.salon_id === salonId);
@@ -213,24 +243,28 @@ export default function SalonVerification() {
         {/* Filter Buttons */}
         <div className="mb-6 flex space-x-4">
           <Button 
+            id="filter-all-button"
             variant={filter === 'all' ? 'default' : 'outline'}
             onClick={() => setFilter('all')}
           >
             All ({salonCounts.all})
           </Button>
           <Button 
+            id="filter-pending-button"
             variant={filter === 'PENDING' ? 'default' : 'outline'}
             onClick={() => setFilter('PENDING')}
           >
             Pending ({salonCounts.pending})
           </Button>
           <Button 
+            id="filter-approved-button"
             variant={filter === 'APPROVED' ? 'default' : 'outline'}
             onClick={() => setFilter('APPROVED')}
           >
             Approved ({salonCounts.approved})
           </Button>
           <Button 
+            id="filter-rejected-button"
             variant={filter === 'REJECTED' ? 'default' : 'outline'}
             onClick={() => setFilter('REJECTED')}
           >
@@ -244,12 +278,30 @@ export default function SalonVerification() {
                 <Card key={salon.salon_id} className="hover:shadow-lg transition-shadow flex flex-col h-full">
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{salon.name}</CardTitle>
-                    <CardDescription className="mt-1">
-                      <Building className="w-4 h-4 inline mr-1" />
-                      {salon.category.replace('_', ' ')}
-                    </CardDescription>
+                  <div className="flex items-start gap-3 flex-1">
+                    {salon.status === 'APPROVED' && salonPhotos[salon.salon_id] ? (
+                      <img 
+                        src={salonPhotos[salon.salon_id]} 
+                        alt={salon.name}
+                        className="w-16 h-16 object-cover rounded-lg border flex-shrink-0"
+                        onError={(e) => {
+                          e.target.src = strandsLogo;
+                        }}
+                      />
+                    ) : salon.status === 'APPROVED' ? (
+                      <img 
+                        src={strandsLogo} 
+                        alt="Strands"
+                        className="w-16 h-16 object-contain rounded-lg border flex-shrink-0 bg-gray-50 p-2"
+                      />
+                    ) : null}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg">{salon.name}</CardTitle>
+                      <CardDescription className="mt-1 whitespace-nowrap">
+                        <Building className="w-4 h-4 inline mr-1" />
+                        {salon.category.replace('_', ' ')}
+                      </CardDescription>
+                    </div>
                   </div>
                   {getStatusBadge(salon.status)}
                 </div>
@@ -281,6 +333,7 @@ export default function SalonVerification() {
                 {salon.status === 'PENDING' && (
                   <div className="flex space-x-2 pt-4 mt-auto">
                     <Button 
+                      id={`approve-salon-${salon.salon_id}`}
                       onClick={() => handleApprove(salon.salon_id)}
                       className="flex-1 bg-green-600 hover:bg-green-700"
                     >
@@ -288,6 +341,7 @@ export default function SalonVerification() {
                       Approve
                     </Button>
                     <Button 
+                      id={`reject-salon-${salon.salon_id}`}
                       onClick={() => handleReject(salon.salon_id)}
                       variant="destructive"
                       className="flex-1"

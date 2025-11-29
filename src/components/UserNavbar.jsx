@@ -53,6 +53,7 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
                 <span className="text-xs sm:text-sm font-medium text-yellow-800">{rewardsCount} rewards</span>
               </Link>
               <Button
+                id="user-inbox-button"
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowNotifications(true)}

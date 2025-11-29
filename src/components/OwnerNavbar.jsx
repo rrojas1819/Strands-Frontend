@@ -45,6 +45,7 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
             </div>
             <div className="flex items-center space-x-4">
               <Button
+                id="owner-inbox-button"
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowNotifications(true)}
@@ -60,7 +61,7 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Owner
               </Badge>
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
+              <Button id="owner-logout-button" variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
               </Button>

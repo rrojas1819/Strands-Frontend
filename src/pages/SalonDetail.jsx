@@ -13,12 +13,14 @@ import SalonReviews from '../components/SalonReviews';
 import { Textarea } from '../components/ui/textarea';
 import UserNavbar from '../components/UserNavbar';
 import HaircutGalleryModal from '../components/HaircutGalleryModal';
+import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
 export default function SalonDetail() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const { salonId } = useParams();
   const [salon, setSalon] = useState(null);
+  const [salonPhotoUrl, setSalonPhotoUrl] = useState(null);
   const [loyaltyData, setLoyaltyData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,6 +87,19 @@ export default function SalonDetail() {
             throw new Error('Salon not found');
           }
           setSalon(foundSalon);
+          
+          // Fetch salon photo
+          try {
+            const photoResponse = await fetch(`${apiUrl}/file/get-salon-photo?salon_id=${salonId}`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (photoResponse.ok) {
+              const photoData = await photoResponse.json();
+              setSalonPhotoUrl(photoData.url || null);
+            }
+          } catch (err) {
+            // Silently fail - photo is optional
+          }
         } else {
           throw new Error('Failed to fetch salon details');
         }
@@ -351,38 +366,36 @@ export default function SalonDetail() {
     return currentTime >= startTime && currentTime < endTime;
   };
 
-  if (loading) {
+  if (error && !salon) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-muted/30">
+        <UserNavbar activeTab="dashboard" title="Salon Details" subtitle="View salon information" />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <Alert className="max-w-md mx-auto">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <Button onClick={() => navigate('/dashboard')} className="mt-4">
+              Back to Dashboard
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
 
-  if (error) {
+  if (!salon && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <Alert className="max-w-md">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-          <Button onClick={() => navigate('/dashboard')} className="mt-4">
-            Back to Dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!salon) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Salon not found</h2>
-          <Button onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
-          </Button>
-        </div>
+      <div className="min-h-screen bg-muted/30">
+        <UserNavbar activeTab="dashboard" title="Salon Details" subtitle="View salon information" />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Salon not found</h2>
+            <Button onClick={() => navigate('/dashboard')}>
+              Back to Dashboard
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -397,28 +410,85 @@ export default function SalonDetail() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {loading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <Card className="animate-pulse">
+                <CardHeader>
+                  <div className="h-8 bg-gray-200 rounded w-3/4 mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                    <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div>
+              <Card className="animate-pulse">
+                <CardHeader>
+                  <div className="h-6 bg-gray-200 rounded w-2/3 mb-4"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        ) : salon ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Salon Info */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-3xl font-bold">{salon.name}</CardTitle>
-                    <CardDescription className="text-lg mt-2">{salon.category}</CardDescription>
-                    <div className="flex items-center mt-4">
-                      {reviewsMeta.avg_rating ? (
-                        <>
-                          <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                          <span className="ml-2 text-lg font-semibold">{reviewsMeta.avg_rating}</span>
-                          <span className="ml-1 text-muted-foreground">({reviewsMeta.total} {reviewsMeta.total === 1 ? 'review' : 'reviews'})</span>
-                        </>
-                      ) : (
-                        <>
-                          <Star className="w-5 h-5 text-gray-300" />
-                          <span className="ml-2 text-lg font-semibold text-muted-foreground">No ratings yet</span>
-                        </>
-                      )}
+                  <div className="flex items-start gap-4 flex-1">
+                    {salonPhotoUrl ? (
+                      <img 
+                        src={salonPhotoUrl} 
+                        alt={salon.name}
+                        className="w-20 h-20 object-cover rounded-lg border flex-shrink-0"
+                        onError={(e) => {
+                          e.target.src = strandsLogo;
+                        }}
+                      />
+                    ) : (
+                      <img 
+                        src={strandsLogo} 
+                        alt="Strands"
+                        className="w-20 h-20 object-contain rounded-lg border flex-shrink-0 bg-gray-50 p-2"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-3xl font-bold">{salon.name}</CardTitle>
+                      <CardDescription className="text-lg mt-2">
+                        <span className="whitespace-nowrap">{salon.category}</span>
+                      </CardDescription>
+                      <div className="flex items-center mt-4">
+                        {reviewsMeta.avg_rating ? (
+                          <>
+                            <Star className="w-5 h-5 text-yellow-500 fill-current" />
+                            <span className="ml-2 text-lg font-semibold">{reviewsMeta.avg_rating}</span>
+                            <span className="ml-1 text-muted-foreground">({reviewsMeta.total} {reviewsMeta.total === 1 ? 'review' : 'reviews'})</span>
+                          </>
+                        ) : (
+                          <>
+                            <Star className="w-5 h-5 text-gray-300" />
+                            <span className="ml-2 text-lg font-semibold text-muted-foreground">No ratings yet</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <Badge 
@@ -506,6 +576,7 @@ export default function SalonDetail() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <Button 
+                  id="book-appointment-detail-button"
                   className="w-full bg-primary hover:bg-primary/90"
                   onClick={() => navigate(`/salon/${salonId}/book`)}
                 >
@@ -867,6 +938,7 @@ export default function SalonDetail() {
             )}
           </div>
         </div>
+        ) : null}
       </main>
 
       {/* Custom Strands Modal - Redeem */}

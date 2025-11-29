@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { AuthContext, RewardsContext } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -9,12 +9,14 @@ import { MapPin, Phone, Mail, Star, Clock, Search, Filter, ChevronDown, Check } 
 import { Notifications } from '../utils/notifications';
 import { trackSalonView } from '../utils/analytics';
 import UserNavbar from '../components/UserNavbar';
+import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
 export default function SalonBrowser() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [salons, setSalons] = useState([]);
   const [salonRatings, setSalonRatings] = useState({});
+  const [salonPhotos, setSalonPhotos] = useState({}); // Map of salon_id -> photo URL
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -79,20 +81,39 @@ export default function SalonBrowser() {
         const data = await response.json();
         setSalons(data.data);
         
+        // Set salons immediately for faster initial render
+        setSalons(data.data);
+        setLoading(false);
+        
+        // Fetch ratings and photos in parallel, but don't block UI
         const ratingsMap = {};
-        const ratingPromises = data.data.map(async (salon) => {
+        const photosMap = {};
+        const promises = data.data.map(async (salon) => {
           try {
-            const ratingResponse = await fetch(
-              `${import.meta.env.VITE_API_URL}/reviews/salon/${salon.salon_id}/all?limit=1&offset=0`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                },
-              }
-            );
-            if (ratingResponse.ok) {
+            // Fetch rating and photo in parallel for each salon
+            const [ratingResponse, photoResponse] = await Promise.allSettled([
+              fetch(
+                `${import.meta.env.VITE_API_URL}/reviews/salon/${salon.salon_id}/all?limit=1&offset=0`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                }
+              ),
+              fetch(
+                `${import.meta.env.VITE_API_URL}/file/get-salon-photo?salon_id=${salon.salon_id}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                }
+              )
+            ]);
+            
+            // Process rating
+            if (ratingResponse.status === 'fulfilled' && ratingResponse.value.ok) {
               try {
-                const ratingData = await ratingResponse.json();
+                const ratingData = await ratingResponse.value.json();
                 ratingsMap[salon.salon_id] = {
                   avg_rating: ratingData.meta?.avg_rating || null,
                   total: ratingData.meta?.total || 0
@@ -100,15 +121,26 @@ export default function SalonBrowser() {
               } catch (parseErr) {
               }
             }
+            
+            // Process photo
+            if (photoResponse.status === 'fulfilled' && photoResponse.value.ok) {
+              try {
+                const photoData = await photoResponse.value.json();
+                photosMap[salon.salon_id] = photoData.url || null;
+              } catch (parseErr) {
+              }
+            }
           } catch (err) {
           }
         });
         
-        await Promise.allSettled(ratingPromises);
-        setSalonRatings(ratingsMap);
+        // Update ratings/photos as they come in (progressive enhancement)
+        Promise.allSettled(promises).then(() => {
+          setSalonRatings(ratingsMap);
+          setSalonPhotos(photosMap);
+        });
       } catch (err) {
         setError(err.message || 'Failed to load salons.');
-      } finally {
         setLoading(false);
       }
     };
@@ -117,15 +149,23 @@ export default function SalonBrowser() {
   }, [user, navigate]);
 
 
-  const filteredSalons = salons.filter(salon => {
-    const matchesSearch = salon.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         salon.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         salon.city.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || salon.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Memoize filtered salons to avoid recalculating on every render
+  const filteredSalons = useMemo(() => {
+    if (!salons || salons.length === 0) return [];
+    
+    const searchLower = searchTerm.toLowerCase();
+    return salons.filter(salon => {
+      const matchesSearch = !searchTerm || 
+        salon.name.toLowerCase().includes(searchLower) ||
+        salon.description?.toLowerCase().includes(searchLower) ||
+        salon.city?.toLowerCase().includes(searchLower);
+      const matchesCategory = selectedCategory === 'all' || salon.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [salons, searchTerm, selectedCategory]);
 
-  const getCategoryBadge = (category) => {
+  // Memoize category badge function
+  const getCategoryBadge = useCallback((category) => {
     const categoryMap = {
       'HAIR SALON': { label: 'Hair Salon' },
       'NAIL SALON': { label: 'Nail Salon' },
@@ -141,17 +181,18 @@ export default function SalonBrowser() {
         {categoryInfo.label}
       </Badge>
     );
-  };
+  }, []);
 
-  const formatTo12Hour = (time24) => {
+  // Memoize helper functions
+  const formatTo12Hour = useCallback((time24) => {
     if (!time24) return '';
     const [hours, minutes] = time24.split(':').map(Number);
     const hours12 = hours % 12 || 12;
     const ampm = hours < 12 ? 'AM' : 'PM';
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-  };
+  }, []);
 
-  const getShortDayName = (day) => {
+  const getShortDayName = useCallback((day) => {
     const dayMap = {
       'sunday': 'Sun',
       'monday': 'Mon',
@@ -162,9 +203,9 @@ export default function SalonBrowser() {
       'saturday': 'Sat'
     };
     return dayMap[day.toLowerCase()] || day;
-  };
+  }, []);
 
-  const formatHours = (weeklyHours) => {
+  const formatHours = useCallback((weeklyHours) => {
     if (!weeklyHours) return [];
     
     const hoursMap = {};
@@ -187,9 +228,9 @@ export default function SalonBrowser() {
     });
 
     return formatted;
-  };
+  }, [formatTo12Hour, getShortDayName]);
 
-  const isSalonOpen = (salon) => {
+  const isSalonOpen = useCallback((salon) => {
     if (!salon?.weekly_hours) return null;
 
     const now = currentTime;
@@ -213,15 +254,7 @@ export default function SalonBrowser() {
     const endTime = endHours * 60 + endMinutes;
 
     return currentTimeMinutes >= startTime && currentTimeMinutes < endTime;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  }, [currentTime]);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -290,21 +323,67 @@ export default function SalonBrowser() {
 
           {/* Results Count */}
           <div className="text-sm text-muted-foreground mb-6">
-            Showing {filteredSalons.length} of {salons.length} salons
+            {loading ? (
+              <div className="animate-pulse">Loading salons...</div>
+            ) : (
+              `Showing ${filteredSalons.length} of ${salons.length} salons`
+            )}
           </div>
         </div>
 
         {/* Salon Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredSalons.map((salon) => (
+        {loading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="flex items-start gap-3">
+                    <div className="w-16 h-16 bg-gray-200 rounded-lg"></div>
+                    <div className="flex-1">
+                      <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                    <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filteredSalons.map((salon) => (
             <Card key={salon.salon_id} className="hover:shadow-lg transition-shadow h-full flex flex-col">
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{salon.name}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {getCategoryBadge(salon.category)}
-                    </CardDescription>
+                  <div className="flex items-start gap-3 flex-1">
+                    {salonPhotos[salon.salon_id] ? (
+                      <img 
+                        src={salonPhotos[salon.salon_id]} 
+                        alt={salon.name}
+                        className="w-16 h-16 object-cover rounded-lg border flex-shrink-0"
+                        onError={(e) => {
+                          e.target.src = strandsLogo;
+                        }}
+                      />
+                    ) : (
+                      <img 
+                        src={strandsLogo} 
+                        alt="Strands"
+                        className="w-16 h-16 object-contain rounded-lg border flex-shrink-0 bg-gray-50 p-2"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg">{salon.name}</CardTitle>
+                      <CardDescription className="mt-1">
+                        {getCategoryBadge(salon.category)}
+                      </CardDescription>
+                    </div>
                   </div>
                   {salonRatings[salon.salon_id]?.avg_rating ? (
                     <div className="flex items-center space-x-1">
@@ -358,6 +437,7 @@ export default function SalonBrowser() {
                   </div>
                   <div className="flex items-center space-x-2 ml-4">
                     <Button 
+                      id={`view-details-button-${salon.salon_id}`}
                       variant="outline" 
                       size="sm"
                       onClick={() => {
@@ -371,6 +451,7 @@ export default function SalonBrowser() {
                       View Details
                     </Button>
                     <Button 
+                      id={`book-now-button-${salon.salon_id}`}
                       size="sm"
                       className="bg-primary hover:bg-primary/90 flex-shrink-0"
                       onClick={() => {
@@ -387,9 +468,10 @@ export default function SalonBrowser() {
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
+        )}
 
-        {filteredSalons.length === 0 && (
+        {!loading && filteredSalons.length === 0 && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-muted-foreground" />

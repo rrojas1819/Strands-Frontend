@@ -324,6 +324,7 @@ export default function AuthPage() {
                   </div>
 
                   <Button 
+                    id="create-account-button"
                     type="submit" 
                     className="w-full" 
                     disabled={isLoading}

@@ -530,40 +530,46 @@ export default function BookingPage() {
     return grouped;
   };
 
-  if (loading) {
+  if (error && !salon) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-muted/30">
+        <UserNavbar 
+          activeTab="booking" 
+          title="Book Appointment" 
+          subtitle="Select salon services and time" 
+        />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <Alert className="max-w-md mx-auto">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <Button onClick={() => navigate('/dashboard')} className="mt-4">
+              Back to Dashboard
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
 
-  if (error) {
+  if (!salon && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <Alert className="max-w-md">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-          <Button onClick={() => navigate('/dashboard')} className="mt-4">
-            Back to Dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!salon) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <Alert className="max-w-md">
-            <AlertDescription>Salon not found</AlertDescription>
-          </Alert>
-          <Button onClick={() => navigate('/dashboard')} className="mt-4">
-            Back to Dashboard
-          </Button>
-        </div>
+      <div className="min-h-screen bg-muted/30">
+        <UserNavbar 
+          activeTab="booking" 
+          title="Book Appointment" 
+          subtitle="Select salon services and time" 
+        />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <Alert className="max-w-md mx-auto">
+              <AlertDescription>Salon not found</AlertDescription>
+            </Alert>
+            <Button onClick={() => navigate('/dashboard')} className="mt-4">
+              Back to Dashboard
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -578,7 +584,38 @@ export default function BookingPage() {
 
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {salon && (
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {loading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="animate-pulse">
+              <CardHeader>
+                <div className="h-6 bg-gray-200 rounded w-2/3"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-12 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="animate-pulse">
+              <CardHeader>
+                <div className="h-6 bg-gray-200 rounded w-2/3"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="h-32 bg-gray-200 rounded"></div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : salon ? (
           <>
             <p className="text-muted-foreground mb-4 hidden sm:block">{isReschedule ? 'Reschedule your appointment' : 'Complete your booking'}</p>
             {isReschedule && (
@@ -588,18 +625,16 @@ export default function BookingPage() {
                 </AlertDescription>
               </Alert>
             )}
-          </>
-        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Step 1: Select Stylist */}
-          <Card>
-            <CardHeader>
-              <CardTitle>1. Select Stylist {isReschedule && <span className="text-xs text-muted-foreground font-normal">(Locked for Reschedule)</span>}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {stylists.map((stylist) => {
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Step 1: Select Stylist */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>1. Select Stylist {isReschedule && <span className="text-xs text-muted-foreground font-normal">(Locked for Reschedule)</span>}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {stylists.map((stylist) => {
                   const rating = stylistRatings[stylist.employee_id];
                   const isSelected = selectedStylist?.employee_id === stylist.employee_id;
                   
@@ -607,6 +642,7 @@ export default function BookingPage() {
                     <div key={stylist.employee_id} className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Button
+                          id={`select-stylist-button-${stylist.employee_id}`}
                           variant={isSelected ? 'default' : 'outline'}
                           className="flex-1 justify-start"
                           onClick={() => {
@@ -696,6 +732,7 @@ export default function BookingPage() {
                   return (
                     <div
                       key={`${service.service_id}-${service.name}`}
+                      id={`select-service-button-${service.service_id}`}
                       className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                         isSelected ? 'border-primary bg-primary/10' : 'border-muted hover:border-primary/50'
                       }`}
@@ -755,6 +792,7 @@ export default function BookingPage() {
                         return (
                           <Button
                             key={dateStr}
+                            id={`select-date-button-${dateStr}`}
                             variant={isSelected ? 'default' : 'outline'}
                             className={isToday ? 'ring-2 ring-primary' : ''}
                             disabled={!hasAvailability}
@@ -856,6 +894,7 @@ export default function BookingPage() {
                           return (
                             <Button
                               key={`${slot.start_time}-${slot.end_time}`}
+                              id={`select-time-button-${slot.start_time?.replace(/:/g, '-') || 'unknown'}`}
                               variant={isSelected && isAvailable ? 'default' : 'outline'}
                               className={`w-full ${
                                 !isAvailable 
@@ -1020,6 +1059,7 @@ export default function BookingPage() {
                   </span>
                 </div>
                 <Button 
+                  id="book-appointment-submit-button"
                   className="w-full mt-4" 
                   onClick={handleBookClick}
                   disabled={!selectedTimeSlot}
@@ -1030,6 +1070,8 @@ export default function BookingPage() {
             </CardContent>
           </Card>
         )}
+          </>
+        ) : null}
       </main>
 
       {/* Confirmation Modal */}
@@ -1050,6 +1092,7 @@ export default function BookingPage() {
         confirmText={isReschedule ? "Reschedule" : "Confirm"}
         cancelText="Cancel"
         type="success"
+        confirmButtonId="booking-confirm-button"
       />
 
       {/* Reviews Modal */}

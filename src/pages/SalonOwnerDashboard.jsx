@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonRegistrationForm from '../components/SalonRegistrationForm';
@@ -38,11 +38,14 @@ import {
   TrendingUp,
   Scissors,
   Award,
-  Receipt
+  Receipt,
+  Upload,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import StrandsModal from '../components/ui/strands-modal';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { compressImage, validateImageFile } from '../utils/imageUtils';
 
 
 export default function SalonOwnerDashboard() {
@@ -142,6 +145,15 @@ export default function SalonOwnerDashboard() {
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [showStylistBreakdownModal, setShowStylistBreakdownModal] = useState(false);
   const [selectedStylist, setSelectedStylist] = useState(null);
+  
+  // Salon photo state
+  const [salonPhotoUrl, setSalonPhotoUrl] = useState(null);
+  const [salonPhotoLoading, setSalonPhotoLoading] = useState(false);
+  const [showSalonPhotoModal, setShowSalonPhotoModal] = useState(false);
+  const [salonPhotoFile, setSalonPhotoFile] = useState(null);
+  const [salonPhotoPreview, setSalonPhotoPreview] = useState(null);
+  const [salonPhotoUploading, setSalonPhotoUploading] = useState(false);
+  const salonPhotoInputRef = useRef(null);
 
   useEffect(() => {
     // Determine active tab from route path
@@ -244,6 +256,13 @@ export default function SalonOwnerDashboard() {
   }, [activeTab, salonStatus]);
 
   useEffect(() => {
+    // Fetch photo after salonInfo is loaded (so we have salon_id)
+    if (activeTab === 'overview' && salonStatus === 'APPROVED' && salonInfo?.salon_id) {
+      fetchSalonPhoto();
+    }
+  }, [activeTab, salonStatus, salonInfo]);
+
+  useEffect(() => {
     if (activeTab === 'customers' && salonStatus === 'APPROVED') {
       fetchCustomers();
     }
@@ -323,6 +342,11 @@ export default function SalonOwnerDashboard() {
       
       if (response.ok) {
         setSalonInfo(data.data);
+        // Check if photo_url is in the response
+        if (data.data?.photo_url) {
+          setSalonPhotoUrl(data.data.photo_url);
+          console.log('Salon photo URL from info endpoint:', data.data.photo_url);
+        }
       } else {
         console.error('Failed to fetch salon info:', data.message);
       }
@@ -330,6 +354,241 @@ export default function SalonOwnerDashboard() {
       console.error('Fetch salon info error:', error);
     } finally {
       setSalonInfoLoading(false);
+    }
+  };
+
+  const fetchSalonPhoto = async () => {
+    try {
+      setSalonPhotoLoading(true);
+      const token = localStorage.getItem('auth_token');
+      
+      // Get salon_id from salonInfo if available, otherwise try user_data
+      let salonId = salonInfo?.salon_id;
+      if (!salonId) {
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        salonId = userData?.salon_id;
+      }
+      
+      if (!salonId) {
+        console.log('No salon_id found. Waiting for salonInfo to load...');
+        setSalonPhotoLoading(false);
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Try the browse endpoint first (which now includes photo_url)
+      try {
+        const browseResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (browseResponse.ok) {
+          const browseData = await browseResponse.json();
+          const salons = browseData.data || [];
+          const mySalon = salons.find(s => s.salon_id === salonId);
+          if (mySalon?.photo_url) {
+            setSalonPhotoUrl(mySalon.photo_url);
+            console.log('Salon photo URL from browse endpoint:', mySalon.photo_url);
+            setSalonPhotoLoading(false);
+            return;
+          }
+        }
+      } catch (browseError) {
+        console.log('Browse endpoint failed, trying direct photo endpoint:', browseError);
+      }
+      
+      // Fallback to direct photo endpoint
+      const response = await fetch(`${apiUrl}/file/get-salon-photo?salon_id=${salonId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const photoUrl = data.url || data.photo_url || data.photoUrl || null;
+        if (photoUrl && photoUrl.trim()) {
+          setSalonPhotoUrl(photoUrl.trim());
+          console.log('Salon photo loaded from direct endpoint:', photoUrl);
+        } else {
+          console.log('No photo URL in response:', data);
+          setSalonPhotoUrl(null);
+        }
+      } else if (response.status === 404) {
+        console.log('Salon photo not found (404)');
+        setSalonPhotoUrl(null);
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Failed to fetch salon photo:', response.status, errorData);
+        setSalonPhotoUrl(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch salon photo:', error);
+      setSalonPhotoUrl(null);
+    } finally {
+      setSalonPhotoLoading(false);
+    }
+  };
+
+  const handleSalonPhotoUpload = async () => {
+    if (!salonPhotoFile) {
+      toast.error('Please select a photo to upload');
+      return;
+    }
+
+    try {
+      setSalonPhotoUploading(true);
+      const token = localStorage.getItem('auth_token');
+      
+      // Get salon_id from salonInfo if available, otherwise try user_data
+      let salonId = salonInfo?.salon_id;
+      if (!salonId) {
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        salonId = userData?.salon_id;
+      }
+      
+      if (!salonId) {
+        toast.error('Salon ID not found. Please refresh the page.');
+        setSalonPhotoUploading(false);
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // If a photo already exists, delete it first (no update endpoint)
+      if (salonPhotoUrl) {
+        try {
+          console.log('Deleting existing photo before upload...');
+          const deleteResponse = await fetch(`${apiUrl}/file/delete-salon-photo`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ salon_id: salonId })
+          });
+          
+          if (deleteResponse.ok) {
+            console.log('Existing photo deleted successfully');
+          } else {
+            // Continue even if delete fails - might not exist
+            console.log('Delete response not OK, continuing with upload:', deleteResponse.status);
+          }
+        } catch (deleteError) {
+          // Continue with upload even if delete fails
+          console.log('Delete failed, continuing with upload:', deleteError);
+        }
+      }
+
+      // Now upload the new photo
+      const formData = new FormData();
+      
+      // Use original file (no compression) to allow full-size upload
+      formData.append('file', salonPhotoFile);
+      formData.append('salon_id', salonId.toString());
+
+      console.log('Uploading photo:', {
+        fileName: salonPhotoFile.name,
+        fileSize: salonPhotoFile.size,
+        fileType: salonPhotoFile.type,
+        salonId: salonId
+      });
+
+      const response = await fetch(`${apiUrl}/file/upload-salon-photo`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // Don't set Content-Type - let browser set it with boundary for FormData
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to upload photo';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          console.error('Upload error response:', errorData);
+        } catch (e) {
+          const errorText = await response.text().catch(() => '');
+          console.error('Upload error (non-JSON):', errorText);
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      const photoUrl = data.url || data.photo_url || data.photoUrl || null;
+      if (photoUrl) {
+        setSalonPhotoUrl(photoUrl);
+        console.log('Photo uploaded successfully, URL:', photoUrl);
+      } else {
+        console.error('No photo URL in upload response:', data);
+        // Still try to fetch it
+        await fetchSalonPhoto();
+      }
+      setShowSalonPhotoModal(false);
+      setSalonPhotoFile(null);
+      if (salonPhotoPreview) {
+        URL.revokeObjectURL(salonPhotoPreview);
+      }
+      setSalonPhotoPreview(null);
+      if (salonPhotoInputRef.current) {
+        salonPhotoInputRef.current.value = '';
+      }
+      toast.success('Photo uploaded successfully');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Failed to upload photo');
+    } finally {
+      setSalonPhotoUploading(false);
+    }
+  };
+
+  const handleSalonPhotoDelete = async () => {
+    try {
+      setSalonPhotoLoading(true);
+      const token = localStorage.getItem('auth_token');
+      
+      // Get salon_id from salonInfo if available, otherwise try user_data
+      let salonId = salonInfo?.salon_id;
+      if (!salonId) {
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        salonId = userData?.salon_id;
+      }
+      
+      if (!salonId) {
+        toast.error('Salon ID not found. Please refresh the page.');
+        setSalonPhotoLoading(false);
+        return;
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/file/delete-salon-photo`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ salon_id: salonId })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete photo');
+      }
+
+      setSalonPhotoUrl(null);
+      toast.success('Photo deleted successfully');
+      console.log('Salon photo deleted successfully');
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error(error.message || 'Failed to delete photo');
+    } finally {
+      setSalonPhotoLoading(false);
     }
   };
 
@@ -379,7 +638,8 @@ export default function SalonOwnerDashboard() {
             setShowAddEmployeeModal(false);
             setNewEmployee({ email: '', title: '' });
             fetchEmployees(pagination.current_page);
-          }
+          },
+          confirmButtonId: 'add-employee-success-ok-button'
         });
         setShowModal(true);
       } else {
@@ -988,9 +1248,227 @@ export default function SalonOwnerDashboard() {
                     ))}
                         </div>
                           </div>
+
+                {/* Salon Photo Section */}
+                <div className="border-t pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold">Salon Photo</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={fetchSalonPhoto}
+                      disabled={salonPhotoLoading}
+                    >
+                      <Image className="w-4 h-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
+                  <div className="space-y-4">
+                    {salonPhotoLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : salonPhotoUrl ? (
+                      <div className="space-y-3">
+                        <div className="relative w-full max-w-md">
+                          <img 
+                            src={salonPhotoUrl} 
+                            alt="Salon photo" 
+                            className="w-full h-64 object-contain rounded-lg border bg-gray-50"
+                            onError={(e) => {
+                              console.error('Failed to load salon photo:', salonPhotoUrl);
+                              toast.error('Failed to load photo. The URL may be invalid.');
+                              // Don't hide, show error state
+                            }}
+                            onLoad={() => {
+                              console.log('Salon photo loaded successfully:', salonPhotoUrl);
+                            }}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                    onClick={() => {
+                      setSalonPhotoFile(null);
+                      if (salonPhotoPreview) {
+                        URL.revokeObjectURL(salonPhotoPreview);
+                      }
+                      setSalonPhotoPreview(null);
+                      setShowSalonPhotoModal(true);
+                    }}
+                            disabled={salonPhotoLoading}
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Change Photo
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleSalonPhotoDelete}
+                            disabled={salonPhotoLoading}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Photo
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                          <Image className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                          <p className="text-sm text-muted-foreground mb-4">
+                            No photo uploaded. Upload a storefront or logo photo.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                    onClick={() => {
+                      setSalonPhotoFile(null);
+                      if (salonPhotoPreview) {
+                        URL.revokeObjectURL(salonPhotoPreview);
+                      }
+                      setSalonPhotoPreview(null);
+                      setShowSalonPhotoModal(true);
+                    }}
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Photo
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
                         </div>
                         )}
                       </div>
+        )}
+
+        {/* Salon Photo Upload Modal */}
+        {showSalonPhotoModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl mx-auto shadow-2xl">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>{salonPhotoUrl ? 'Change Salon Photo' : 'Upload Salon Photo'}</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowSalonPhotoModal(false);
+                      setSalonPhotoFile(null);
+                      if (salonPhotoPreview) {
+                        URL.revokeObjectURL(salonPhotoPreview);
+                      }
+                      setSalonPhotoPreview(null);
+                      if (salonPhotoInputRef.current) {
+                        salonPhotoInputRef.current.value = '';
+                      }
+                    }}
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+                <CardDescription>
+                  Upload a storefront or logo photo for your salon. The photo will be displayed at full size.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {salonPhotoPreview ? (
+                  <div className="space-y-4">
+                    <div className="relative w-full flex justify-center items-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 p-8 min-h-[300px]">
+                      <img 
+                        src={salonPhotoPreview} 
+                        alt="Preview" 
+                        className="max-w-full max-h-[400px] object-contain"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSalonPhotoFile(null);
+                          if (salonPhotoPreview) {
+                            URL.revokeObjectURL(salonPhotoPreview);
+                          }
+                          setSalonPhotoPreview(null);
+                          if (salonPhotoInputRef.current) {
+                            salonPhotoInputRef.current.value = '';
+                          }
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSalonPhotoUpload}
+                        disabled={salonPhotoUploading}
+                      >
+                        {salonPhotoUploading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            {salonPhotoUrl ? 'Update Photo' : 'Upload Photo'}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <input
+                      ref={salonPhotoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const validation = validateImageFile(file);
+                          if (!validation.valid) {
+                            toast.error(validation.error);
+                            if (salonPhotoInputRef.current) {
+                              salonPhotoInputRef.current.value = '';
+                            }
+                            return;
+                          }
+                          // Use the file directly without cropping
+                          const preview = URL.createObjectURL(file);
+                          setSalonPhotoFile(file);
+                          setSalonPhotoPreview(preview);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <div
+                      onClick={() => salonPhotoInputRef.current?.click()}
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex flex-col items-center justify-center space-y-4">
+                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Upload className="w-8 h-8 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-medium text-foreground mb-1">
+                            Click to upload or drag and drop
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            PNG, JPG, or WEBP (max 10MB)
+                          </p>
+                        </div>
+                        <Button variant="outline" className="mt-2">
+                          Select Photo
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {activeTab === 'staff-services' && salonStatus === 'APPROVED' && (
@@ -1003,7 +1481,7 @@ export default function SalonOwnerDashboard() {
                     Manage your salon employees ({pagination.total_employees} total)
                   </p>
                   </div>
-                <Button onClick={() => setShowAddEmployeeModal(true)}>
+                <Button id="add-employee-page-button" onClick={() => setShowAddEmployeeModal(true)}>
                   <Users className="w-4 h-4 mr-2" />
                     Add Employee
                   </Button>
@@ -1045,6 +1523,7 @@ export default function SalonOwnerDashboard() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button 
+                        id={`set-hours-button-${employee.employee_id}`}
                         variant="outline" 
                         size="sm"
                               onClick={() => handleSetEmployeeHours(employee)}
@@ -1338,6 +1817,7 @@ export default function SalonOwnerDashboard() {
             <div className="border-b border-muted">
               <div className="flex space-x-8">
                 <button
+                  id="loyalty-subtab-loyalty-program-button"
                   onClick={() => {
                     setLoyaltySubTab('loyalty-config');
                     localStorage.setItem('loyaltySubTab', 'loyalty-config');
@@ -1351,6 +1831,7 @@ export default function SalonOwnerDashboard() {
                   Loyalty Program
                 </button>
                 <button
+                  id="loyalty-subtab-promotions-button"
                   onClick={() => {
                     setLoyaltySubTab('promotions');
                     localStorage.setItem('loyaltySubTab', 'promotions');
@@ -1368,11 +1849,15 @@ export default function SalonOwnerDashboard() {
 
             {loyaltySubTab === 'loyalty-config' && (
               <LoyaltyConfiguration 
-                onSuccess={(message) => {
+                onSuccess={(message, context) => {
+                  const confirmButtonId = context === 'loyalty'
+                    ? 'loyalty-settings-success-ok-button'
+                    : undefined;
                   setModalConfig({
                     title: 'Success',
                     message: message,
                     type: 'success',
+                    confirmButtonId,
                     onConfirm: () => setShowModal(false)
                   });
                   setShowModal(true);
@@ -1394,11 +1879,17 @@ export default function SalonOwnerDashboard() {
                 salonId={salonInfo.salon_id}
                 salonName={salonInfo.name}
                 salonTimezone={salonInfo.timezone}
-                onSuccess={(message) => {
+                onSuccess={(message, context) => {
+                  const confirmButtonId = context === 'promotion-send'
+                    ? 'promotion-success-ok-button'
+                    : context === 'promotion-reminder'
+                      ? 'promotion-reminder-success-ok-button'
+                      : undefined;
                   setModalConfig({
                     title: 'Success',
                     message: message,
                     type: 'success',
+                    confirmButtonId,
                     onConfirm: () => setShowModal(false)
                   });
                   setShowModal(true);
@@ -1773,7 +2264,8 @@ export default function SalonOwnerDashboard() {
                 title: 'Success',
                 message: message,
                 type: 'success',
-                onConfirm: () => setShowModal(false)
+                onConfirm: () => setShowModal(false),
+                confirmButtonId: 'operating-hours-success-ok-button'
               });
               setShowModal(true);
             }}
@@ -1806,6 +2298,7 @@ export default function SalonOwnerDashboard() {
                   <div>
                   <label className="block text-sm font-medium mb-2">Employee Email</label>
                   <input
+                    id="add-employee-email-input"
                     type="email"
                     value={newEmployee.email}
                     onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
@@ -1821,6 +2314,7 @@ export default function SalonOwnerDashboard() {
                 <div>
                   <label className="block text-sm font-medium mb-2">Job Title</label>
                   <input
+                    id="add-employee-job-title-input"
                     type="text"
                     value={newEmployee.title}
                     onChange={(e) => setNewEmployee({...newEmployee, title: e.target.value})}
@@ -1837,7 +2331,7 @@ export default function SalonOwnerDashboard() {
                   }}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isAddingEmployee}>
+                  <Button id="add-employee-modal-submit-button" type="submit" disabled={isAddingEmployee}>
                     {isAddingEmployee ? 'Adding...' : 'Add Employee'}
                   </Button>
                 </div>
@@ -1856,6 +2350,7 @@ export default function SalonOwnerDashboard() {
           confirmText={modalConfig.confirmText || 'OK'}
           showCancel={modalConfig.showCancel || false}
           cancelText={modalConfig.cancelText || 'Cancel'}
+          confirmButtonId={modalConfig.confirmButtonId || null}
         />
 
         <StrandsModal
@@ -1885,7 +2380,8 @@ export default function SalonOwnerDashboard() {
               title: 'Success',
               message: message,
               type: 'success',
-              onConfirm: () => setShowModal(false)
+              onConfirm: () => setShowModal(false),
+              confirmButtonId: 'employee-hours-success-ok-button'
             });
             setShowModal(true);
           }}

@@ -12,7 +12,8 @@ const StrandsModal = ({
   onConfirm,
   confirmText = 'OK',
   cancelText = 'Cancel',
-  showCancel = false
+  showCancel = false,
+  confirmButtonId = null
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -134,6 +135,7 @@ const StrandsModal = ({
               </Button>
             )}
             <Button
+              id={confirmButtonId || (message === 'Signed out successfully' ? 'logout-modal-ok-button' : null)}
               onClick={(e) => {
                 e.stopPropagation();
                 if (onConfirm) {
