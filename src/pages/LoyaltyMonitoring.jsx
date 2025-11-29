@@ -44,7 +44,6 @@ export default function LoyaltyMonitoring() {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      console.log('Fetching loyalty program analytics...');
       const response = await fetch(`${apiUrl}/admin/analytics/loyalty-program`, {
         method: 'GET',
         headers: {
@@ -53,15 +52,13 @@ export default function LoyaltyMonitoring() {
         },
       });
 
-      console.log('Loyalty analytics response status:', response.status);
       const data = await response.json();
-      console.log('Loyalty analytics response data:', data);
 
       if (response.ok) {
         // Transform backend data to match frontend structure
         const backendData = data.data;
-        const participationRate = backendData.users_with_bookings / backendData.total_users;
-        const redemptionRate = backendData.redeemed_rewards / backendData.total_rewards;
+        const participationRate = backendData.total_users > 0 ? (backendData.users_with_bookings / backendData.total_users) : 0;
+        const redemptionRate = backendData.total_rewards > 0 ? (backendData.redeemed_rewards / backendData.total_rewards) : 0;
         
         const transformedData = {
           totalUsers: backendData.total_users || 0,
@@ -98,42 +95,6 @@ export default function LoyaltyMonitoring() {
     logout();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Error loading data</h2>
-          <p className="text-muted-foreground mb-4">{error}</p>
-          <Button onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!loyaltyData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">No Loyalty Data Available</h2>
-          <p className="text-muted-foreground mb-4">Please check back later or ensure data is being collected.</p>
-          <Button onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-muted/30">
       <AdminNavbar
@@ -145,6 +106,28 @@ export default function LoyaltyMonitoring() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12 bg-white rounded-lg border">
+            <h2 className="text-2xl font-bold mb-4">Error loading data</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={() => navigate('/dashboard')} className="mt-4">
+              Back to Dashboard
+            </Button>
+          </div>
+        ) : !loyaltyData ? (
+          <div className="text-center py-12 bg-white rounded-lg border">
+            <h2 className="text-2xl font-bold mb-4">No Loyalty Data Available</h2>
+            <p className="text-muted-foreground mb-4">Please check back later or ensure data is being collected.</p>
+            <Button onClick={() => navigate('/dashboard')}>
+              Back to Dashboard
+            </Button>
+          </div>
+        ) : (
+          <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Participation Rate */}
           <Card>
@@ -334,6 +317,8 @@ export default function LoyaltyMonitoring() {
             </div>
           </CardContent>
         </Card>
+          </>
+        )}
       </main>
     </div>
   );

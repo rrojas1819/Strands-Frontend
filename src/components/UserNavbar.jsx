@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { AuthContext, RewardsContext } from '../context/AuthContext';
 import { Button } from './ui/button';
@@ -14,7 +14,19 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const { unreadCount } = useNotifications();
+  const { unreadCount, onCountChange } = useNotifications();
+  
+  // Listen for count changes to show visual feedback
+  useEffect(() => {
+    const unsubscribe = onCountChange((newCount, oldCount) => {
+      // Only show notification if count increased (new notification arrived)
+      if (newCount > oldCount && oldCount > 0) {
+        // Visual feedback - badge will update automatically via state
+        // Could add toast here if needed, but badge update is sufficient
+      }
+    });
+    return unsubscribe;
+  }, [onCountChange]);
 
   const handleLogout = () => {
     logout();
@@ -66,9 +78,11 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
                   </Badge>
                 )}
               </Button>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs sm:text-sm hidden sm:inline-flex">
-                {user?.role || 'User'}
-              </Badge>
+              <div className="hidden sm:flex items-center">
+                <span className="text-sm font-medium text-foreground px-3 py-1.5 bg-muted/80 rounded-lg border border-border/50 whitespace-nowrap max-w-[200px] truncate" title={user?.full_name || user?.name || 'User'}>
+                  {user?.full_name || user?.name || 'User'}
+                </span>
+              </div>
               <Button variant="outline" onClick={handleLogout} className="hidden sm:flex items-center space-x-2 text-xs sm:text-sm px-2 sm:px-4">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden lg:inline">Logout</span>
@@ -114,9 +128,9 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
               )}
             </Button>
             <div className="flex items-center justify-between px-3 py-2">
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                {user?.role || 'User'}
-              </Badge>
+              <span className="text-sm font-medium text-foreground px-3 py-1.5 bg-muted/80 rounded-lg border border-border/50 whitespace-nowrap max-w-[150px] truncate" title={user?.full_name || user?.name || 'User'}>
+                {user?.full_name || user?.name || 'User'}
+              </span>
               <Button variant="outline" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="flex items-center space-x-2">
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>

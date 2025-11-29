@@ -1,27 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
-// Components
-import LandingPage from './pages/LandingPage';
-import AuthPage from './pages/AuthPage';
-import AdminDashboard from './pages/AdminDashboard';
-import SalonOwnerDashboard from './pages/SalonOwnerDashboard';
-import SalonVerification from './pages/SalonVerification';
-import SalonBrowser from './pages/SalonBrowser';
-import SalonDetail from './pages/SalonDetail';
-import LoyaltyPoints from './pages/LoyaltyPoints';
-import LoyaltyMonitoring from './pages/LoyaltyMonitoring';
-import HairstylistDashboard from './pages/HairstylistDashboard';
-import BookingPage from './pages/BookingPage';
-import Appointments from './pages/Appointments';
-import PaymentPage from './pages/PaymentPage';
-import ProductsPage from './pages/ProductsPage';
-import CartPage from './pages/CartPage';
-import ProductCheckoutPage from './pages/ProductCheckoutPage';
-import OrderHistoryPage from './pages/OrderHistoryPage';
-import OwnerOrderHistoryPage from './pages/OwnerOrderHistoryPage';
-import SettingsPage from './pages/SettingsPage';
+// Lazy load all route components for code splitting
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const SalonOwnerDashboard = lazy(() => import('./pages/SalonOwnerDashboard'));
+const SalonVerification = lazy(() => import('./pages/SalonVerification'));
+const SalonBrowser = lazy(() => import('./pages/SalonBrowser'));
+const SalonDetail = lazy(() => import('./pages/SalonDetail'));
+const LoyaltyPoints = lazy(() => import('./pages/LoyaltyPoints'));
+const LoyaltyMonitoring = lazy(() => import('./pages/LoyaltyMonitoring'));
+const HairstylistDashboard = lazy(() => import('./pages/HairstylistDashboard'));
+const BookingPage = lazy(() => import('./pages/BookingPage'));
+const Appointments = lazy(() => import('./pages/Appointments'));
+const PaymentPage = lazy(() => import('./pages/PaymentPage'));
+const ProductsPage = lazy(() => import('./pages/ProductsPage'));
+const CartPage = lazy(() => import('./pages/CartPage'));
+const ProductCheckoutPage = lazy(() => import('./pages/ProductCheckoutPage'));
+const OrderHistoryPage = lazy(() => import('./pages/OrderHistoryPage'));
+const OwnerOrderHistoryPage = lazy(() => import('./pages/OwnerOrderHistoryPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-muted/30">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+  </div>
+);
 
 // Context
 import { AuthContext, RewardsContext } from './context/AuthContext';
@@ -320,6 +327,7 @@ export default function App() {
       <RewardsContext.Provider value={{ rewardsCount, setRewardsCount }}>
         <Router>
         <div className="min-h-screen bg-background">
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route 
               path="/" 
@@ -427,6 +435,7 @@ export default function App() {
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
           <Toaster position="top-right" />
       </div>
       </Router>

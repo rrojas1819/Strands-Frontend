@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Button } from './ui/button';
@@ -9,11 +9,19 @@ import NotificationInbox from './NotificationInbox';
 import { useNotifications } from '../hooks/useNotifications';
 
 export default function OwnerNavbar({ salonStatus, handleLogout }) {
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
-  const { unreadCount } = useNotifications();
+  const { unreadCount, onCountChange } = useNotifications();
+
+  // Listen for count changes
+  useEffect(() => {
+    const unsubscribe = onCountChange(() => {
+      // Badge will update automatically via state
+    });
+    return unsubscribe;
+  }, [onCountChange]);
 
   const isActive = (path) => {
     return location.pathname === path;
@@ -25,6 +33,14 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground';
   };
 
+  const handleLogoutClick = () => {
+    if (handleLogout) {
+      handleLogout();
+    } else {
+      logout();
+    }
+  };
+
   return (
     <>
       {/* Header */}
@@ -32,10 +48,10 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <img 
-                src={strandsLogo} 
-                alt="Strands" 
-                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
+              <img
+                src={strandsLogo}
+                alt="Strands"
+                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => navigate('/')}
               />
               <div>
@@ -61,7 +77,8 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Owner
               </Badge>
-              <Button id="owner-logout-button" variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
+              {/* <Button id="owner-logout-button" variant="outline" onClick={handleLogout} className="flex items-center space-x-2"> */ /*OLD CODE HERE */}
+              <Button variant="outline" onClick={handleLogoutClick} className="flex items-center space-x-2">
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
               </Button>
@@ -74,7 +91,7 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
       <nav className="bg-muted/50 border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
-            <button 
+            <button
               onClick={() => navigate('/owner/overview')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/overview')}`}
             >
@@ -82,49 +99,49 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
             </button>
             {salonStatus === 'APPROVED' && (
               <>
-                <button 
+                <button
                   onClick={() => navigate('/owner/staff')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/staff')}`}
                 >
                   Staff
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/owner/products')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/products')}`}
                 >
                   Products
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/owner/customers')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/customers')}`}
                 >
                   Customers
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/owner/order-history')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/order-history')}`}
                 >
                   Order History
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/owner/reviews')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/reviews')}`}
                 >
                   Reviews
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/owner/revenue')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/revenue')}`}
                 >
                   Revenue
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/owner/loyalty')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/loyalty')}`}
                 >
                   Loyalty & Promotions
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/owner/settings')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${getActiveClass('/owner/settings')}`}
                 >

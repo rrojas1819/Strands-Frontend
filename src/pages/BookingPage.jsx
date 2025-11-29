@@ -114,10 +114,11 @@ export default function BookingPage() {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Fetch salon and stylists only
+      // Fetch only the specific salon and stylists (much faster than fetching all salons!)
       const timestamp = Date.now();
       const [salonResponse, stylistsResponse] = await Promise.allSettled([
-        fetch(`${apiUrl}/salons/browse?status=APPROVED&_t=${timestamp}`, {
+        // Fetch only the specific salon - much faster!
+        fetch(`${apiUrl}/salons/browse?status=APPROVED&salon_id=${salonId}&_t=${timestamp}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         }),
         fetch(`${apiUrl}/salons/${salonId}/stylists?_t=${timestamp}`, {
@@ -128,8 +129,7 @@ export default function BookingPage() {
       // Handle salon data
       if (salonResponse.status === 'fulfilled' && salonResponse.value.ok) {
         const salonData = await salonResponse.value.json();
-        const salons = salonData.data || [];
-        const foundSalon = salons.find(s => s.salon_id == salonId);
+        const foundSalon = salonData.data?.[0]; // Expecting an array with one salon
         if (foundSalon) {
           setSalon(foundSalon);
         } else {
@@ -539,14 +539,14 @@ export default function BookingPage() {
           subtitle="Select salon services and time" 
         />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center">
+        <div className="text-center">
             <Alert className="max-w-md mx-auto">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-            <Button onClick={() => navigate('/dashboard')} className="mt-4">
-              Back to Dashboard
-            </Button>
-          </div>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button onClick={() => navigate('/dashboard')} className="mt-4">
+            Back to Dashboard
+          </Button>
+        </div>
         </main>
       </div>
     );
@@ -561,14 +561,14 @@ export default function BookingPage() {
           subtitle="Select salon services and time" 
         />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center">
+        <div className="text-center">
             <Alert className="max-w-md mx-auto">
-              <AlertDescription>Salon not found</AlertDescription>
-            </Alert>
-            <Button onClick={() => navigate('/dashboard')} className="mt-4">
-              Back to Dashboard
-            </Button>
-          </div>
+            <AlertDescription>Salon not found</AlertDescription>
+          </Alert>
+          <Button onClick={() => navigate('/dashboard')} className="mt-4">
+            Back to Dashboard
+          </Button>
+        </div>
         </main>
       </div>
     );
@@ -624,17 +624,17 @@ export default function BookingPage() {
                   Note: Appointments cannot be cancelled or rescheduled on the day of the appointment. Please contact the salon directly for same-day changes.
                 </AlertDescription>
               </Alert>
-            )}
+        )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Step 1: Select Stylist */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>1. Select Stylist {isReschedule && <span className="text-xs text-muted-foreground font-normal">(Locked for Reschedule)</span>}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {stylists.map((stylist) => {
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Step 1: Select Stylist */}
+          <Card>
+            <CardHeader>
+              <CardTitle>1. Select Stylist {isReschedule && <span className="text-xs text-muted-foreground font-normal">(Locked for Reschedule)</span>}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {stylists.map((stylist) => {
                   const rating = stylistRatings[stylist.employee_id];
                   const isSelected = selectedStylist?.employee_id === stylist.employee_id;
                   
