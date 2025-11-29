@@ -33,45 +33,73 @@ export default function OrderHistoryPage() {
       return;
     }
 
-    // Optimized: Fetch orders from a reasonable sample, then build salon list from orders
+    // Fetch ALL salons in batches to ensure we check all salons for orders
     const initializeData = async () => {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
       try {
-        // Fetch a reasonable sample of salons (first 50) to check for orders
-        // This is much faster than fetching all salons
-        const sampleResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=50&offset=0`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-      });
+        // Fetch ALL salons in batches to ensure we get all of them
+        let allSalons = [];
+        let offset = 0;
+        const limit = 1000; // Use high limit to get all salons in fewer requests
+        let hasMore = true;
 
-        let salonsToCheck = [];
-        if (sampleResponse.ok) {
-          const sampleData = await sampleResponse.json();
-          salonsToCheck = sampleData.data || [];
-        }
-        
-        // If no salons in sample, try without limit
-        if (salonsToCheck.length === 0) {
-          const fallbackResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            salonsToCheck = fallbackData.data || [];
+        while (hasMore) {
+          const response = await fetch(
+            `${apiUrl}/salons/browse?status=APPROVED&limit=${limit}&offset=${offset}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            // If limit/offset not supported, try without limit/offset
+            if (offset === 0) {
+              const fallbackResponse = await fetch(
+                `${apiUrl}/salons/browse?status=APPROVED`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                }
+              );
+              if (!fallbackResponse.ok) {
+                setLoading(false);
+                return;
+              }
+              const fallbackData = await fallbackResponse.json();
+              allSalons = fallbackData.data || [];
+              hasMore = false;
+            } else {
+              hasMore = false;
+            }
+          } else {
+            const data = await response.json();
+            const batchSalons = data.data || [];
+            allSalons = [...allSalons, ...batchSalons];
+            
+            // If we got fewer than the limit, we've reached the end
+            if (batchSalons.length < limit) {
+              hasMore = false;
+            } else {
+              offset += limit;
+            }
           }
         }
         
-        if (salonsToCheck.length > 0) {
-          fetchAllOrdersOptimized(salonsToCheck, token, apiUrl);
+        if (allSalons.length > 0) {
+          fetchAllOrdersOptimized(allSalons, token, apiUrl);
         } else {
           setLoading(false);
-      }
-    } catch (err) {
+        }
+      } catch (err) {
         console.error('Error initializing orders:', err);
         setLoading(false);
-    }
-  };
+      }
+    };
 
     initializeData();
   }, [user, navigate]);
@@ -139,7 +167,7 @@ export default function OrderHistoryPage() {
         // If no salons loaded yet, fetch them first in batches
         let allSalons = [];
         let offset = 0;
-        const limit = 100;
+        const limit = 1000; // Use high limit to get all salons in fewer requests
         let hasMore = true;
 
         const fetchSalonsBatch = async () => {
@@ -151,6 +179,7 @@ export default function OrderHistoryPage() {
               );
 
               if (!salonsResponse.ok) {
+                // If limit/offset not supported, try without limit/offset
                 if (offset === 0) {
                   const fallbackResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
                     headers: { 'Authorization': `Bearer ${token}` },
@@ -166,6 +195,7 @@ export default function OrderHistoryPage() {
                 const batchSalons = salonsData.data || [];
                 allSalons = [...allSalons, ...batchSalons];
                 
+                // If we got fewer than the limit, we've reached the end
                 if (batchSalons.length < limit) {
                   hasMore = false;
                 } else {
@@ -194,72 +224,87 @@ export default function OrderHistoryPage() {
   }, [salons]);
 
   // Optimized version that fetches all salon orders in parallel
+  // TODO: Backend should provide a bulk endpoint (e.g., /products/customer/view-all-orders)
+  // that accepts multiple salon_ids and returns all orders in one request instead of N requests
   const fetchAllOrdersOptimized = async (salonsToFetch, token, apiUrl) => {
     setLoading(true);
     try {
       const allOrders = [];
       
-      // Fetch all salon orders in parallel (major speedup!)
-      const orderPromises = salonsToFetch.map(salon => 
-        fetch(`${apiUrl}/products/customer/view-orders`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-            salon_id: typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id,
-              limit: 100,
-              offset: 0
-            })
-        }).then(response => ({
-          salon,
-          response,
-          ok: response.ok,
-          status: response.status
-        })).catch(err => ({
-          salon,
-          response: null,
-          ok: false,
-          status: 0,
-          error: err
-        }))
-      );
-
-      const orderResults = await Promise.allSettled(orderPromises);
-      
-      // Process all results and build salon list from salons with orders
-      const uniqueSalonIds = new Set();
-      for (const result of orderResults) {
-        if (result.status === 'fulfilled' && result.value.ok) {
-          try {
-            const { salon, response } = result.value;
-            const data = await response.json();
-            const orders = data.orders || [];
-            
-            if (orders.length > 0) {
-              const salonIdValue = typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id;
-              uniqueSalonIds.add(salonIdValue);
-            }
-            
-            // Add salon info to each order item
-            const salonIdValue = typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id;
-            orders.forEach(order => {
-              order.salon_id = salonIdValue;
-              order.salon_name = salon.name;
-            });
-            allOrders.push(...orders);
-          } catch (err) {
-            console.error(`Error processing orders for salon ${result.value.salon.salon_id}:`, err);
-          }
-        } else if (result.status === 'fulfilled' && result.value.status === 500) {
-          // No orders for this salon, skip
-            continue;
-          }
+      // Batch requests to avoid overwhelming the server (process in chunks of 20)
+      // This is a temporary workaround until backend implements bulk endpoint
+      const BATCH_SIZE = 20;
+      const salonBatches = [];
+      for (let i = 0; i < salonsToFetch.length; i += BATCH_SIZE) {
+        salonBatches.push(salonsToFetch.slice(i, i + BATCH_SIZE));
       }
       
+      // Process batches sequentially to avoid overwhelming server
+      for (const batch of salonBatches) {
+        // Fetch salon orders in parallel within each batch
+        const orderPromises = batch.map(salon => 
+          fetch(`${apiUrl}/products/customer/view-orders`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+              salon_id: typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id,
+                limit: 100,
+                offset: 0
+              })
+          }).then(response => ({
+            salon,
+            response,
+            ok: response.ok,
+            status: response.status
+          })).catch(err => ({
+            salon,
+            response: null,
+            ok: false,
+            status: 0,
+            error: err
+          }))
+        );
+
+        const orderResults = await Promise.allSettled(orderPromises);
+        
+        // Process batch results
+        for (const result of orderResults) {
+          if (result.status === 'fulfilled' && result.value.ok) {
+            try {
+              const { salon, response } = result.value;
+              const data = await response.json();
+              const orders = data.orders || [];
+              
+              // Add salon info to each order item
+              const salonIdValue = typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id;
+              orders.forEach(order => {
+                order.salon_id = salonIdValue;
+                order.salon_name = salon.name;
+              });
+              allOrders.push(...orders);
+            } catch (err) {
+              console.error(`Error processing orders for salon ${result.value.salon.salon_id}:`, err);
+            }
+          } else if (result.status === 'fulfilled' && result.value.status === 500) {
+            // No orders for this salon, skip
+            continue;
+          }
+        }
+      }
+      
+      // Build salon list from all salons that have orders (after processing all batches)
+      const finalUniqueSalonIds = new Set();
+      allOrders.forEach(order => {
+        if (order.salon_id) {
+          finalUniqueSalonIds.add(order.salon_id);
+        }
+      });
+      
       // Build salon list only from salons that have orders
-      const salonsWithOrders = Array.from(uniqueSalonIds).map(id => {
+      const salonsWithOrders = Array.from(finalUniqueSalonIds).map(id => {
         const salon = salonsToFetch.find(s => {
           const sId = typeof s.salon_id === 'string' ? parseInt(s.salon_id, 10) : s.salon_id;
           return sId === id;
@@ -422,8 +467,8 @@ export default function OrderHistoryPage() {
 
         {orders.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <CardContent className="py-24 text-center flex flex-col items-center justify-center min-h-[400px]">
+              <Package className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold mb-2">No orders found</h3>
               <p className="text-muted-foreground">You haven't placed any orders yet.</p>
             </CardContent>
