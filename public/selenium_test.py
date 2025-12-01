@@ -7403,6 +7403,197 @@ class StrandsTestSuite:
                                                                                 print("\n" + "="*70)
                                                                                 print("OWNER DASHBOARD FLOW COMPLETED")
                                                                                 print("="*70)
+                                                                                
+                                                                                # Log out from owner account
+                                                                                print("\n" + "="*70)
+                                                                                print("LOGGING OUT FROM OWNER ACCOUNT")
+                                                                                print("="*70)
+                                                                                try:
+                                                                                    # Wait for any toast notifications to disappear
+                                                                                    time.sleep(2.0)
+                                                                                    try:
+                                                                                        toast_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'sonner-toast')]")
+                                                                                        if toast_elements:
+                                                                                            time.sleep(2.0)
+                                                                                    except:
+                                                                                        pass
+                                                                                    
+                                                                                    # Try owner logout button ID first
+                                                                                    try:
+                                                                                        logout_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "owner-logout-button"))
+                                                                                        )
+                                                                                        self.scroll_to_element(logout_button)
+                                                                                        time.sleep(0.3)
+                                                                                        try:
+                                                                                            logout_button.click()
+                                                                                        except:
+                                                                                            self.driver.execute_script("arguments[0].click();", logout_button)
+                                                                                        time.sleep(2.0)
+                                                                                        print("  ✓ Logged out using owner logout button ID")
+                                                                                    except:
+                                                                                        # Fallback to XPath
+                                                                                        logout_buttons = self.driver.find_elements(By.XPATH, 
+                                                                                            "//button[@id='owner-logout-button'] | "
+                                                                                            "//button[contains(text(), 'Logout')] | "
+                                                                                            "//button[contains(., 'Logout')]"
+                                                                                        )
+                                                                                        if logout_buttons:
+                                                                                            self.scroll_to_element(logout_buttons[0])
+                                                                                            time.sleep(0.3)
+                                                                                            try:
+                                                                                                logout_buttons[0].click()
+                                                                                            except:
+                                                                                                self.driver.execute_script("arguments[0].click();", logout_buttons[0])
+                                                                                            time.sleep(2.0)
+                                                                                            print("  ✓ Logged out (fallback)")
+                                                                                        else:
+                                                                                            print("  ⚠ Could not find logout button, navigating to home")
+                                                                                            self.navigate_and_scroll(BASE_URL)
+                                                                                    
+                                                                                    # Wait for logout to process and redirect to landing page
+                                                                                    time.sleep(2.0)
+                                                                                    current_url = self.driver.current_url
+                                                                                    if "/login" in current_url or BASE_URL in current_url or current_url == BASE_URL + "/":
+                                                                                        print("  ✓ Successfully logged out and redirected to landing page")
+                                                                                    else:
+                                                                                        print(f"  ⚠ Unexpected URL after logout: {current_url}")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error logging out: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                # Log into admin account
+                                                                                print("\n" + "="*70)
+                                                                                print("LOGGING INTO ADMIN ACCOUNT")
+                                                                                print("="*70)
+                                                                                if not self.login("admin@strands.com", "test123", "Admin"):
+                                                                                    print("  ⚠ Failed to log in as admin")
+                                                                                else:
+                                                                                    print("  ✓ Successfully logged in as admin")
+                                                                                    
+                                                                                    # Wait for admin dashboard to load
+                                                                                    time.sleep(2.0)
+                                                                                    current_url = self.driver.current_url
+                                                                                    print(f"  Current URL after admin login: {current_url}")
+                                                                                    
+                                                                                    # Navigate to admin dashboard if not already there
+                                                                                    if "/admin" not in current_url and "/dashboard" not in current_url:
+                                                                                        self.navigate_and_scroll(f"{BASE_URL}/dashboard?tab=user-analytics")
+                                                                                        time.sleep(2.0)
+                                                                                    
+                                                                                    # Go through admin tabs and slowly scroll through them
+                                                                                    print("\n" + "="*70)
+                                                                                    print("CHECKING ADMIN TABS FOR UPDATED DATA")
+                                                                                    print("="*70)
+                                                                                    
+                                                                                    admin_tabs = [
+                                                                                        ("Loyalty Monitoring", "/admin/loyalty-monitoring"),
+                                                                                        ("User Analytics", "/dashboard?tab=user-analytics"),
+                                                                                        ("Business Insights", "/dashboard?tab=business-insights"),
+                                                                                        ("Revenue Tracking", "/dashboard?tab=revenue-analytics")
+                                                                                    ]
+                                                                                    
+                                                                                    for tab_name, tab_path in admin_tabs:
+                                                                                        print(f"\n  Checking {tab_name} tab...")
+                                                                                        try:
+                                                                                            # Try to click the tab button first
+                                                                                            if tab_name == "Loyalty Monitoring":
+                                                                                                tab_clicked = self.safe_click(
+                                                                                                    By.XPATH,
+                                                                                                    "//button[contains(text(), 'Loyalty Monitoring')] | //a[contains(text(), 'Loyalty Monitoring')]",
+                                                                                                    f"{tab_name} tab"
+                                                                                                )
+                                                                                            elif tab_name == "User Analytics":
+                                                                                                tab_clicked = self.safe_click(
+                                                                                                    By.XPATH,
+                                                                                                    "//button[contains(text(), 'User Analytics')] | //a[contains(text(), 'User Analytics')]",
+                                                                                                    f"{tab_name} tab"
+                                                                                                )
+                                                                                            elif tab_name == "Business Insights":
+                                                                                                tab_clicked = self.safe_click(
+                                                                                                    By.XPATH,
+                                                                                                    "//button[contains(text(), 'Business Insights')] | //a[contains(text(), 'Business Insights')]",
+                                                                                                    f"{tab_name} tab"
+                                                                                                )
+                                                                                            elif tab_name == "Revenue Tracking":
+                                                                                                tab_clicked = self.safe_click(
+                                                                                                    By.XPATH,
+                                                                                                    "//button[contains(text(), 'Revenue Tracking')] | //button[contains(text(), 'Revenue Analytics')] | //a[contains(text(), 'Revenue')]",
+                                                                                                    f"{tab_name} tab"
+                                                                                                )
+                                                                                            
+                                                                                            if not tab_clicked:
+                                                                                                # Fallback to direct navigation
+                                                                                                self.navigate_and_scroll(f"{BASE_URL}{tab_path}")
+                                                                                            
+                                                                                            time.sleep(2.0)  # Wait for page to load
+                                                                                            
+                                                                                            # Slowly scroll through the page to check updated data
+                                                                                            print(f"    Slowly scrolling through {tab_name}...")
+                                                                                            try:
+                                                                                                page_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
+                                                                                                viewport_height = self.driver.execute_script("return window.innerHeight")
+                                                                                                
+                                                                                                if page_height > viewport_height:
+                                                                                                    # Scroll in smaller increments for slower, more visible scrolling
+                                                                                                    scroll_increment = viewport_height * 0.5  # Smaller increments
+                                                                                                    current_scroll = 0
+                                                                                                    while current_scroll < page_height:
+                                                                                                        current_scroll += scroll_increment
+                                                                                                        self.driver.execute_script(f"window.scrollTo(0, {current_scroll});")
+                                                                                                        time.sleep(0.8)  # Longer delay for slower scrolling
+                                                                                                    
+                                                                                                    # Scroll to bottom
+                                                                                                    self.driver.execute_script(f"window.scrollTo(0, {page_height});")
+                                                                                                    time.sleep(1.0)
+                                                                                                    
+                                                                                                    # Scroll back to top slowly
+                                                                                                    scroll_back_increment = viewport_height * 0.5
+                                                                                                    current_scroll = page_height
+                                                                                                    while current_scroll > 0:
+                                                                                                        current_scroll -= scroll_back_increment
+                                                                                                        if current_scroll < 0:
+                                                                                                            current_scroll = 0
+                                                                                                        self.driver.execute_script(f"window.scrollTo(0, {current_scroll});")
+                                                                                                        time.sleep(0.8)
+                                                                                                    
+                                                                                                    # Final scroll to top
+                                                                                                    self.driver.execute_script("window.scrollTo(0, 0);")
+                                                                                                    time.sleep(0.5)
+                                                                                                else:
+                                                                                                    print(f"    ℹ Page content fits in viewport, no scrolling needed")
+                                                                                                
+                                                                                                print(f"    ✓ Finished scrolling through {tab_name}")
+                                                                                            except Exception as e:
+                                                                                                print(f"    ⚠ Error scrolling through {tab_name}: {e}")
+                                                                                            
+                                                                                            # Check if data is loaded (look for common data elements)
+                                                                                            try:
+                                                                                                data_elements = self.driver.find_elements(By.XPATH, 
+                                                                                                    "//div[contains(@class, 'card')] | "
+                                                                                                    "//div[contains(@class, 'Card')] | "
+                                                                                                    "//div[contains(@class, 'chart')] | "
+                                                                                                    "//div[contains(@class, 'Chart')] | "
+                                                                                                    "//table | "
+                                                                                                    "//div[contains(@class, 'text-4xl')] | "
+                                                                                                    "//div[contains(@class, 'text-3xl')]"
+                                                                                                )
+                                                                                                if data_elements:
+                                                                                                    print(f"    ✓ Found {len(data_elements)} data element(s) on {tab_name} page")
+                                                                                                else:
+                                                                                                    print(f"    ℹ No data elements found on {tab_name} page (may be empty)")
+                                                                                            except:
+                                                                                                print(f"    ℹ Could not verify data elements on {tab_name} page")
+                                                                                                
+                                                                                        except Exception as e:
+                                                                                            print(f"    ⚠ Error checking {tab_name} tab: {e}")
+                                                                                            import traceback
+                                                                                            traceback.print_exc()
+                                                                                    
+                                                                                    print("\n" + "="*70)
+                                                                                    print("ADMIN TABS DATA CHECK COMPLETED")
+                                                                                    print("="*70)
                                                                             except Exception as e:
                                                                                 print(f"  ⚠ Error navigating to Browse Salons: {e}")
                                                                         except Exception as e:
