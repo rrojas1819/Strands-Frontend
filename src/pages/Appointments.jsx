@@ -25,7 +25,7 @@ export default function Appointments() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [canceling, setCanceling] = useState(false);
-  const [filter, setFilter] = useState('all'); // 'all', 'scheduled', 'past', 'cancelled'
+  const [filter, setFilter] = useState('all'); // 'all', 'scheduled', 'past', 'canceled'
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedStylistForReview, setSelectedStylistForReview] = useState(null);
@@ -96,8 +96,8 @@ export default function Appointments() {
       } else if (currentFilter === 'past') {
         // Past: only show COMPLETED appointments
         params.append('filter', 'past');
-      } else if (currentFilter === 'cancelled') {
-        // Cancelled: only show CANCELED appointments
+      } else if (currentFilter === 'canceled') {
+        // Canceled: only show CANCELED appointments
         params.append('filter', 'canceled');
       }
       // filter === 'all' means no filter parameter - backend returns all appointments
@@ -504,8 +504,8 @@ export default function Appointments() {
       if (response.ok) {
         // Check if refund was processed (backend should handle this automatically)
         const refundMessage = data.data?.refund_processed 
-          ? 'Appointment cancelled and refund processed successfully.' 
-          : 'Appointment cancelled successfully. Refund will be processed if applicable.';
+          ? 'Appointment canceled and refund processed successfully.' 
+          : 'Appointment canceled successfully. Refund will be processed if applicable.';
         notifySuccess(refundMessage);
         // Refetch appointments with current filter and page
         fetchAppointments(pagination.current_page, pagination.limit, filter);
@@ -520,10 +520,10 @@ export default function Appointments() {
           } else if (data.message && data.message.includes('past')) {
             errorMessage = 'Cannot cancel past appointments.';
           } else if (data.message && data.message.includes('already')) {
-            errorMessage = 'This appointment has already been cancelled.';
+            errorMessage = 'This appointment has already been canceled.';
           }
         } else if (response.status === 404) {
-          errorMessage = 'Appointment not found. It may have already been cancelled.';
+          errorMessage = 'Appointment not found. It may have already been canceled.';
         }
         throw new Error(errorMessage);
       }
@@ -647,6 +647,7 @@ export default function Appointments() {
                 }
               }}
               disabled={loading}
+              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
             >
               All
             </Button>
@@ -659,6 +660,7 @@ export default function Appointments() {
                 }
               }}
               disabled={loading}
+              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
             >
               Upcoming
             </Button>
@@ -671,20 +673,22 @@ export default function Appointments() {
                 }
               }}
               disabled={loading}
+              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
             >
               Completed
             </Button>
             <Button
-              variant={filter === 'cancelled' ? 'default' : 'outline'}
+              variant={filter === 'canceled' ? 'default' : 'outline'}
               size="sm"
               onClick={() => {
-                if (filter !== 'cancelled' && !loading) {
-                  setFilter('cancelled');
+                if (filter !== 'canceled' && !loading) {
+                  setFilter('canceled');
                 }
               }}
               disabled={loading}
+              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
             >
-              Cancelled
+              Canceled
             </Button>
           </div>
         </div>
@@ -721,7 +725,7 @@ export default function Appointments() {
               <p className="text-muted-foreground mb-4">
                 {filter === 'all' 
                   ? 'Book your first appointment to get started' 
-                  : filter === 'cancelled' 
+                  : filter === 'canceled' 
                   ? 'No canceled appointments' 
                   : filter === 'past' 
                   ? 'No past appointments' 
@@ -835,7 +839,7 @@ export default function Appointments() {
                       </Alert>
                     )}
                   </div>
-                  <div className="flex items-start justify-between pt-4 border-t mt-auto flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between pt-4 border-t mt-auto flex-shrink-0 gap-3 sm:gap-0">
                     <div className="flex flex-col min-w-0 flex-1">
                       {hasDiscount ? (
                         <>
@@ -843,7 +847,7 @@ export default function Appointments() {
                             <span className="text-sm text-muted-foreground line-through">
                               ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
                             </span>
-                            <span className="text-lg font-semibold text-green-800">
+                            <span className="text-base sm:text-lg font-semibold text-green-800">
                               ${!Number.isNaN(actualPaid) ? actualPaid.toFixed(2) : '0.00'}
                             </span>
                           </div>
@@ -854,12 +858,12 @@ export default function Appointments() {
                           </p>
                         </>
                       ) : (
-                        <span className="text-lg font-semibold text-green-800">
+                        <span className="text-base sm:text-lg font-semibold text-green-800">
                           ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2 ml-4 flex-shrink-0">
+                    <div className="flex flex-wrap gap-2 sm:ml-4 flex-shrink-0">
                       {isPast && appointment.stylists && appointment.stylists.length > 0 && (
                         <Button
                           size="sm"
@@ -873,9 +877,11 @@ export default function Appointments() {
                             });
                             setShowReviewModal(true);
                           }}
+                          className="text-xs sm:text-sm px-2 sm:px-3"
                         >
-                          <Star className="w-4 h-4 mr-1" />
-                          {stylistReviews[appointment.stylists[0].employee_id] ? 'Edit Review' : 'Review Stylist'}
+                          <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" />
+                          <span className="hidden sm:inline">{stylistReviews[appointment.stylists[0].employee_id] ? 'Edit Review' : 'Review Stylist'}</span>
+                          <span className="sm:hidden">Review</span>
                         </Button>
                       )}
                       {isPast && status === 'COMPLETED' && appointment.booking_id && (
@@ -886,9 +892,11 @@ export default function Appointments() {
                             e.stopPropagation();
                             handleViewPhotos(appointment.booking_id, e);
                           }}
+                          className="text-xs sm:text-sm px-2 sm:px-3"
                         >
-                          <Image className="w-4 h-4 mr-1" />
-                          View Photos
+                          <Image className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" />
+                          <span className="hidden sm:inline">View Photos</span>
+                          <span className="sm:hidden">Photos</span>
                         </Button>
                       )}
                       {canReschedule && (
@@ -896,19 +904,21 @@ export default function Appointments() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleRescheduleClick(appointment)}
+                          className="text-xs sm:text-sm px-2 sm:px-3"
                         >
-                          <Edit2 className="w-4 h-4 mr-1" />
-                          Reschedule
+                          <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Reschedule</span>
+                          <span className="sm:hidden">Resched</span>
                         </Button>
                       )}
                       {canCancel && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 text-xs sm:text-sm px-2 sm:px-3"
                           onClick={() => handleCancelClick(appointment)}
                         >
-                          <X className="w-4 h-4 mr-1" />
+                          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" />
                           Cancel
                         </Button>
                       )}
@@ -942,25 +952,25 @@ export default function Appointments() {
         {/* Pagination */}
         {pagination.total_pages > 1 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pt-6 border-t">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
               Showing {((pagination.current_page - 1) * pagination.limit) + 1} - {Math.min(pagination.current_page * pagination.limit, pagination.total_items)} of {pagination.total_items} appointments
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(pagination.current_page - 1)}
                 disabled={!pagination.has_prev_page || loading || pagination.current_page <= 1}
-                className="h-9 px-3"
+                className="h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm"
               >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Previous
+                <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" />
+                <span className="hidden sm:inline">Previous</span>
               </Button>
               
               {/* Page Number Input */}
-              <form onSubmit={handlePageInputSubmit} className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">Page</span>
+              <form onSubmit={handlePageInputSubmit} className="flex items-center gap-1 sm:gap-2">
+                <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap hidden sm:inline">Page</span>
                 <Input
                   type="number"
                   min={1}
@@ -975,11 +985,11 @@ export default function Appointments() {
                       handlePageInputSubmit(e);
                     }
                   }}
-                  className="w-16 h-9 text-center text-sm font-medium border-gray-300 focus:border-primary focus:ring-primary [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                  className="w-12 sm:w-16 h-8 sm:h-9 text-center text-xs sm:text-sm font-medium border-gray-300 focus:border-primary focus:ring-primary [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                   style={{ WebkitAppearance: 'textfield' }}
                   disabled={loading}
                 />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">of {pagination.total_pages}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">of {pagination.total_pages}</span>
               </form>
               
               <Button
@@ -987,10 +997,10 @@ export default function Appointments() {
                 size="sm"
                 onClick={() => handlePageChange(pagination.current_page + 1)}
                 disabled={!pagination.has_next_page || loading || pagination.current_page >= pagination.total_pages}
-                className="h-9 px-3"
+                className="h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm"
               >
-                Next
-                <ChevronRight className="w-4 h-4 ml-1" />
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:ml-1" />
               </Button>
             </div>
           </div>

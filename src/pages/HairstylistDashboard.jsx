@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import ImageCropper from '../components/ImageCropper';
 import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye, DollarSign, TrendingUp, Mail, Bell } from 'lucide-react';
-import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
+const strandsLogo = '/strands-logo-new.png';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -78,9 +78,9 @@ const [cancelConflictLoadingId, setCancelConflictLoadingId] = useState(null);
   });
   const [serviceLoading, setServiceLoading] = useState(false);
   
-  // New state for cancelled appointments and popup
-  const [showCancelledTab, setShowCancelledTab] = useState(false);
-  const [cancelledDate, setCancelledDate] = useState(new Date());
+  // New state for canceled appointments and popup
+  const [showCanceledTab, setShowCanceledTab] = useState(false);
+  const [canceledDate, setCanceledDate] = useState(new Date());
   const [showAppointmentPopup, setShowAppointmentPopup] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
 const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
@@ -471,7 +471,7 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
             status = 'pending';
           }
           
-          // Auto-update status: if appointment end time has passed and not cancelled, mark as completed (past visit)
+          // Auto-update status: if appointment end time has passed and not canceled, mark as completed (past visit)
           if (status !== 'canceled' && status !== 'completed' && booking.scheduled_end && booking.scheduled_start) {
             try {
               // Use UTC comparison for past/upcoming checks
@@ -1631,14 +1631,14 @@ const handleCancelSelectedAppointment = async () => {
     return selectedDateNormalized.getTime() < rangeEndNormalized.getTime();
   };
 
-  // Cancelled appointments date navigation
-  const navigateCancelledDate = (direction) => {
-    const newDate = new Date(cancelledDate);
-    newDate.setDate(cancelledDate.getDate() + direction);
-    setCancelledDate(newDate);
+  // Canceled appointments date navigation
+  const navigateCanceledDate = (direction) => {
+    const newDate = new Date(canceledDate);
+    newDate.setDate(canceledDate.getDate() + direction);
+    setCanceledDate(newDate);
   };
 
-  const formatCancelledDate = (date) => {
+  const formatCanceledDate = (date) => {
     return date.toLocaleDateString('en-US', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -1647,13 +1647,13 @@ const handleCancelSelectedAppointment = async () => {
     });
   };
 
-  const getCancelledAppointmentsForDate = (date) => {
-    const cancelledForDate = scheduleData.filter(apt => 
+  const getCanceledAppointmentsForDate = (date) => {
+    const canceledForDate = scheduleData.filter(apt => 
       apt.status === 'canceled' && 
       apt.date && 
       apt.date.toDateString() === date.toDateString()
     );
-    return cancelledForDate;
+    return canceledForDate;
   };
 
   // getCurrentWeekDays function removed - no longer needed
@@ -1686,7 +1686,7 @@ const handleCancelSelectedAppointment = async () => {
       case 'scheduled':
         return '!bg-yellow-200 !text-yellow-800 border-yellow-200';
       case 'canceled':
-      case 'cancelled':
+      case 'canceled':
         return '!bg-red-200 !text-red-800 border-red-200';
       default:
         return '!bg-gray-200 !text-gray-800 border-gray-200';
@@ -1928,15 +1928,15 @@ const handleCancelSelectedAppointment = async () => {
                 </Button>
                 <Button 
                   onClick={() => {
-                    setShowCancelledTab(true);
-                    setCancelledDate(new Date());
+                    setShowCanceledTab(true);
+                    setCanceledDate(new Date());
                   }} 
                   variant="outline" 
                   size="sm"
                   className="flex items-center space-x-2"
                 >
                   <Calendar className="w-4 h-4" />
-                  <span>View Cancelled</span>
+                  <span>View Canceled</span>
                 </Button>
                 <Button 
                   onClick={handleAlertEveryone}
@@ -2268,7 +2268,7 @@ const handleCancelSelectedAppointment = async () => {
                             );
                           })}
                         
-                        {/* Appointments for this day (excluding cancelled) */}
+                        {/* Appointments for this day (excluding canceled) */}
                         {dayAppointments
                           .map((appointment) => {
                             const startMinutes = timeToMinutes(appointment.startTime);
@@ -2318,7 +2318,7 @@ const handleCancelSelectedAppointment = async () => {
                 </div>
               </div>
             ) : (() => {
-              // Filter appointments for selected date, excluding cancelled ones
+              // Filter appointments for selected date, excluding canceled ones
               const dayAppointments = scheduleData.filter(apt => {
                 if (viewType !== 'day') return true;
                 const aptDate = apt.date ? new Date(apt.date) : null;
@@ -3424,8 +3424,8 @@ const handleCancelSelectedAppointment = async () => {
         </div>
       )}
 
-      {/* Cancelled Appointments Modal - Show All Cancelled */}
-      {showCancelledTab && (
+      {/* Canceled Appointments Modal - Show All Canceled */}
+      {showCanceledTab && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
             <CardContent className="p-0">
@@ -3433,16 +3433,16 @@ const handleCancelSelectedAppointment = async () => {
                 <div className="flex items-center space-x-3">
                   <Calendar className="w-6 h-6 text-red-500" />
                         <div>
-                    <h3 className="text-lg font-semibold text-gray-900">All Cancelled Appointments</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">All Canceled Appointments</h3>
                     <p className="text-sm text-gray-600">
-                      {scheduleData.filter(apt => apt.status === 'canceled').length} cancelled appointment(s)
+                      {scheduleData.filter(apt => apt.status === 'canceled').length} canceled appointment(s)
                     </p>
                           </div>
                         </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowCancelledTab(false)}
+                  onClick={() => setShowCanceledTab(false)}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" />
@@ -3451,19 +3451,19 @@ const handleCancelSelectedAppointment = async () => {
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
                 {(() => {
-                  const allCancelledAppointments = scheduleData.filter(apt => apt.status === 'canceled');
+                  const allCanceledAppointments = scheduleData.filter(apt => apt.status === 'canceled');
                   
-                  return allCancelledAppointments.length === 0 ? (
+                  return allCanceledAppointments.length === 0 ? (
                   <div className="text-center py-12">
                       <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-foreground mb-2">No cancelled appointments</h3>
+                      <h3 className="text-lg font-medium text-foreground mb-2">No canceled appointments</h3>
                     <p className="text-sm text-muted-foreground">
-                        You have no cancelled appointments.
+                        You have no canceled appointments.
                     </p>
                   </div>
                 ) : (
                     <div className="space-y-4">
-                      {allCancelledAppointments
+                      {allCanceledAppointments
                         .sort((a, b) => {
                           const dateA = a.date ? new Date(a.date) : new Date(0);
                           const dateB = b.date ? new Date(b.date) : new Date(0);
@@ -3566,7 +3566,7 @@ const handleCancelSelectedAppointment = async () => {
 
               <div className="flex justify-end p-6 border-t">
                 <Button 
-                  onClick={() => setShowCancelledTab(false)}
+                  onClick={() => setShowCanceledTab(false)}
                   variant="outline"
                 >
                   Close

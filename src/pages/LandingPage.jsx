@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { Calendar, Clock, Star, Users, Shield, TrendingUp } from 'lucide-react';
 import { ImageWithFallback } from '../components/ImageWithFallback';
-import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -16,7 +15,7 @@ export default function LandingPage() {
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
-            <img src={strandsLogo} alt="Strands" className="w-20 h-20" />
+            <img src="/strands-logo-new.png" alt="Strands" className="w-20 h-20" />
           </div>
           <div className="flex items-center space-x-4">
             <Button variant="ghost" onClick={() => navigate('/login')}>
