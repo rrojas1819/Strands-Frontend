@@ -46,7 +46,7 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <img 
-                src="/src/assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png" 
+                src="/strands-logo-new.png" 
                 alt="Strands Logo" 
                 className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => navigate('/dashboard')}

@@ -131,7 +131,7 @@ const RewardCard = memo(({ reward, navigate }) => {
     if (reward.salonId) {
       navigate(`/salon/${reward.salonId}/book`);
     } else {
-      console.warn('Cannot redeem reward - missing salonId:', reward);
+      // Missing salonId - reward cannot be redeemed
     }
   }, [reward.salonId, navigate]);
 
@@ -212,7 +212,7 @@ export default function LoyaltyPoints() {
         
         // Check if user is logged in
         if (!token) {
-          console.log('No auth token found');
+          // No auth token found
           setError('Please log in to view your loyalty points');
           setLoading(false);
           return;
@@ -242,7 +242,7 @@ export default function LoyaltyPoints() {
           totalRewardsCount = totalRewardsData.totalRewards || 0;
           setRewardsCount(totalRewardsCount);
         } else {
-          console.warn('Failed to fetch total rewards count');
+          // Failed to fetch total rewards count - continue without it
         }
 
         // Process all available rewards
@@ -253,18 +253,14 @@ export default function LoyaltyPoints() {
           if (rewardsData && Array.isArray(rewardsData.totalRewards)) {
             allAvailableRewards = rewardsData.totalRewards;
           } else {
-            console.warn('Unexpected response format. Expected { totalRewards: [...] }, got:', rewardsData);
+            // Unexpected response format - handle gracefully
             throw new Error('Invalid response format from all-rewards endpoint');
           }
         } else {
           const errorText = allRewardsResponse.status === 'fulfilled' 
             ? await allRewardsResponse.value.text() 
             : allRewardsResponse.reason?.message || 'Unknown error';
-          console.error('Failed to fetch all rewards:', {
-            status: allRewardsResponse.status === 'fulfilled' ? allRewardsResponse.value.status : 'rejected',
-            error: errorText,
-            url: `${apiUrl}/user/loyalty/all-rewards`
-          });
+          // Failed to fetch all rewards - continue without them
           
           if (allRewardsResponse.status === 'fulfilled' && allRewardsResponse.value.status === 404) {
             throw new Error('ENDPOINT_NOT_FOUND: The /api/user/loyalty/all-rewards endpoint returned 404. Please verify the route is registered in the backend.');
@@ -298,7 +294,7 @@ export default function LoyaltyPoints() {
             uniqueSalonIds.has(salon.salon_id) || uniqueSalonNames.has(salon.name)
           );
         } else {
-          console.log('Failed to fetch salons');
+          // Failed to fetch salons - continue without them
           // Don't throw error - continue without salon data
           salons = [];
         }
@@ -348,6 +344,7 @@ export default function LoyaltyPoints() {
         // Process results as they come in (progressive loading)
         const salonProgress = [];
         let totalVisits = 0;
+        let totalVisitsForUser = 0;
         let goldenSalons = 0;
         const recentActivity = [];
         
@@ -370,7 +367,6 @@ export default function LoyaltyPoints() {
                 const loyaltyData = await response.json();
               const userData = loyaltyData.userData;
               const userRewards = loyaltyData.userRewards || [];
-                
                 // Get available rewards count for this salon from the allAvailableRewards array
                 const availableCount = allAvailableRewards.filter(r => {
                   const salonId = r.salon_id || salonNameToId[r.salon_name];
@@ -383,7 +379,8 @@ export default function LoyaltyPoints() {
                 const discountPercentage = userData.discount_percentage || 10;
                 const salonName = userData.salon_name || salon.name;
                 
-                totalVisits += visits;
+                totalVisitsForUser += userData.total_visits_count || 0;
+
                 if (visits >= 5) goldenSalons++;
                 
                 const salonProgressItem = {
@@ -442,7 +439,7 @@ export default function LoyaltyPoints() {
               }
             }
           } catch (err) {
-                console.log('Error processing loyalty data for salon:', err.message);
+                // Error processing loyalty data for salon - skip this salon
               }
             }
           }
@@ -495,6 +492,8 @@ export default function LoyaltyPoints() {
           .slice(0, 4)
           .map(({ activity }) => activity);
 
+        totalVisits = totalVisitsForUser;
+
         const finalData = {
           salonProgress: salonProgress,
           totalVisits: totalVisits,
@@ -503,11 +502,7 @@ export default function LoyaltyPoints() {
           availableRewards: allRewards
         };
         
-        console.log('Loyalty data loaded:', {
-          salons: salonProgress.length,
-          rewards: allRewards.length,
-          totalVisits
-        });
+        // Loyalty data loaded successfully
         
         // Update partial data first for immediate display
         setPartialData({
@@ -522,7 +517,7 @@ export default function LoyaltyPoints() {
         setLoyaltyData(finalData);
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching loyalty data:', err);
+        // Error fetching loyalty data - handled by setError
         setError(err.message || 'Failed to load loyalty points.');
         setLoading(false);
       }

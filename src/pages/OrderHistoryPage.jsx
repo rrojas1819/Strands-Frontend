@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo, useCallback, memo } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useCallback, memo, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Input } from '../components/ui/input';
 import { notifyError } from '../utils/notifications';
 import UserNavbar from '../components/UserNavbar';
 import { Label } from '../components/ui/label';
@@ -17,15 +18,19 @@ export default function OrderHistoryPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSalonId, setSelectedSalonId] = useState(null);
-  const [salons, setSalons] = useState([]);
+  const [salons, setSalons] = useState([]); // All salons (for lookup)
+  const [salonsWithOrders, setSalonsWithOrders] = useState([]); // Only salons that have orders - NEVER overwrite once loaded
+  const salonsWithOrdersLoadedRef = useRef(false); // Use ref to track if loaded (persists across renders)
   const [pagination, setPagination] = useState({
     current_page: 1,
     total_pages: 1,
+    total_orders: 0,
     limit: 10,
     offset: 0,
     has_next_page: false,
     has_prev_page: false
   });
+  const [pageInputValue, setPageInputValue] = useState('1');
 
   useEffect(() => {
     if (!user) {
@@ -77,7 +82,7 @@ export default function OrderHistoryPage() {
               hasMore = false;
             }
           } else {
-            const data = await response.json();
+        const data = await response.json();
             const batchSalons = data.data || [];
             allSalons = [...allSalons, ...batchSalons];
             
@@ -91,27 +96,115 @@ export default function OrderHistoryPage() {
         }
         
         if (allSalons.length > 0) {
-          fetchAllOrdersOptimized(allSalons, token, apiUrl);
+          // Set salons state so dropdown works properly
+          setSalons(allSalons);
+          // Fetch all unique salons with orders in background (non-blocking)
+          // Don't wait - fetch orders immediately for faster page load
+          fetchAllSalonsWithOrders(token, apiUrl).catch(() => {
+            // Silently fail - don't block page
+          });
+          // Fetch first page of orders immediately (no salon_id = all salons)
+          fetchOrdersForFilter(null, 0);
         } else {
           setLoading(false);
         }
-      } catch (err) {
-        console.error('Error initializing orders:', err);
+    } catch (err) {
+        // Error handled - setLoading(false) already called
         setLoading(false);
-      }
-    };
+    }
+  };
 
     initializeData();
-  }, [user, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, navigate]); // fetchAllSalonsWithOrders and fetchOrdersForFilter are stable (useCallback)
 
-  const fetchOrders = async (salonId, offset = 0) => {
+  // Function to fetch all unique salons that have orders (for filter dropdown)
+  // Memoized to prevent recreation on every render
+  const fetchAllSalonsWithOrders = useCallback(async (token, apiUrl) => {
+    try {
+      // Fetch ALL pages to get ALL unique salons that have orders
+      const salonMap = new Map();
+      let offset = 0;
+      const limit = 100; // Use larger limit to fetch faster
+      let hasMore = true;
+      
+      // Fetch all pages until we've exhausted all orders
+      while (hasMore) {
+        const response = await fetch(`${apiUrl}/products/customer/view-orders`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            limit: limit,
+            offset: offset
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const orders = data.orders || [];
+          
+          // Extract unique salons from this page
+          orders.forEach(order => {
+            if (order.salon_name && order.salon_name !== 'Unknown Salon') {
+              if (!salonMap.has(order.salon_name)) {
+                salonMap.set(order.salon_name, {
+                  salon_id: order.salon_id || null,
+                  name: order.salon_name
+                });
+              } else {
+                // Update salon_id if we have it and it was missing before
+                const existing = salonMap.get(order.salon_name);
+                if (!existing.salon_id && order.salon_id) {
+                  existing.salon_id = order.salon_id;
+                }
+              }
+            }
+          });
+          
+          // Check if there are more pages - continue until we've fetched ALL pages
+          if (data.pagination && data.pagination.has_next_page) {
+            offset += limit;
+          } else {
+            hasMore = false; // No more pages, we've fetched everything
+          }
+        } else {
+          hasMore = false; // Stop on error
+        }
+      }
+      
+      // Set salonsWithOrders with ALL unique salons found across ALL pages
+      // Only set if we haven't loaded yet (prevent overwriting)
+      if (salonMap.size > 0 && !salonsWithOrdersLoadedRef.current) {
+        const allSalonsList = Array.from(salonMap.values());
+        setSalonsWithOrders(allSalonsList);
+        salonsWithOrdersLoadedRef.current = true; // Mark as loaded using ref
+        // Silently loaded all salons with orders
+      }
+    } catch (err) {
+      // Silently fail - don't block page load
+    }
+  }, []); // Empty deps - function is stable
+
+  // New function to fetch orders with backend filtering
+  // Memoized to prevent recreation on every render
+  const fetchOrdersForFilter = useCallback(async (salonId, offset = 0) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      // Get salon name
-      const salon = salons.find(s => s.salon_id == salonId);
+      // Build request body - if salonId is provided, include it; otherwise omit it (defaults to all)
+      const requestBody = {
+        limit: pagination.limit || 10,
+        offset: offset
+      };
+      
+      if (salonId !== null && salonId !== undefined) {
+        requestBody.salon_id = salonId;
+      }
       
       const response = await fetch(`${apiUrl}/products/customer/view-orders`, {
         method: 'POST',
@@ -119,8 +212,206 @@ export default function OrderHistoryPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const orders = data.orders || [];
+        
+        // Backend provides salon_name in each order - use it directly
+        orders.forEach(order => {
+          if (!order.salon_name) {
+            order.salon_name = 'Unknown Salon';
+          }
+        });
+        
+        // Only update salonsWithOrders if we haven't loaded all salons yet
+        // Otherwise, we already have the complete list from fetchAllSalonsWithOrders
+        // NEVER overwrite once loaded - use ref to check
+        if (!salonsWithOrdersLoadedRef.current) {
+          // Update salonsWithOrders for filter dropdown (accumulate unique salons from all pages)
+          // Merge new salons with existing ones instead of replacing
+          setSalonsWithOrders(prev => {
+            const salonMap = new Map();
+            
+            // Add existing salons to map
+            prev.forEach(salon => {
+              salonMap.set(salon.name, salon);
+            });
+            
+            // Add new salons from current page
+            orders.forEach(order => {
+              if (order.salon_name && order.salon_name !== 'Unknown Salon') {
+                if (!salonMap.has(order.salon_name)) {
+                  salonMap.set(order.salon_name, {
+                    salon_id: order.salon_id || null,
+                    name: order.salon_name
+                  });
+                } else {
+                  // Update salon_id if we have it and it was missing before
+                  const existing = salonMap.get(order.salon_name);
+                  if (!existing.salon_id && order.salon_id) {
+                    existing.salon_id = order.salon_id;
+                  }
+                }
+              }
+            });
+            
+            return Array.from(salonMap.values());
+          });
+        }
+        
+        setOrders(orders);
+        
+        // Update pagination from backend response
+        if (data.pagination) {
+          setPagination(data.pagination);
+          setPageInputValue(data.pagination.current_page?.toString() || '1');
+        } else {
+          const currentPage = Math.floor(offset / (pagination.limit || 10)) + 1;
+          setPagination(prev => ({
+            ...prev,
+            current_page: currentPage,
+            total_orders: orders.length,
+            offset: offset,
+            has_next_page: orders.length === (pagination.limit || 10),
+            has_prev_page: offset > 0
+          }));
+          setPageInputValue(currentPage.toString());
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        notifyError(errorData.message || 'Failed to load orders');
+        setOrders([]);
+      }
+    } catch (err) {
+      // Error already handled with notifyError
+      notifyError('Failed to load orders');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.limit, salonsWithOrdersLoadedRef]); // Stable dependencies
+
+  const fetchOrders = async (salonNameOrId, offset = 0, fetchAll = false) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      // Find salon by name first (preferred), then by ID
+      let salon = salons.find(s => s.name === salonNameOrId);
+      if (!salon) {
+        salon = salons.find(s => s.salon_id?.toString() === salonNameOrId?.toString());
+      }
+      if (!salon) {
+        salon = salonsWithOrders.find(s => s.name === salonNameOrId);
+      }
+      if (!salon) {
+        salon = salonsWithOrders.find(s => s.salon_id?.toString() === salonNameOrId?.toString());
+      }
+      
+      // Get salon_id - if salonNameOrId is a number, use it; otherwise use salon.salon_id
+      let salonId = null;
+      if (typeof salonNameOrId === 'string' && !isNaN(parseInt(salonNameOrId))) {
+        salonId = parseInt(salonNameOrId);
+      } else if (salon?.salon_id) {
+        salonId = salon.salon_id;
+      } else {
+        // Can't fetch without salon_id
+        setLoading(false);
+        return;
+      }
+      
+      // If fetchAll is true, fetch all orders in batches
+      if (fetchAll) {
+        let allOrders = [];
+        let currentOffset = 0;
+        const limit = 100; // Use a reasonable limit
+        let hasMore = true;
+        
+        while (hasMore) {
+          const response = await fetch(`${apiUrl}/products/customer/view-orders`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              salon_id: salonId,
+              limit: limit,
+              offset: currentOffset
+            })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const batchOrders = data.orders || [];
+            allOrders = [...allOrders, ...batchOrders];
+            
+            // Check if there are more pages
+            if (data.pagination) {
+              hasMore = data.pagination.has_next_page;
+              if (hasMore) {
+                currentOffset += limit;
+              }
+            } else {
+              // If no pagination info, check if we got fewer than limit
+              hasMore = batchOrders.length === limit;
+              if (hasMore) {
+                currentOffset += limit;
+              }
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        // Process all fetched orders
+        allOrders.forEach(order => {
+          if (!order.salon_id) {
+            order.salon_id = salonId;
+          }
+          if (!order.salon_name) {
+            order.salon_name = salon?.name || 'Unknown Salon';
+          }
+        });
+        
+        // Update salonsWithOrders for filter dropdown
+        if (allOrders.length > 0) {
+          const salonName = salon?.name || allOrders[0]?.salon_name || 'Unknown Salon';
+          setSalonsWithOrders([{
+            salon_id: salonId,
+            name: salonName
+          }]);
+        }
+        
+        setOrders(allOrders);
+        // Set pagination to show all orders are displayed
+        setPagination({
+          current_page: 1,
+          total_pages: 1,
+          total_orders: allOrders.length,
+          limit: allOrders.length,
+          offset: 0,
+          has_next_page: false,
+          has_prev_page: false
+        });
+        setPageInputValue('1');
+        setLoading(false);
+        return;
+      }
+      
+      // Regular paginated fetch
+      const response = await fetch(`${apiUrl}/products/customer/view-orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          salon_id: parseInt(salonId),
+          salon_id: salonId,
           limit: 10,
           offset: offset
         })
@@ -129,13 +420,38 @@ export default function OrderHistoryPage() {
       if (response.ok) {
         const data = await response.json();
         const orders = data.orders || [];
-        // Add salon info to each order item
+        // Backend provides salon_name in each order - use it directly
         orders.forEach(order => {
-          order.salon_id = parseInt(salonId);
+          if (!order.salon_id) {
+            order.salon_id = salonId;
+          }
+          // Use backend-provided salon_name, fallback to salon?.name, then 'Unknown Salon'
+          if (!order.salon_name) {
           order.salon_name = salon?.name || 'Unknown Salon';
+          }
         });
+        
+        // Update salonsWithOrders for filter dropdown (only salons with orders)
+        if (orders.length > 0) {
+          const salonName = salon?.name || orders[0]?.salon_name || 'Unknown Salon';
+          setSalonsWithOrders([{
+            salon_id: salonId,
+            name: salonName
+          }]);
+        }
+        
         setOrders(orders);
-        setPagination(data.pagination || pagination);
+        const paginationData = data.pagination || {
+          current_page: Math.floor(offset / 10) + 1,
+          total_pages: Math.ceil((orders.length || 1) / 10),
+          total_orders: orders.length,
+          limit: 10,
+          offset: offset,
+          has_next_page: orders.length === 10,
+          has_prev_page: offset > 0
+        };
+        setPagination(paginationData);
+        setPageInputValue(paginationData.current_page?.toString() || '1');
       } else if (response.status === 500 && !selectedSalonId) {
         setOrders([]);
       } else {
@@ -144,7 +460,7 @@ export default function OrderHistoryPage() {
         setOrders([]);
       }
     } catch (err) {
-      console.error('Error fetching orders:', err);
+      // Error already handled with notifyError
       notifyError('Failed to load orders');
       setOrders([]);
     } finally {
@@ -152,175 +468,158 @@ export default function OrderHistoryPage() {
     }
   };
 
-  const handleSalonChange = useCallback((salonId) => {
-    const selectedId = salonId === 'all' ? null : salonId;
-    setSelectedSalonId(selectedId);
+  const handleSalonChange = useCallback((salonName) => {
+    const selected = salonName === 'all' ? null : salonName;
+    setSelectedSalonId(selected);
+    
+    // Reset pagination to page 1 when filter changes
+    setPagination(prev => ({
+      ...prev,
+      current_page: 1,
+      offset: 0,
+      has_next_page: false,
+      has_prev_page: false
+    }));
+    setPageInputValue('1');
+    
     const token = localStorage.getItem('auth_token');
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
     
-    if (salonId === 'all') {
-      // Fetch all orders from all salons
-      const salonsToFetch = salons.length > 0 ? salons : [];
-      if (salonsToFetch.length > 0) {
-        fetchAllOrdersOptimized(salonsToFetch, token, apiUrl);
+    if (salonName === 'all') {
+      // Fetch paginated orders from all salons (no salon_id in request)
+      fetchOrdersForFilter(null, 0);
+    } else {
+      // Find salon_id from salon_name and fetch paginated orders for that salon
+      const salon = salons.find(s => s.name === salonName) || salonsWithOrders.find(s => s.name === salonName);
+      if (salon?.salon_id) {
+        fetchOrdersForFilter(salon.salon_id, 0);
       } else {
-        // If no salons loaded yet, fetch them first in batches
-        let allSalons = [];
-        let offset = 0;
-        const limit = 1000; // Use high limit to get all salons in fewer requests
-        let hasMore = true;
+        // If we can't find salon_id, try to fetch all and let backend handle it
+        setLoading(true);
+        fetchOrdersForFilter(null, 0);
+      }
+    }
+  }, [salons, salonsWithOrders, fetchOrdersForFilter]);
 
-        const fetchSalonsBatch = async () => {
-          while (hasMore) {
-            try {
-              const salonsResponse = await fetch(
-                `${apiUrl}/salons/browse?status=APPROVED&limit=${limit}&offset=${offset}`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
-              );
+  // Use new bulk endpoint that accepts multiple salon_ids and returns paginated results
+  const fetchAllOrdersOptimized = async (salonsToFetch, token, apiUrl, offset = 0) => {
+    setLoading(true);
+    try {
+      // Extract all salon IDs
+      const salonIds = salonsToFetch.map(salon => 
+        typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id
+      );
+      
+      // Create a map of salon_id -> salon_name for quick lookup
+      const salonNameMap = new Map();
+      salonsToFetch.forEach(salon => {
+        const salonId = typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id;
+        salonNameMap.set(salonId, salon.name);
+      });
+      
+      // Use bulk endpoint - single request for all salons with pagination
+          const response = await fetch(`${apiUrl}/products/customer/view-orders`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+          salon_ids: salonIds, // Send all salon IDs in one request
+          limit: pagination.limit || 10,
+          offset: offset
+            })
+          });
 
-              if (!salonsResponse.ok) {
-                // If limit/offset not supported, try without limit/offset
-                if (offset === 0) {
-                  const fallbackResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                  });
-                  if (fallbackResponse.ok) {
-                    const fallbackData = await fallbackResponse.json();
-                    allSalons = fallbackData.data || [];
-                  }
-                }
-                hasMore = false;
-              } else {
-                const salonsData = await salonsResponse.json();
-                const batchSalons = salonsData.data || [];
-                allSalons = [...allSalons, ...batchSalons];
-                
-                // If we got fewer than the limit, we've reached the end
-                if (batchSalons.length < limit) {
-                  hasMore = false;
-                } else {
-                  offset += limit;
-                }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to load orders');
+      }
+
+            const data = await response.json();
+            const orders = data.orders || [];
+      
+      // Backend provides salon_name directly in each order - use it
+      // Fallback to salonNameMap if salon_name is missing
+      orders.forEach(order => {
+        // Ensure salon_id is a number for consistency
+        if (order.salon_id) {
+          order.salon_id = typeof order.salon_id === 'string' ? parseInt(order.salon_id, 10) : order.salon_id;
+        }
+        
+        if (!order.salon_name) {
+          if (order.salon_id && salonNameMap.has(order.salon_id)) {
+            order.salon_name = salonNameMap.get(order.salon_id);
+          } else {
+            order.salon_name = 'Unknown Salon';
+          }
+        }
+      });
+      
+      // Build list of salons that have orders (for filter dropdown)
+      // Use a Map to ensure uniqueness by salon_name (since backend provides salon_name)
+      const salonMap = new Map();
+      orders.forEach(order => {
+        // Backend provides salon_name in each order - use it to build the filter list
+        if (order.salon_name && order.salon_name !== 'Unknown Salon') {
+          // Try to get salon_id from order, or look it up by salon_name
+          let salonId = order.salon_id;
+          if (!salonId) {
+            // Look up salon_id by salon_name from salonNameMap (reverse lookup)
+            for (const [id, name] of salonNameMap.entries()) {
+              if (name === order.salon_name) {
+                salonId = id;
+                order.salon_id = id; // Set it on the order for future use
+                break;
               }
-            } catch (err) {
-              console.error('Error fetching salons:', err);
-              hasMore = false;
             }
           }
           
-          setSalons(allSalons);
-          if (allSalons.length > 0) {
-            fetchAllOrdersOptimized(allSalons, token, apiUrl);
-          } else {
-            setLoading(false);
+          // Use salon_name as key to ensure uniqueness (backend provides this)
+          if (!salonMap.has(order.salon_name)) {
+            salonMap.set(order.salon_name, {
+              salon_id: salonId || null,
+              name: order.salon_name
+            });
           }
-        };
-        
-        fetchSalonsBatch();
-      }
-    } else {
-      fetchOrders(salonId, 0);
-    }
-  }, [salons]);
-
-  // Optimized version that fetches all salon orders in parallel
-  // TODO: Backend should provide a bulk endpoint (e.g., /products/customer/view-all-orders)
-  // that accepts multiple salon_ids and returns all orders in one request instead of N requests
-  const fetchAllOrdersOptimized = async (salonsToFetch, token, apiUrl) => {
-    setLoading(true);
-    try {
-      const allOrders = [];
-      
-      // Batch requests to avoid overwhelming the server (process in chunks of 20)
-      // This is a temporary workaround until backend implements bulk endpoint
-      const BATCH_SIZE = 20;
-      const salonBatches = [];
-      for (let i = 0; i < salonsToFetch.length; i += BATCH_SIZE) {
-        salonBatches.push(salonsToFetch.slice(i, i + BATCH_SIZE));
-      }
-      
-      // Process batches sequentially to avoid overwhelming server
-      for (const batch of salonBatches) {
-        // Fetch salon orders in parallel within each batch
-        const orderPromises = batch.map(salon => 
-          fetch(`${apiUrl}/products/customer/view-orders`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
-              salon_id: typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id,
-                limit: 100,
-                offset: 0
-              })
-          }).then(response => ({
-            salon,
-            response,
-            ok: response.ok,
-            status: response.status
-          })).catch(err => ({
-            salon,
-            response: null,
-            ok: false,
-            status: 0,
-            error: err
-          }))
-        );
-
-        const orderResults = await Promise.allSettled(orderPromises);
-        
-        // Process batch results
-        for (const result of orderResults) {
-          if (result.status === 'fulfilled' && result.value.ok) {
-            try {
-              const { salon, response } = result.value;
-              const data = await response.json();
-              const orders = data.orders || [];
-              
-              // Add salon info to each order item
-              const salonIdValue = typeof salon.salon_id === 'string' ? parseInt(salon.salon_id, 10) : salon.salon_id;
-              orders.forEach(order => {
-                order.salon_id = salonIdValue;
-                order.salon_name = salon.name;
-              });
-              allOrders.push(...orders);
-            } catch (err) {
-              console.error(`Error processing orders for salon ${result.value.salon.salon_id}:`, err);
-            }
-          } else if (result.status === 'fulfilled' && result.value.status === 500) {
-            // No orders for this salon, skip
-            continue;
-          }
-        }
-      }
-      
-      // Build salon list from all salons that have orders (after processing all batches)
-      const finalUniqueSalonIds = new Set();
-      allOrders.forEach(order => {
-        if (order.salon_id) {
-          finalUniqueSalonIds.add(order.salon_id);
         }
       });
       
-      // Build salon list only from salons that have orders
-      const salonsWithOrders = Array.from(finalUniqueSalonIds).map(id => {
-        const salon = salonsToFetch.find(s => {
-          const sId = typeof s.salon_id === 'string' ? parseInt(s.salon_id, 10) : s.salon_id;
-          return sId === id;
-        });
-        return {
-          salon_id: id,
-          name: salon?.name || 'Unknown Salon'
-        };
-      });
-      setSalons(salonsWithOrders);
+      // Update salonsWithOrders with unique salons from orders
+      const uniqueSalons = Array.from(salonMap.values());
+      setSalonsWithOrders(uniqueSalons);
       
-      setOrders(allOrders);
-      setPagination(prev => ({ ...prev, total_pages: 1, current_page: 1 }));
+      // Also update main salons list for lookup purposes (merge, don't overwrite)
+      const existingSalonIds = new Set(salons.map(s => s.salon_id));
+      const newSalons = Array.from(salonMap.values())
+        .filter(salon => !existingSalonIds.has(salon.salon_id));
+      
+      if (newSalons.length > 0) {
+        setSalons(prev => [...prev, ...newSalons]);
+      }
+      
+      setOrders(orders);
+      
+      // Update pagination from backend response
+      if (data.pagination) {
+        setPagination(data.pagination);
+        setPageInputValue(data.pagination.current_page?.toString() || '1');
+      } else {
+        // Fallback pagination calculation
+        const currentPage = Math.floor(offset / (pagination.limit || 10)) + 1;
+        setPagination(prev => ({
+          ...prev,
+          current_page: currentPage,
+          total_orders: orders.length,
+          offset: offset,
+          has_next_page: orders.length === (pagination.limit || 10),
+          has_prev_page: offset > 0
+        }));
+        setPageInputValue(currentPage.toString());
+      }
     } catch (err) {
-      console.error('Error fetching all orders:', err);
-      notifyError('Failed to load orders');
+      // Error already handled with notifyError
+      notifyError(err.message || 'Failed to load orders');
       setOrders([]);
     } finally {
       setLoading(false);
@@ -330,28 +629,113 @@ export default function OrderHistoryPage() {
   const fetchAllOrders = async (offset = 0) => {
     const token = localStorage.getItem('auth_token');
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-    const salonsToFetch = salons.length > 0 ? salons : await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    }).then(res => res.json()).then(data => data.data || []).catch(() => []);
     
-    await fetchAllOrdersOptimized(salonsToFetch, token, apiUrl);
+    // Get all salons if not already loaded
+    let salonsToFetch = salons.length > 0 ? salons : [];
+    if (salonsToFetch.length === 0) {
+      try {
+        const response = await fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=1000&offset=0`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          salonsToFetch = data.data || [];
+        }
+      } catch (err) {
+        // Silently fail - salons already loaded or will be loaded
+      }
+    }
+    
+    if (salonsToFetch.length > 0) {
+      await fetchAllOrdersOptimized(salonsToFetch, token, apiUrl, offset);
+    } else {
+      setLoading(false);
+    }
   };
 
   const handlePageChange = useCallback((newOffset) => {
+    // Find salon_id if a salon is selected
+    let salonId = null;
     if (selectedSalonId) {
-      fetchOrders(selectedSalonId, newOffset);
-    } else {
-      fetchAllOrders(newOffset);
+      const salon = salons.find(s => s.name === selectedSalonId) || salonsWithOrders.find(s => s.name === selectedSalonId);
+      salonId = salon?.salon_id || null;
     }
-  }, [selectedSalonId, salons]);
+    
+    // Use the new backend filtering function
+    fetchOrdersForFilter(salonId, newOffset);
+  }, [selectedSalonId, salons, salonsWithOrders, fetchOrdersForFilter]);
+
+  const handlePageInputChange = (e) => {
+    const value = e.target.value;
+    if (value === '' || (Number(value) >= 1 && Number(value) <= pagination.total_pages)) {
+      setPageInputValue(value);
+    }
+  };
+
+  const handlePageInputBlur = () => {
+    const pageNum = parseInt(pageInputValue, 10);
+    if (isNaN(pageNum) || pageNum < 1 || pageNum > pagination.total_pages) {
+      setPageInputValue(pagination.current_page?.toString() || '1');
+    }
+  };
+
+  const handlePageInputSubmit = (e) => {
+    e.preventDefault();
+    const pageNum = parseInt(pageInputValue, 10);
+    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= pagination.total_pages) {
+      const newOffset = (pageNum - 1) * pagination.limit;
+      handlePageChange(newOffset);
+    } else {
+      setPageInputValue(pagination.current_page?.toString() || '1');
+    }
+  };
+
+  // Update page input when pagination changes
+  useEffect(() => {
+    setPageInputValue(pagination.current_page?.toString() || '1');
+  }, [pagination.current_page]);
+
+  // Update salonsWithOrders whenever orders change - extract unique salon names
+  useEffect(() => {
+    if (orders.length === 0) {
+      setSalonsWithOrders([]);
+      return;
+    }
+    
+    // Extract unique salon names from orders (backend provides salon_name in each order)
+    const salonNameSet = new Set();
+    const salonMap = new Map();
+    
+    orders.forEach(order => {
+      if (order.salon_name && order.salon_name !== 'Unknown Salon') {
+        if (!salonNameSet.has(order.salon_name)) {
+          salonNameSet.add(order.salon_name);
+          salonMap.set(order.salon_name, {
+            salon_id: order.salon_id || null,
+            name: order.salon_name
+          });
+        }
+      }
+    });
+    
+    setSalonsWithOrders(Array.from(salonMap.values()));
+  }, [orders]);
+  
+  // Filter orders by selected salon name (client-side filtering)
+  const filteredOrders = useMemo(() => {
+    if (!selectedSalonId || selectedSalonId === 'all') {
+      return orders;
+    }
+    return orders.filter(order => order.salon_name === selectedSalonId);
+  }, [orders, selectedSalonId]);
 
   // Memoize expensive order processing operations (must be before any conditional returns)
   const sortedOrders = useMemo(() => {
-    if (orders.length === 0) return [];
+    if (filteredOrders.length === 0) return [];
 
   // Group orders by order_code (each order has a unique order_code)
   const groupedOrders = {};
-  orders.forEach(order => {
+  filteredOrders.forEach(order => {
     const orderCode = order.order_code || 'unknown';
     const salonId = order.salon_id || 'unknown';
     const salonName = order.salon_name || 'Unknown Salon';
@@ -422,7 +806,7 @@ export default function OrderHistoryPage() {
     // Fallback to order_code
     return b.order_code.localeCompare(a.order_code);
   });
-  }, [orders]);
+  }, [filteredOrders]);
 
   if (loading && orders.length === 0) {
     return (
@@ -450,13 +834,13 @@ export default function OrderHistoryPage() {
             <Select value={selectedSalonId || 'all'} onValueChange={handleSalonChange}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="All Salons">
-                  {selectedSalonId ? salons.find(s => s.salon_id.toString() === selectedSalonId.toString())?.name || 'All Salons' : 'All Salons'}
+                  {selectedSalonId ? selectedSalonId : 'All Salons'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Salons</SelectItem>
-                {salons.map((salon) => (
-                  <SelectItem key={salon.salon_id} value={salon.salon_id.toString()}>
+                {salonsWithOrders.map((salon) => (
+                  <SelectItem key={salon.name} value={salon.name}>
                     {salon.name}
                   </SelectItem>
                 ))}
@@ -481,29 +865,66 @@ export default function OrderHistoryPage() {
           </div>
         )}
 
-        {pagination.total_pages > 1 && (
-          <div className="flex justify-center items-center space-x-2 mt-6">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(pagination.offset - pagination.limit)}
-              disabled={!pagination.has_prev_page}
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Previous
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {pagination.current_page} of {pagination.total_pages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(pagination.offset + pagination.limit)}
-              disabled={!pagination.has_next_page}
-            >
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+        {/* Pagination */}
+        {!loading && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pt-6 border-t">
+            <div className="text-sm text-muted-foreground">
+              {pagination.total_pages > 1 ? (
+                `Showing ${pagination.offset + 1} - ${Math.min(pagination.offset + pagination.limit, pagination.total_orders || sortedOrders.length)} of ${pagination.total_orders || sortedOrders.length} orders`
+              ) : (
+                `Showing ${sortedOrders.length} order${sortedOrders.length !== 1 ? 's' : ''}`
+              )}
+            </div>
+            
+            {pagination.total_pages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(pagination.offset - pagination.limit)}
+                  disabled={!pagination.has_prev_page}
+                  className="h-9 px-3"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Previous
+                </Button>
+                
+                {/* Page Number Input */}
+                <form onSubmit={handlePageInputSubmit} className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">Page</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={pagination.total_pages}
+                    value={pageInputValue}
+                    onChange={handlePageInputChange}
+                    onBlur={handlePageInputBlur}
+                    onWheel={(e) => e.target.blur()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handlePageInputSubmit(e);
+                      }
+                    }}
+                    className="w-16 h-9 text-center text-sm font-medium border-gray-300 focus:border-primary focus:ring-primary [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                    style={{ WebkitAppearance: 'textfield' }}
+                    disabled={loading}
+                  />
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">of {pagination.total_pages}</span>
+                </form>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(pagination.offset + pagination.limit)}
+                  disabled={!pagination.has_next_page}
+                  className="h-9 px-3"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </main>

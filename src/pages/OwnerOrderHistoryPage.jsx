@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import OwnerNavbar from '../components/OwnerNavbar';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { Package, ChevronLeft, ChevronRight } from 'lucide-react';
 import { notifyError } from '../utils/notifications';
 
@@ -18,11 +19,13 @@ export default function OwnerOrderHistoryPage() {
   const [pagination, setPagination] = useState({
     current_page: 1,
     total_pages: 1,
+    total_orders: 0,
     limit: 10,
     offset: 0,
     has_next_page: false,
     has_prev_page: false
   });
+  const [pageInputValue, setPageInputValue] = useState('1');
 
   useEffect(() => {
     if (!user || user.role !== 'OWNER') {
@@ -53,7 +56,7 @@ export default function OwnerOrderHistoryPage() {
         setSalonStatus(data.status || null);
       }
     } catch (err) {
-      console.error('Error checking salon status:', err);
+      // Silently fail - status check is non-critical
     }
   };
 
@@ -82,14 +85,25 @@ export default function OwnerOrderHistoryPage() {
       if (response.ok) {
         const data = await response.json();
         const orders = data.orders || [];
-        // Debug: log first order to see available fields
-        if (orders.length > 0) {
-          console.log('Owner - Sample order fields:', Object.keys(orders[0]));
-          console.log('Owner - Sample order data:', orders[0]);
-          console.log('Owner - ordered_date value:', orders[0].ordered_date);
-        }
         setOrders(orders);
-        setPagination(data.pagination || pagination);
+        
+        // Update pagination from backend response
+        if (data.pagination) {
+          setPagination(data.pagination);
+          setPageInputValue(data.pagination.current_page?.toString() || '1');
+        } else {
+          // Fallback pagination calculation
+          const currentPage = Math.floor(offset / 10) + 1;
+          setPagination(prev => ({
+            ...prev,
+            current_page: currentPage,
+            total_orders: orders.length,
+            offset: offset,
+            has_next_page: orders.length === 10,
+            has_prev_page: offset > 0
+          }));
+          setPageInputValue(currentPage.toString());
+        }
       } else if (response.status === 500) {
         setOrders([]);
       } else {
@@ -98,7 +112,6 @@ export default function OwnerOrderHistoryPage() {
         setOrders([]);
       }
     } catch (err) {
-      console.error('Error fetching orders:', err);
       notifyError('Failed to load orders');
       setOrders([]);
     } finally {
@@ -106,9 +119,39 @@ export default function OwnerOrderHistoryPage() {
     }
   };
 
-  const handlePageChange = (newOffset) => {
+  const handlePageChange = useCallback((newOffset) => {
     fetchOrders(newOffset);
+  }, []);
+
+  const handlePageInputChange = (e) => {
+    const value = e.target.value;
+    if (value === '' || (Number(value) >= 1 && Number(value) <= pagination.total_pages)) {
+      setPageInputValue(value);
+    }
   };
+
+  const handlePageInputBlur = () => {
+    const pageNum = parseInt(pageInputValue, 10);
+    if (isNaN(pageNum) || pageNum < 1 || pageNum > pagination.total_pages) {
+      setPageInputValue(pagination.current_page?.toString() || '1');
+    }
+  };
+
+  const handlePageInputSubmit = (e) => {
+    e.preventDefault();
+    const pageNum = parseInt(pageInputValue, 10);
+    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= pagination.total_pages) {
+      const newOffset = (pageNum - 1) * pagination.limit;
+      handlePageChange(newOffset);
+    } else {
+      setPageInputValue(pagination.current_page?.toString() || '1');
+    }
+  };
+
+  // Update page input when pagination changes
+  useEffect(() => {
+    setPageInputValue(pagination.current_page?.toString() || '1');
+  }, [pagination.current_page]);
 
   if (loading && orders.length === 0) {
     return (
@@ -207,8 +250,8 @@ export default function OwnerOrderHistoryPage() {
 
         {orders.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <CardContent className="py-24 text-center flex flex-col items-center justify-center min-h-[400px]">
+              <Package className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold mb-2">No orders found</h3>
               <p className="text-muted-foreground">No customers have placed orders yet.</p>
             </CardContent>
@@ -297,28 +340,53 @@ export default function OwnerOrderHistoryPage() {
         )}
 
         {pagination.total_pages > 1 && (
-          <div className="flex justify-center items-center space-x-2 mt-6">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(pagination.offset - pagination.limit)}
-              disabled={!pagination.has_prev_page}
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Previous
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {pagination.current_page} of {pagination.total_pages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(pagination.offset + pagination.limit)}
-              disabled={!pagination.has_next_page}
-            >
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+          <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              {pagination.total_pages > 1 ? (
+                `Showing ${pagination.offset + 1} - ${Math.min(pagination.offset + pagination.limit, pagination.total_orders || sortedOrders.length)} of ${pagination.total_orders || sortedOrders.length} orders`
+              ) : (
+                `Showing ${sortedOrders.length} order${sortedOrders.length !== 1 ? 's' : ''}`
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.offset - pagination.limit)}
+                disabled={!pagination.has_prev_page || loading}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </Button>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Page</span>
+                <form onSubmit={handlePageInputSubmit} className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min="1"
+                    max={pagination.total_pages}
+                    value={pageInputValue}
+                    onChange={handlePageInputChange}
+                    onBlur={handlePageInputBlur}
+                    className="w-12 h-8 text-center text-sm"
+                    disabled={loading}
+                  />
+                </form>
+                <span className="text-sm text-muted-foreground">of {pagination.total_pages}</span>
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.offset + pagination.limit)}
+                disabled={!pagination.has_next_page || loading}
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         )}
       </main>

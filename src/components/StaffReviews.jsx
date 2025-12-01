@@ -654,9 +654,9 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
       ) : (
         <>
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-6 pt-8">
               <div className="flex items-center justify-between">
-                <div className="ml-2 mt-1">
+                <div className="ml-2">
                   <p className="text-sm text-muted-foreground mb-1">Average Rating</p>
                   <div className="flex items-center space-x-2">
                     <div className="flex items-center">
