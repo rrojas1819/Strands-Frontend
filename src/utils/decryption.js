@@ -1,4 +1,23 @@
 /**
+ * Validates if a string is valid base64
+ * @param {string} str - String to validate
+ * @returns {boolean} True if valid base64
+ */
+function isValidBase64(str) {
+  if (!str || typeof str !== 'string') return false;
+  // Base64 strings only contain A-Z, a-z, 0-9, +, /, and = for padding
+  const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+  if (!base64Regex.test(str)) return false;
+  try {
+    // Try to decode to validate
+    atob(str);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
  * Decrypts AES-256-GCM encrypted messages
  * Uses Web Crypto API for browser-based decryption
  * 
@@ -20,6 +39,11 @@ export async function decryptMessage(encryptedData, keyHex) {
     }
 
     const [ivBase64, tagBase64, ciphertextBase64] = parts;
+
+    // Validate that all parts are valid base64 before attempting decryption
+    if (!isValidBase64(ivBase64) || !isValidBase64(tagBase64) || !isValidBase64(ciphertextBase64)) {
+      return encryptedData; // Return original if not valid base64
+    }
 
     // Convert hex key to ArrayBuffer
     const keyBuffer = new Uint8Array(
@@ -60,20 +84,27 @@ export async function decryptMessage(encryptedData, keyHex) {
     const decoder = new TextDecoder();
     return decoder.decode(decrypted);
   } catch (error) {
-    console.error('Decryption error:', error);
-    // Return original encrypted data if decryption fails
+    // Silently return original - don't log base64 validation errors
+    // Only log unexpected decryption errors
+    if (!(error instanceof DOMException && error.name === 'InvalidCharacterError')) {
+      console.warn('Decryption error:', error);
+    }
     return encryptedData;
   }
 }
 
 /**
- * Checks if a string appears to be encrypted (has the iv:tag:ciphertext format)
+ * Checks if a string appears to be encrypted (has the iv:tag:ciphertext format with valid base64)
  * @param {string} data - Data to check
  * @returns {boolean} True if data appears encrypted
  */
 export function isEncrypted(data) {
   if (!data || typeof data !== 'string') return false;
   const parts = data.split(':');
-  return parts.length === 3 && parts.every(part => part.length > 0);
+  if (parts.length !== 3 || !parts.every(part => part.length > 0)) {
+    return false;
+  }
+  // Validate that all parts are valid base64
+  return parts.every(part => isValidBase64(part));
 }
 
