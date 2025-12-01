@@ -6286,42 +6286,59 @@ class StrandsTestSuite:
                                                                                     print("  ✓ Clicked Completed tab and waited 2 seconds")
                                                                                     
                                                                                     # Check if there are any appointments in the Completed tab
-                                                                                    try:
-                                                                                        # Look for empty state message
-                                                                                        empty_state_message = self.driver.find_elements(
-                                                                                            By.XPATH, 
-                                                                                            "//*[contains(text(), 'No past appointments') or contains(text(), 'No appointments found')]"
-                                                                                        )
-                                                                                        # Also check for actual appointment cards
-                                                                                        actual_appointments = self.driver.find_elements(
-                                                                                            By.XPATH,
-                                                                                            "//div[contains(@class, 'grid')]//div[contains(@class, 'card') or contains(@class, 'Card')]"
-                                                                                        )
-                                                                                        
-                                                                                        # If we see "No past appointments" message and no actual appointment cards
-                                                                                        if empty_state_message and len(actual_appointments) == 0:
-                                                                                            print("  ⚠ No appointments found in Completed tab")
-                                                                                            print("  Waiting 2 seconds, then refreshing page...")
-                                                                                            time.sleep(2.0)
-                                                                                            
-                                                                                            # Refresh the page
-                                                                                            self.driver.refresh()
-                                                                                            time.sleep(2.0)  # Wait for page to reload
-                                                                                            print("  ✓ Page refreshed")
-                                                                                            
-                                                                                            # Click Completed tab again
-                                                                                            completed_tab = self.wait.until(
-                                                                                                EC.element_to_be_clickable((By.ID, "appointments-filter-past"))
+                                                                                    # Loop to refresh until appointments appear
+                                                                                    max_refresh_attempts = 10  # Maximum number of refresh attempts
+                                                                                    refresh_attempt = 0
+                                                                                    appointments_found = False
+                                                                                    
+                                                                                    while refresh_attempt < max_refresh_attempts and not appointments_found:
+                                                                                        try:
+                                                                                            # Look for empty state message
+                                                                                            empty_state_message = self.driver.find_elements(
+                                                                                                By.XPATH, 
+                                                                                                "//*[contains(text(), 'No past appointments') or contains(text(), 'No appointments found')]"
                                                                                             )
-                                                                                            self.scroll_to_element(completed_tab)
-                                                                                            time.sleep(0.2)
-                                                                                            completed_tab.click()
-                                                                                            time.sleep(2.0)  # Wait 2 seconds on the completed tab again
-                                                                                            print("  ✓ Clicked Completed tab again after refresh")
-                                                                                        else:
-                                                                                            print("  ✓ Appointments found in Completed tab")
-                                                                                    except Exception as e:
-                                                                                        print(f"  ⚠ Error checking for appointments: {e}")
+                                                                                            # Also check for actual appointment cards
+                                                                                            actual_appointments = self.driver.find_elements(
+                                                                                                By.XPATH,
+                                                                                                "//div[contains(@class, 'grid')]//div[contains(@class, 'card') or contains(@class, 'Card')]"
+                                                                                            )
+                                                                                            
+                                                                                            # If we see "No past appointments" message and no actual appointment cards
+                                                                                            if empty_state_message and len(actual_appointments) == 0:
+                                                                                                refresh_attempt += 1
+                                                                                                print(f"  ⚠ No appointments found in Completed tab (attempt {refresh_attempt}/{max_refresh_attempts})")
+                                                                                                
+                                                                                                if refresh_attempt < max_refresh_attempts:
+                                                                                                    print(f"  Waiting 2 seconds, then refreshing page...")
+                                                                                                    time.sleep(2.0)
+                                                                                                    
+                                                                                                    # Refresh the page
+                                                                                                    self.driver.refresh()
+                                                                                                    time.sleep(2.0)  # Wait for page to reload
+                                                                                                    print("  ✓ Page refreshed")
+                                                                                                    
+                                                                                                    # Click Completed tab again
+                                                                                                    completed_tab = self.wait.until(
+                                                                                                        EC.element_to_be_clickable((By.ID, "appointments-filter-past"))
+                                                                                                    )
+                                                                                                    self.scroll_to_element(completed_tab)
+                                                                                                    time.sleep(0.2)
+                                                                                                    completed_tab.click()
+                                                                                                    time.sleep(2.0)  # Wait 2 seconds on the completed tab again
+                                                                                                    print(f"  ✓ Clicked Completed tab again after refresh (attempt {refresh_attempt})")
+                                                                                                else:
+                                                                                                    print(f"  ⚠ Max refresh attempts reached. Continuing anyway...")
+                                                                                                    appointments_found = True  # Break the loop
+                                                                                            else:
+                                                                                                # Appointments found!
+                                                                                                appointments_found = True
+                                                                                                print("  ✓ Appointments found in Completed tab")
+                                                                                        except Exception as e:
+                                                                                            print(f"  ⚠ Error checking for appointments: {e}")
+                                                                                            # If there's an error, assume appointments might be there and continue
+                                                                                            appointments_found = True
+                                                                                            break
                                                                                 except Exception as e:
                                                                                     print(f"  ⚠ Error clicking Completed tab: {e}")
                                                                                 
@@ -6987,6 +7004,405 @@ class StrandsTestSuite:
                                                                                     print(f"  ⚠ Error clicking View History: {e}")
                                                                                     import traceback
                                                                                     traceback.print_exc()
+                                                                                
+                                                                                # OWNER DASHBOARD FLOW
+                                                                                print("\n" + "="*70)
+                                                                                print("OWNER DASHBOARD FLOW - STARTING")
+                                                                                print("="*70)
+                                                                                
+                                                                                # Logout as stylist and login as owner
+                                                                                print("\nLogging out as stylist...")
+                                                                                try:
+                                                                                    # Wait for any toast notifications to disappear
+                                                                                    time.sleep(2.0)
+                                                                                    try:
+                                                                                        toast_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'sonner-toast')]")
+                                                                                        if toast_elements:
+                                                                                            time.sleep(2.0)
+                                                                                    except:
+                                                                                        pass
+                                                                                    
+                                                                                    # Try stylist logout button ID first
+                                                                                    try:
+                                                                                        logout_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "stylist-logout-button"))
+                                                                                        )
+                                                                                        self.scroll_to_element(logout_button)
+                                                                                        time.sleep(0.3)
+                                                                                        try:
+                                                                                            logout_button.click()
+                                                                                        except:
+                                                                                            # If regular click fails, use JavaScript click
+                                                                                            self.driver.execute_script("arguments[0].click();", logout_button)
+                                                                                        time.sleep(2.0)
+                                                                                        print("  ✓ Logged out using stylist logout button ID")
+                                                                                    except:
+                                                                                        # Fallback to XPath
+                                                                                        logout_buttons = self.driver.find_elements(By.XPATH, 
+                                                                                            "//button[@id='stylist-logout-button'] | "
+                                                                                            "//button[contains(text(), 'Logout')]"
+                                                                                        )
+                                                                                        if logout_buttons:
+                                                                                            self.scroll_to_element(logout_buttons[0])
+                                                                                            time.sleep(0.3)
+                                                                                            try:
+                                                                                                logout_buttons[0].click()
+                                                                                            except:
+                                                                                                self.driver.execute_script("arguments[0].click();", logout_buttons[0])
+                                                                                            time.sleep(2.0)
+                                                                                            print("  ✓ Logged out (fallback)")
+                                                                                        else:
+                                                                                            raise Exception("Could not find logout button")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error logging out: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                # Login as owner
+                                                                                print("\nLogging in as owner...")
+                                                                                try:
+                                                                                    # Wait for page to load after logout
+                                                                                    time.sleep(2.0)
+                                                                                    
+                                                                                    # Click Sign In button (or navigate to login page)
+                                                                                    try:
+                                                                                        # Try to find and click Sign In button on landing page
+                                                                                        sign_in_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Sign In')]"))
+                                                                                        )
+                                                                                        self.scroll_to_element(sign_in_button)
+                                                                                        time.sleep(0.2)
+                                                                                        sign_in_button.click()
+                                                                                        time.sleep(1.0)
+                                                                                        print("  ✓ Clicked Sign In button")
+                                                                                    except:
+                                                                                        # Fallback: navigate directly to login page
+                                                                                        self.driver.get(f"{BASE_URL}/login")
+                                                                                        time.sleep(1.0)
+                                                                                        print("  ✓ Navigated to login page")
+                                                                                    
+                                                                                    # Now login as owner using existing login method
+                                                                                    if not self.login(self.owner_email, self.owner_password, "Owner"):
+                                                                                        raise Exception("Failed to login as owner")
+                                                                                    
+                                                                                    time.sleep(2.0)
+                                                                                    print("  ✓ Logged in as owner")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error logging in as owner: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                # Navigate to Customers tab
+                                                                                print("\nNavigating to Customers tab...")
+                                                                                try:
+                                                                                    customers_tab = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Customers')]"))
+                                                                                    )
+                                                                                    self.scroll_to_element(customers_tab)
+                                                                                    time.sleep(0.2)
+                                                                                    customers_tab.click()
+                                                                                    time.sleep(2.0)
+                                                                                    print("  ✓ Clicked Customers tab")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Customers tab: {e}")
+                                                                                
+                                                                                # Click View History for a customer (similar to stylist logic)
+                                                                                print("\nClicking View History for customer...")
+                                                                                try:
+                                                                                    time.sleep(2.0)
+                                                                                    customer_email_element = self.wait.until(
+                                                                                        EC.presence_of_element_located((By.XPATH, f"//p[.//text()[contains(., '{self.user_email}')]]"))
+                                                                                    )
+                                                                                    user_id = customer_email_element.get_attribute("id").replace("owner-customer-email-", "")
+                                                                                    print(f"  ✓ Found customer with email: {self.user_email} (User ID: {user_id})")
+                                                                                    
+                                                                                    view_history_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, f"owner-view-history-button-{user_id}"))
+                                                                                    )
+                                                                                    self.scroll_to_element(view_history_button)
+                                                                                    time.sleep(0.3)
+                                                                                    view_history_button.click()
+                                                                                    time.sleep(2.0)
+                                                                                    print("  ✓ Clicked 'View History' for customer")
+                                                                                    
+                                                                                    # Close the modal
+                                                                                    print("  Closing customer visit history modal...")
+                                                                                    try:
+                                                                                        # Wait for modal to appear first
+                                                                                        time.sleep(1.0)
+                                                                                        
+                                                                                        # Try multiple ways to close the modal
+                                                                                        modal_closed = False
+                                                                                        
+                                                                                        # Method 1: Find close button by X button (X icon)
+                                                                                        try:
+                                                                                            close_button = self.wait.until(
+                                                                                                EC.element_to_be_clickable((By.XPATH, "//button[.//*[local-name()='svg' and contains(@class, 'w-5')] and contains(@class, 'h-5')] | //button[contains(@class, 'text-gray-400')]"))
+                                                                                            )
+                                                                                            self.scroll_to_element(close_button)
+                                                                                            time.sleep(0.2)
+                                                                                            try:
+                                                                                                close_button.click()
+                                                                                            except:
+                                                                                                self.driver.execute_script("arguments[0].click();", close_button)
+                                                                                            time.sleep(1.0)
+                                                                                            modal_closed = True
+                                                                                            print("  ✓ Closed customer visit history modal")
+                                                                                        except:
+                                                                                            pass
+                                                                                        
+                                                                                        # Method 2: Click outside modal (on backdrop) if close button didn't work
+                                                                                        if not modal_closed:
+                                                                                            try:
+                                                                                                # Click on the modal backdrop/overlay
+                                                                                                backdrop = self.driver.find_element(By.XPATH, "//div[contains(@class, 'fixed') and contains(@class, 'inset-0') and contains(@class, 'bg-black')]")
+                                                                                                self.driver.execute_script("arguments[0].click();", backdrop)
+                                                                                                time.sleep(1.0)
+                                                                                                modal_closed = True
+                                                                                                print("  ✓ Closed modal by clicking backdrop")
+                                                                                            except:
+                                                                                                pass
+                                                                                        
+                                                                                        # Method 3: Press Escape key
+                                                                                        if not modal_closed:
+                                                                                            try:
+                                                                                                from selenium.webdriver.common.keys import Keys
+                                                                                                self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+                                                                                                time.sleep(1.0)
+                                                                                                modal_closed = True
+                                                                                                print("  ✓ Closed modal with Escape key")
+                                                                                            except:
+                                                                                                pass
+                                                                                        
+                                                                                        # Wait a bit more to ensure modal is fully closed
+                                                                                        time.sleep(1.0)
+                                                                                        
+                                                                                        # Verify modal is closed by checking if it's not visible
+                                                                                        try:
+                                                                                            modal_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'fixed') and contains(@class, 'inset-0')]")
+                                                                                            if modal_elements:
+                                                                                                # If modal still exists, try clicking outside one more time
+                                                                                                self.driver.execute_script("document.body.click();")
+                                                                                                time.sleep(1.0)
+                                                                                        except:
+                                                                                            pass
+                                                                                            
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error closing modal: {e}")
+                                                                                        # Try to continue anyway - might already be closed
+                                                                                        time.sleep(2.0)
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking View History: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                # Navigate to Order History tab
+                                                                                print("\nNavigating to Order History tab...")
+                                                                                try:
+                                                                                    order_history_tab = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Order History')]"))
+                                                                                    )
+                                                                                    self.scroll_to_element(order_history_tab)
+                                                                                    time.sleep(0.2)
+                                                                                    order_history_tab.click()
+                                                                                    time.sleep(3.0)
+                                                                                    print("  ✓ Clicked Order History tab")
+                                                                                    
+                                                                                    # Check if orders are loaded
+                                                                                    try:
+                                                                                        orders_loaded = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'card') or contains(@class, 'Card')]")
+                                                                                        if orders_loaded:
+                                                                                            print(f"  ✓ Found {len(orders_loaded)} order(s) loaded")
+                                                                                        else:
+                                                                                            print("  ℹ No orders found (may be empty)")
+                                                                                    except:
+                                                                                        print("  ℹ Could not verify if orders are loaded")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error navigating to Order History: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                # Navigate to Reviews tab
+                                                                                print("\nNavigating to Reviews tab...")
+                                                                                try:
+                                                                                    reviews_tab = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Reviews')]"))
+                                                                                    )
+                                                                                    self.scroll_to_element(reviews_tab)
+                                                                                    time.sleep(0.2)
+                                                                                    reviews_tab.click()
+                                                                                    time.sleep(2.0)
+                                                                                    print("  ✓ Clicked Reviews tab")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Reviews tab: {e}")
+                                                                                
+                                                                                # Click Salon Reviews sub-tab
+                                                                                print("\nClicking Salon Reviews sub-tab...")
+                                                                                try:
+                                                                                    salon_reviews_tab = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "reviews-subtab-salon"))
+                                                                                    )
+                                                                                    self.scroll_to_element(salon_reviews_tab)
+                                                                                    time.sleep(0.2)
+                                                                                    salon_reviews_tab.click()
+                                                                                    time.sleep(2.0)
+                                                                                    print("  ✓ Clicked Salon Reviews sub-tab")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Salon Reviews sub-tab: {e}")
+                                                                                
+                                                                                # Reply to a salon review
+                                                                                print("\nLooking for a salon review without a reply...")
+                                                                                try:
+                                                                                    time.sleep(1.0)
+                                                                                    reply_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.XPATH, "//button[starts-with(@id, 'salon-reply-button-')]"))
+                                                                                    )
+                                                                                    review_id = reply_button.get_attribute("id").replace("salon-reply-button-", "")
+                                                                                    print(f"  ✓ Found a review without a reply (Review ID: {review_id})")
+                                                                                    
+                                                                                    self.scroll_to_element(reply_button)
+                                                                                    time.sleep(0.2)
+                                                                                    reply_button.click()
+                                                                                    time.sleep(0.5)
+                                                                                    print("  ✓ Clicked Reply button")
+                                                                                    
+                                                                                    reply_textarea = self.wait.until(
+                                                                                        EC.presence_of_element_located((By.ID, f"salon-reply-textarea-{review_id}"))
+                                                                                    )
+                                                                                    self.scroll_to_element(reply_textarea)
+                                                                                    time.sleep(0.2)
+                                                                                    reply_textarea.click()
+                                                                                    time.sleep(0.1)
+                                                                                    reply_textarea.clear()
+                                                                                    reply_text = "Thank you for your feedback! We're glad you enjoyed your visit."
+                                                                                    reply_textarea.send_keys(reply_text)
+                                                                                    time.sleep(0.3)
+                                                                                    print(f"  ✓ Filled reply textarea with: {reply_text}")
+                                                                                    
+                                                                                    send_reply_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, f"salon-send-reply-button-{review_id}"))
+                                                                                    )
+                                                                                    self.scroll_to_element(send_reply_button)
+                                                                                    time.sleep(0.2)
+                                                                                    send_reply_button.click()
+                                                                                    time.sleep(2.0)
+                                                                                    print("  ✓ Clicked Send Reply button")
+                                                                                    
+                                                                                    time.sleep(1.0)  # Wait for toast
+                                                                                    
+                                                                                    # Now find the same review (which should now have a reply) and edit it
+                                                                                    print("\nLooking for the review with the reply we just created to edit...")
+                                                                                    time.sleep(1.0)
+                                                                                    edit_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.XPATH, f"//button[starts-with(@id, 'salon-edit-reply-button-')]"))
+                                                                                    )
+                                                                                    reply_id_to_edit = edit_button.get_attribute("id").replace("salon-edit-reply-button-", "")
+                                                                                    print(f"  ✓ Found review with reply (Reply ID: {reply_id_to_edit})")
+                                                                                    
+                                                                                    self.scroll_to_element(edit_button)
+                                                                                    time.sleep(0.2)
+                                                                                    edit_button.click()
+                                                                                    time.sleep(0.5)
+                                                                                    print("  ✓ Clicked Edit button")
+                                                                                    
+                                                                                    edit_textarea = self.wait.until(
+                                                                                        EC.presence_of_element_located((By.ID, f"salon-edit-reply-textarea-{reply_id_to_edit}"))
+                                                                                    )
+                                                                                    self.scroll_to_element(edit_textarea)
+                                                                                    time.sleep(0.2)
+                                                                                    edit_textarea.click()
+                                                                                    time.sleep(0.1)
+                                                                                    edit_textarea.clear()
+                                                                                    updated_reply_text = "Thank you so much for your kind words! We really appreciate your feedback and look forward to serving you again."
+                                                                                    edit_textarea.send_keys(updated_reply_text)
+                                                                                    time.sleep(0.3)
+                                                                                    print(f"  ✓ Updated reply text to: {updated_reply_text}")
+                                                                                    
+                                                                                    update_reply_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, f"salon-update-reply-button-{reply_id_to_edit}"))
+                                                                                    )
+                                                                                    self.scroll_to_element(update_reply_button)
+                                                                                    time.sleep(0.2)
+                                                                                    update_reply_button.click()
+                                                                                    time.sleep(2.0)
+                                                                                    print("  ✓ Clicked Update Reply button")
+                                                                                    
+                                                                                    time.sleep(1.0)  # Wait for toast
+                                                                                    
+                                                                                    print("\n" + "="*70)
+                                                                                    print("SALON REVIEWS REPLY AND EDIT FLOW COMPLETED")
+                                                                                    print("="*70)
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error in Salon Reviews reply/edit flow: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                # Click Staff Reviews sub-tab
+                                                                                print("\nClicking Staff Reviews sub-tab...")
+                                                                                try:
+                                                                                    staff_reviews_tab = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "reviews-subtab-staff"))
+                                                                                    )
+                                                                                    self.scroll_to_element(staff_reviews_tab)
+                                                                                    time.sleep(0.2)
+                                                                                    staff_reviews_tab.click()
+                                                                                    time.sleep(2.0)
+                                                                                    print("  ✓ Clicked Staff Reviews sub-tab")
+                                                                                    
+                                                                                    # Check if staff reviews are loaded
+                                                                                    try:
+                                                                                        staff_reviews_loaded = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'card') or contains(@class, 'Card')]")
+                                                                                        if staff_reviews_loaded:
+                                                                                            print(f"  ✓ Found {len(staff_reviews_loaded)} staff review(s) loaded")
+                                                                                        else:
+                                                                                            print("  ℹ No staff reviews found (may be empty)")
+                                                                                    except:
+                                                                                        print("  ℹ Could not verify if staff reviews are loaded")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Staff Reviews sub-tab: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                # Navigate to Revenue tab
+                                                                                print("\nNavigating to Revenue tab...")
+                                                                                try:
+                                                                                    revenue_tab = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Revenue')]"))
+                                                                                    )
+                                                                                    self.scroll_to_element(revenue_tab)
+                                                                                    time.sleep(0.2)
+                                                                                    revenue_tab.click()
+                                                                                    time.sleep(3.0)
+                                                                                    print("  ✓ Clicked Revenue tab")
+                                                                                    
+                                                                                    # Scroll on the revenue page to see all data
+                                                                                    print("  Scrolling on revenue page...")
+                                                                                    try:
+                                                                                        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                                                                                        time.sleep(0.5)
+                                                                                        self.driver.execute_script("window.scrollTo(0, 0);")
+                                                                                        time.sleep(0.5)
+                                                                                        print("  ✓ Scrolled on revenue page")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error scrolling: {e}")
+                                                                                    
+                                                                                    # Check if revenue data is loaded
+                                                                                    try:
+                                                                                        revenue_data_loaded = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'card') or contains(@class, 'Card')] | //div[contains(@class, 'text-4xl')]")
+                                                                                        if revenue_data_loaded:
+                                                                                            print(f"  ✓ Found revenue data loaded ({len(revenue_data_loaded)} elements)")
+                                                                                        else:
+                                                                                            print("  ℹ No revenue data found (may be empty)")
+                                                                                    except:
+                                                                                        print("  ℹ Could not verify if revenue data is loaded")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error navigating to Revenue tab: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                print("\n" + "="*70)
+                                                                                print("OWNER DASHBOARD FLOW COMPLETED")
+                                                                                print("="*70)
                                                                             except Exception as e:
                                                                                 print(f"  ⚠ Error navigating to Browse Salons: {e}")
                                                                         except Exception as e:

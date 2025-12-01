@@ -354,6 +354,7 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
                   {canReply && !review.reply && replyingTo !== review.review_id && (
                     <div className="mt-3">
                       <Button
+                        id={`salon-reply-button-${review.review_id}`}
                         variant="outline"
                         size="sm"
                         onClick={() => handleStartReply(review.review_id)}
@@ -370,6 +371,7 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
                     <div className="mt-4 pt-4 border-t border-muted">
                       <div className="space-y-3">
                         <Textarea
+                          id={`salon-reply-textarea-${review.review_id}`}
                           placeholder="Write your reply..."
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
@@ -392,6 +394,7 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
                               Cancel
                             </Button>
                             <Button
+                              id={`salon-send-reply-button-${review.review_id}`}
                               size="sm"
                               onClick={() => handleCreateReply(review.review_id)}
                               disabled={replyLoading || !replyText.trim()}
@@ -435,6 +438,7 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
                       {editingReply === review.reply.reply_id ? (
                         <div className="space-y-3">
                           <Textarea
+                            id={`salon-edit-reply-textarea-${review.reply.reply_id}`}
                             placeholder="Write your reply..."
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
@@ -457,6 +461,7 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
                                 Cancel
                               </Button>
                               <Button
+                                id={`salon-update-reply-button-${review.reply.reply_id}`}
                                 size="sm"
                                 onClick={() => handleUpdateReply(review.reply.reply_id)}
                                 disabled={replyLoading || !replyText.trim()}
@@ -472,6 +477,7 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
                           {canReply && (
                             <div className="flex justify-end space-x-2 -mt-1">
                               <Button
+                                id={`salon-edit-reply-button-${review.reply.reply_id}`}
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleStartEdit(review.reply)}
@@ -544,4 +550,5 @@ export default function SalonReviews({ salonId, salonName, canReply = false, onE
     </div>
   );
 }
+
 

@@ -1633,7 +1633,7 @@ export default function SalonOwnerDashboard() {
                   <>
                     <div className="grid grid-cols-1 gap-4">
                       {customers.map((customer) => (
-                        <Card key={customer.user_id} className="hover:shadow-lg transition-shadow">
+                        <Card key={customer.user_id} id={`owner-customer-card-${customer.user_id}`} className="hover:shadow-lg transition-shadow">
                           <CardContent className="p-6 pt-6">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
@@ -1641,7 +1641,7 @@ export default function SalonOwnerDashboard() {
                                   {customer.full_name}
                                 </h3>
                                 <div className="space-y-1">
-                                  <p className="text-sm text-muted-foreground">
+                                  <p id={`owner-customer-email-${customer.user_id}`} className="text-sm text-muted-foreground">
                                     <span className="font-medium">Email:</span> {customer.email}
                                   </p>
                                   {customer.phone && (
@@ -1669,6 +1669,7 @@ export default function SalonOwnerDashboard() {
                                 </div>
                               </div>
                               <Button
+                                id={`owner-view-history-button-${customer.user_id}`}
                                 onClick={() => openCustomerVisitModal(customer)}
                                 variant="outline"
                                 className="flex items-center space-x-2"
@@ -1724,6 +1725,7 @@ export default function SalonOwnerDashboard() {
                   <div className="border-b border-muted">
                     <div className="flex space-x-8">
                       <button
+                        id="reviews-subtab-salon"
                         onClick={() => {
                           setReviewsSubTab('salon');
                           localStorage.setItem('reviewsSubTab', 'salon');
@@ -1736,6 +1738,7 @@ export default function SalonOwnerDashboard() {
                         Salon Reviews
                       </button>
                       <button
+                        id="reviews-subtab-staff"
                         onClick={() => {
                           setReviewsSubTab('staff');
                           localStorage.setItem('reviewsSubTab', 'staff');
