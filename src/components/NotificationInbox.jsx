@@ -8,6 +8,7 @@ import StrandsModal from './ui/strands-modal';
 import { useNotifications } from '../hooks/useNotifications';
 import { toast } from 'sonner';
 import { decryptMessage, isEncrypted } from '../utils/decryption';
+import { DateTime } from 'luxon';
 
 // Notification encryption key (should match backend)
 const NOTIFICATION_ENCRYPTION_KEY = '78049334f68ba40c1b067f494995bb0128ebf739d56821917aa2d9bb0e72f3a1';
@@ -39,6 +40,17 @@ export default function NotificationInbox({ isOpen, onClose }) {
   const lastNotificationIdsRef = useRef(new Set());
   const currentPageRef = useRef(1);
   const filterRef = useRef('all');
+
+  const formatNotificationDateTime = (value) => {
+    if (!value) return '';
+    try {
+      const dt = DateTime.fromISO(value).toLocal();
+      if (!dt.isValid) return value;
+      return dt.toLocaleString(DateTime.DATETIME_MED);
+    } catch {
+      return value;
+    }
+  };
 
   const fetchNotifications = useCallback(async (page = 1, showToast = false, filterParam = null) => {
     setLoading(true);
@@ -182,7 +194,9 @@ export default function NotificationInbox({ isOpen, onClose }) {
                   ...notif, 
                   status: 'READ', 
                   read_at: data.data?.read_at || new Date().toISOString(), 
-                  read_at_formatted: data.data?.read_at ? new Date(data.data.read_at).toLocaleString() : new Date().toLocaleString()
+                  read_at_formatted: data.data?.read_at
+                    ? formatNotificationDateTime(data.data.read_at)
+                    : formatNotificationDateTime(new Date().toISOString())
                 }
               : notif
           )
@@ -318,7 +332,9 @@ export default function NotificationInbox({ isOpen, onClose }) {
             ...notif,
             status: 'READ',
             read_at: data.data?.read_at || new Date().toISOString(),
-            read_at_formatted: data.data?.read_at ? new Date(data.data.read_at).toLocaleString() : new Date().toLocaleString()
+            read_at_formatted: data.data?.read_at
+              ? formatNotificationDateTime(data.data.read_at)
+              : formatNotificationDateTime(new Date().toISOString())
           }))
         );
         
@@ -710,10 +726,12 @@ export default function NotificationInbox({ isOpen, onClose }) {
                           })()}
                           <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-xs text-muted-foreground">
                             {notification.sent && (
-                              <span className="break-words">Sent: {notification.sent}</span>
+                              <span>Sent: {formatNotificationDateTime(notification.sent)}</span>
                             )}
-                            {notification.read_at_formatted && (
-                              <span className="break-words">Read: {notification.read_at_formatted}</span>
+                            {(notification.read_at || notification.read_at_formatted) && (
+                              <span>
+                                Read: {formatNotificationDateTime(notification.read_at || notification.read_at_formatted)}
+                              </span>
                             )}
                           </div>
                         </div>
