@@ -1686,7 +1686,6 @@ const handleCancelSelectedAppointment = async () => {
       case 'scheduled':
         return '!bg-yellow-200 !text-yellow-800 border-yellow-200';
       case 'canceled':
-      case 'canceled':
         return '!bg-red-200 !text-red-800 border-red-200';
       default:
         return '!bg-gray-200 !text-gray-800 border-gray-200';
