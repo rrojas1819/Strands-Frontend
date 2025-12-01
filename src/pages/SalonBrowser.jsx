@@ -7,16 +7,17 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Input } from '../components/ui/input';
 import { MapPin, Phone, Mail, Star, Clock, Search, Filter, ChevronDown, Check, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Notifications } from '../utils/notifications';
+import { Notifications, notifyError } from '../utils/notifications';
 import { trackSalonView } from '../utils/analytics';
 import UserNavbar from '../components/UserNavbar';
-import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
+const strandsLogo = '/strands-logo-new.png';
 
 export default function SalonBrowser() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [salons, setSalons] = useState([]);
   const [salonPhotos, setSalonPhotos] = useState({}); // Map of salon_id -> photo URL
+  const [salonStatuses, setSalonStatuses] = useState({}); // Map of salon_id -> status (0 = not running, 1 = running)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,13 +104,13 @@ export default function SalonBrowser() {
           const response = await fetch(
             `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&sort=${sortBy}&limit=${limit}&offset=${offset}`,
             {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
             }
           );
 
-          if (!response.ok) {
+        if (!response.ok) {
             // If limit/offset not supported with sort, try without limit/offset
             if (offset === 0) {
               const fallbackResponse = await fetch(
@@ -129,7 +130,7 @@ export default function SalonBrowser() {
               hasMore = false;
             } else {
               const errorData = await response.json().catch(() => ({}));
-              throw new Error(errorData.message || 'Failed to fetch salons');
+          throw new Error(errorData.message || 'Failed to fetch salons');
             }
           } else {
             const data = await response.json();
@@ -173,17 +174,17 @@ export default function SalonBrowser() {
             try {
               const photoResponse = await fetch(
                 `${import.meta.env.VITE_API_URL}/file/get-salon-photo?salon_id=${salon.salon_id}`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                  },
-                }
-              );
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              }
+            );
               if (photoResponse.ok) {
                 try {
                   const photoData = await photoResponse.json();
                   return { salonId: salon.salon_id, url: photoData.url || null };
-                } catch (parseErr) {
+              } catch (parseErr) {
                   return { salonId: salon.salon_id, url: null };
                 }
               } else {
@@ -214,6 +215,64 @@ export default function SalonBrowser() {
           });
         }
         
+        // Fetch salon statuses for all salons (check if they're running)
+        if (allSalons.length > 0) {
+          const statusPromises = allSalons.map(async (salon) => {
+            try {
+              const statusResponse = await fetch(
+                `${import.meta.env.VITE_API_URL}/salons/check-salon-status?salon_id=${salon.salon_id}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                  },
+                }
+              );
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                
+                // Backend returns { status: Array } where each item has salon_name and is_open
+                let status = 0; // Default to not running
+                
+                if (statusData.status && Array.isArray(statusData.status)) {
+                  // Find the salon in the array by matching salon_name
+                  const salonStatus = statusData.status.find(
+                    item => item.salon_name === salon.name
+                  );
+                  
+                  if (salonStatus && salonStatus.is_open !== undefined) {
+                    status = salonStatus.is_open === 1 ? 1 : 0;
+                  }
+                } else if (statusData.status !== undefined) {
+                  // Fallback: if status is a direct number
+                  status = statusData.status === 1 ? 1 : 0;
+                }
+                
+                return { salonId: salon.salon_id, status: status };
+              }
+              return { salonId: salon.salon_id, status: 0 }; // Default to not running on error
+          } catch (err) {
+              return { salonId: salon.salon_id, status: 0 }; // Default to not running on error
+            }
+          });
+          
+          Promise.allSettled(statusPromises).then((results) => {
+            const statusMap = {};
+            results.forEach((result, index) => {
+              if (result.status === 'fulfilled' && result.value) {
+                // status is already 0 or 1 from the fetch
+                statusMap[result.value.salonId] = result.value.status;
+              } else {
+                // If fetch failed, default to 0 (not running)
+                const salonId = allSalons[index]?.salon_id;
+                if (salonId) {
+                  statusMap[salonId] = 0;
+                }
+              }
+            });
+            setSalonStatuses(statusMap);
+          });
+        }
+        
         // Ratings are now included with salon data from backend - no need to fetch separately
       } catch (err) {
         setError(err.message || 'Failed to load salons.');
@@ -236,9 +295,9 @@ export default function SalonBrowser() {
         salon.name.toLowerCase().includes(searchLower) ||
         salon.description?.toLowerCase().includes(searchLower) ||
         salon.city?.toLowerCase().includes(searchLower);
-      const matchesCategory = selectedCategory === 'all' || salon.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
+    const matchesCategory = selectedCategory === 'all' || salon.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
     // Backend handles sorting, so we just return filtered results
     return filtered;
@@ -629,18 +688,18 @@ export default function SalonBrowser() {
                   </div>
                   <div className="flex-shrink-0">
                     {salon.rating || salon.avg_rating || salon.average_rating ? (
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
                         <span className="text-sm font-medium">
                           {(salon.rating || salon.avg_rating || salon.average_rating).toFixed(1)}
                         </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-gray-300" />
-                        <span className="text-sm font-medium text-muted-foreground">N/A</span>
-                      </div>
-                    )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-4 h-4 text-gray-300" />
+                      <span className="text-sm font-medium text-muted-foreground">N/A</span>
+                    </div>
+                  )}
                   </div>
                 </div>
               </CardHeader>
@@ -669,7 +728,7 @@ export default function SalonBrowser() {
                   
                   <div className="pt-3 mt-2">
                     <p className="text-sm text-muted-foreground line-clamp-2">{salon.description}</p>
-                  </div>
+                </div>
                 </div>
 
                 {/* Bottom section with status and buttons - perfectly aligned */}
@@ -697,8 +756,22 @@ export default function SalonBrowser() {
                     </Button>
                     <Button 
                       size="sm"
-                      className="bg-primary hover:bg-primary/90 flex-shrink-0"
-                      onClick={() => {
+                      className={`flex-shrink-0 ${
+                        salonStatuses[salon.salon_id] === 0
+                          ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed opacity-60' 
+                          : 'bg-primary hover:bg-primary/90'
+                      }`}
+                      disabled={salonStatuses[salon.salon_id] === 0}
+                      title={salonStatuses[salon.salon_id] === 0 ? 'Salon is not running yet' : salonStatuses[salon.salon_id] === 1 ? 'Book appointment' : 'Loading status...'}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const status = salonStatuses[salon.salon_id];
+                        if (status === 0) {
+                          notifyError('Salon is not running yet');
+                          return;
+                        }
+                        // If status is undefined/null, allow booking (status not loaded yet)
                         if (user) {
                           trackSalonView(salon.salon_id, user.user_id);
                         }

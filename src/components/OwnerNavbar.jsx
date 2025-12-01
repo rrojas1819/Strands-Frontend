@@ -4,7 +4,6 @@ import { AuthContext } from '../context/AuthContext';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { LogOut, Mail } from 'lucide-react';
-import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 import NotificationInbox from './NotificationInbox';
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -49,7 +48,7 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
               <img 
-                src={strandsLogo} 
+                src="/strands-logo-new.png" 
                 alt="Strands" 
                 className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity" 
                 onClick={() => navigate('/')}

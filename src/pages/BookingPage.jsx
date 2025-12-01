@@ -621,7 +621,7 @@ export default function BookingPage() {
             {isReschedule && (
               <Alert className="mb-8 bg-blue-50 border-blue-200">
                 <AlertDescription className="text-sm text-blue-800">
-                  Note: Appointments cannot be cancelled or rescheduled on the day of the appointment. Please contact the salon directly for same-day changes.
+                  Note: Appointments cannot be canceled or rescheduled on the day of the appointment. Please contact the salon directly for same-day changes.
                 </AlertDescription>
               </Alert>
         )}
@@ -640,10 +640,10 @@ export default function BookingPage() {
                   
                   return (
                     <div key={stylist.employee_id} className="space-y-2">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <Button
                           variant={isSelected ? 'default' : 'outline'}
-                          className="flex-1 justify-start"
+                          className="flex-1 justify-start text-xs sm:text-sm py-2 sm:py-2.5"
                           onClick={() => {
                             if (!isReschedule) {
                               // If clicking the same stylist, deselect them
@@ -670,11 +670,11 @@ export default function BookingPage() {
                           }}
                           disabled={isReschedule}
                         >
-                          <Users className="w-4 h-4 mr-2" />
-                          <div className="flex-1 text-left flex items-center justify-between">
-                            <div className="font-medium">{stylist.full_name} - {stylist.title}</div>
+                          <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 flex-shrink-0" />
+                          <div className="flex-1 text-left flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 min-w-0">
+                            <div className="font-medium truncate">{stylist.full_name} - {stylist.title}</div>
                             {rating?.avg_rating && (
-                              <div className="flex items-center space-x-1 ml-2">
+                              <div className="flex items-center space-x-1 sm:ml-2 flex-shrink-0">
                                 <Star className="w-3 h-3 text-yellow-500 fill-current" />
                                 <span className="text-xs font-medium">{rating.avg_rating}</span>
                                 <span className="text-xs text-muted-foreground">({rating.total})</span>
@@ -690,9 +690,10 @@ export default function BookingPage() {
                               setSelectedStylistForReviews(stylist);
                               setShowReviewsModal(true);
                             }}
-                            className="flex-shrink-0 text-xs px-2"
+                            className="flex-shrink-0 text-xs px-2 sm:px-3 py-2 sm:py-2.5"
                           >
-                            Reviews
+                            <span className="hidden sm:inline">Reviews</span>
+                            <Star className="w-3.5 h-3.5 sm:hidden" />
                           </Button>
                         )}
                       </div>
@@ -731,7 +732,7 @@ export default function BookingPage() {
                   return (
                     <div
                       key={`${service.service_id}-${service.name}`}
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors ${
                         isSelected ? 'border-primary bg-primary/10' : 'border-muted hover:border-primary/50'
                       }`}
                       onClick={() => {
@@ -752,14 +753,14 @@ export default function BookingPage() {
                         setCustomStartTime('');
                       }}
                     >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">{service.name}</p>
-                          <p className="text-sm text-muted-foreground">{service.description} - <span className="text-blue-600 font-medium">{(service.duration_minutes || 30)} min</span></p>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm sm:text-base break-words">{service.name}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground break-words">{service.description} - <span className="text-blue-600 font-medium">{(service.duration_minutes || 30)} min</span></p>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</span>
-                          {isSelected && <Check className="w-5 h-5 text-primary" />}
+                        <div className="flex items-center justify-between sm:justify-end space-x-2 flex-shrink-0">
+                          <span className="font-semibold text-green-800 text-sm sm:text-base whitespace-nowrap">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</span>
+                          {isSelected && <Check className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />}
                         </div>
                       </div>
                     </div>
@@ -791,7 +792,7 @@ export default function BookingPage() {
                           <Button
                             key={dateStr}
                             variant={isSelected ? 'default' : 'outline'}
-                            className={isToday ? 'ring-2 ring-primary' : ''}
+                            className={`text-xs sm:text-sm ${isToday ? 'ring-2 ring-primary' : ''} h-8 sm:h-10 w-full`}
                             disabled={!hasAvailability}
                             onClick={() => {
                               if (hasAvailability) {
@@ -831,7 +832,7 @@ export default function BookingPage() {
                         setCustomStartTime('');
                         setSelectedTimeSlot(null);
                       }}
-                      className="flex-1"
+                      className="flex-1 text-xs sm:text-sm px-2 sm:px-4"
                     >
                       Predefined Slots
                     </Button>
@@ -842,7 +843,7 @@ export default function BookingPage() {
                         setUseCustomTime(true);
                         setSelectedTimeSlot(null);
                       }}
-                      className="flex-1"
+                      className="flex-1 text-xs sm:text-sm px-2 sm:px-4"
                     >
                       Custom Time
                     </Button>
@@ -892,7 +893,7 @@ export default function BookingPage() {
                             <Button
                               key={`${slot.start_time}-${slot.end_time}`}
                               variant={isSelected && isAvailable ? 'default' : 'outline'}
-                              className={`w-full ${
+                              className={`w-full text-xs sm:text-sm py-2 sm:py-2.5 ${
                                 !isAvailable 
                                   ? 'cursor-not-allowed' 
                                   : ''
@@ -910,15 +911,19 @@ export default function BookingPage() {
                                 }
                               }}
                             >
-                              {formatTo12Hour(displayStart)} - {formatTo12Hour(displayEnd)}
-                              {unavailableLabel && <span className="ml-2 text-xs">{unavailableLabel}</span>}
+                              <span className="flex items-center justify-center flex-wrap gap-1">
+                                {formatTo12Hour(displayStart)} - {formatTo12Hour(displayEnd)}
+                                {unavailableLabel && <span className="text-xs">{unavailableLabel}</span>}
+                              </span>
                             </Button>
                           );
                         })
                     ) : (
-                      <div className="text-center py-8">
-                        <p className="text-muted-foreground font-medium">
-                          {new Date(selectedDate + 'T00:00:00').getDay() === 0 || new Date(selectedDate + 'T00:00:00').getDay() === 6 
+                      <div className="text-center py-6 sm:py-8">
+                        <p className="text-sm sm:text-base text-muted-foreground font-medium px-2">
+                          {timeSlots[selectedDate]?.is_closed ||
+                           (new Date(selectedDate + 'T00:00:00').getDay() === 0 || 
+                            new Date(selectedDate + 'T00:00:00').getDay() === 6)
                             ? 'Salon closed' 
                             : 'Stylist unavailable or booked all day'}
                         </p>
@@ -1045,7 +1050,7 @@ export default function BookingPage() {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between text-lg font-bold pt-3 border-t">
+                <div className="flex justify-between text-base sm:text-lg font-bold pt-3 border-t">
                   <span>Total:</span>
                   <span className="text-green-800">
                     ${selectedServices.reduce((sum, service) => {
@@ -1055,7 +1060,7 @@ export default function BookingPage() {
                   </span>
                 </div>
                 <Button 
-                  className="w-full mt-4" 
+                  className="w-full mt-4 text-sm sm:text-base py-2.5 sm:py-3" 
                   onClick={handleBookClick}
                   disabled={!selectedTimeSlot}
                 >
@@ -1091,10 +1096,10 @@ export default function BookingPage() {
 
       {/* Reviews Modal */}
       {showReviewsModal && selectedStylistForReviews && !showConfirmModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b">
                 <div className="flex items-center space-x-3">
                   <Star className="w-6 h-6 text-yellow-500" />
                   <div>

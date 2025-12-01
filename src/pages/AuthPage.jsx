@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { ArrowLeft, User, Store, Scissors } from 'lucide-react';
 import { toast } from 'sonner';
-import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
 
 export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -155,7 +154,7 @@ export default function AuthPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <img src={strandsLogo} alt="Strands" className="w-20 h-20" />
+            <img src="/strands-logo-new.png" alt="Strands" className="w-20 h-20" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Join Strands and start your journey</h1>
         </div>

@@ -13,7 +13,7 @@ import SalonReviews from '../components/SalonReviews';
 import { Textarea } from '../components/ui/textarea';
 import UserNavbar from '../components/UserNavbar';
 import HaircutGalleryModal from '../components/HaircutGalleryModal';
-import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
+const strandsLogo = '/strands-logo-new.png';
 
 export default function SalonDetail() {
   const { user } = useContext(AuthContext);
@@ -22,6 +22,7 @@ export default function SalonDetail() {
   const [salon, setSalon] = useState(null);
   const [salonPhotoUrl, setSalonPhotoUrl] = useState(null);
   const [loyaltyData, setLoyaltyData] = useState(null);
+  const [salonStatus, setSalonStatus] = useState(null); // null = not checked yet, 0 = not running, 1 = running
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showRedeemModal, setShowRedeemModal] = useState(false);
@@ -99,6 +100,44 @@ export default function SalonDetail() {
           }
           
           setSalon(foundSalon);
+          
+          // Fetch salon status (check if running)
+          try {
+            const statusResponse = await fetch(
+              `${apiUrl}/salons/check-salon-status?salon_id=${salonIdNum}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              }
+            );
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              
+              // Backend returns { status: Array } where each item has salon_name and is_open
+              let status = 0; // Default to not running
+              
+              if (statusData.status && Array.isArray(statusData.status)) {
+                // Find the salon in the array by matching salon_name
+                const salonStatus = statusData.status.find(
+                  item => item.salon_name === foundSalon.name
+                );
+                
+                if (salonStatus && salonStatus.is_open !== undefined) {
+                  status = salonStatus.is_open === 1 ? 1 : 0;
+                }
+              } else if (statusData.status !== undefined) {
+                // Fallback: if status is a direct number
+                status = statusData.status === 1 ? 1 : 0;
+              }
+              
+              setSalonStatus(status);
+            } else {
+              setSalonStatus(0); // Default to not running on error
+            }
+          } catch (err) {
+            setSalonStatus(0); // Default to not running on error
+          }
           
           // Use photo_url from backend response if available (instant, no extra API call)
           if (foundSalon.photo_url) {
@@ -606,8 +645,22 @@ export default function SalonDetail() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <Button 
-                  className="w-full bg-primary hover:bg-primary/90"
-                  onClick={() => navigate(`/salon/${salonId}/book`)}
+                  className={`w-full ${
+                    salonStatus === 0
+                      ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed opacity-60' 
+                      : 'bg-primary hover:bg-primary/90'
+                  }`}
+                  disabled={salonStatus === 0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (salonStatus === 0) {
+                      notifyError('Salon is not running yet');
+                      return;
+                    }
+                    // If status is null/undefined, allow booking (status not loaded yet)
+                    navigate(`/salon/${salonId}/book`);
+                  }}
                 >
                   Book Appointment
                 </Button>

@@ -11,7 +11,7 @@ import { Notifications } from '../utils/notifications';
 import ConfirmationModal from '../components/ConfirmationModal';
 import AdminNavbar from '../components/AdminNavbar';
 import StrandsSelect from '../components/ui/strands-select';
-import strandsLogo from '../assets/32ae54e35576ad7a97d684436e3d903c725b33cd.png';
+const strandsLogo = '/strands-logo-new.png';
 
 export default function SalonVerification() {
   const { user, logout } = useContext(AuthContext);
