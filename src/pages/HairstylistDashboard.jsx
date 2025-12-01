@@ -1815,39 +1815,39 @@ const handleCancelSelectedAppointment = async () => {
       {/* Header */}
       <header className="bg-background border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
+            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
               <img 
                 src={strandsLogo} 
                 alt="Strands" 
-                className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 cursor-pointer transition-opacity" 
+                className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 flex-shrink-0 cursor-pointer transition-opacity" 
                 onClick={() => navigate('/')}
               />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">{salonData?.employee_title || 'Hairstylist'}</h1>
-                <p className="text-sm text-muted-foreground">{salonData?.name}</p>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{salonData?.employee_title || 'Hairstylist'}</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">{salonData?.name}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center justify-end sm:justify-start space-x-2 sm:space-x-4 flex-shrink-0">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowNotifications(true)}
-                className="relative"
+                className="relative h-9 w-9 sm:h-10 sm:w-10"
               >
-                <Mail className="w-5 h-5" />
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
                 {unreadCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs">
+                  <Badge className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center p-0 bg-red-500 text-white text-[10px] sm:text-xs">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </Badge>
                 )}
               </Button>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs sm:text-sm px-2 sm:px-3 py-1">
                 Hairstylist
               </Badge>
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2">
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
+              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">
+                <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
@@ -1857,12 +1857,12 @@ const handleCancelSelectedAppointment = async () => {
       {/* Navigation Bar - Hairstylist Sections */}
       <nav className="bg-muted/50 border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
+          <div className="flex space-x-4 sm:space-x-8 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'border-primary text-primary'
                     : 'border-transparent text-muted-foreground'
@@ -1879,40 +1879,41 @@ const handleCancelSelectedAppointment = async () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section - Only on Schedule Page */}
         {activeTab === 'schedule' && (
-        <div className="mb-8">
-            <div className="flex items-start gap-6 mb-4">
-              <div className="flex-1">
-           <h2 className="text-3xl font-bold text-foreground mb-2">
+        <div className="mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 mb-4">
+              <div className="flex-1 min-w-0">
+           <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 break-words">
              Welcome, {authContext.user?.full_name}!
            </h2>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground break-words">
             Manage your appointments, customers, and professional profile at {salonData?.name}.
           </p>
               </div>
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 self-start sm:self-auto">
                 <img 
                   src={salonPhotoUrl || strandsLogo} 
                   alt={salonData?.name || 'Salon'} 
-                  className="w-24 h-24 rounded-lg object-contain border shadow-sm bg-gray-50 p-2"
+                  className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-lg object-contain border shadow-sm bg-gray-50 p-1 sm:p-2"
                   onError={(e) => {
                     e.target.src = strandsLogo;
                   }}
                 />
               </div>
             </div>
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Button onClick={fetchStylistSalon} variant="outline" size="sm">
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <Button onClick={fetchStylistSalon} variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">
                   Refresh Data
                 </Button>
                 <Button 
                   onClick={() => setShowBlockModal(true)} 
                   variant="outline" 
                   size="sm"
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
                 >
-                  <Ban className="w-4 h-4" />
-                  <span>Block Time</span>
+                  <Ban className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Block Time</span>
+                  <span className="sm:hidden">Block</span>
                 </Button>
                 <Button 
                   onClick={() => {
@@ -1921,10 +1922,11 @@ const handleCancelSelectedAppointment = async () => {
                   }} 
                   variant="outline" 
                   size="sm"
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
                 >
-                  <X className="w-4 h-4" />
-                  <span>Unblock Time</span>
+                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Unblock Time</span>
+                  <span className="sm:hidden">Unblock</span>
                 </Button>
                 <Button 
                   onClick={() => {
@@ -1933,26 +1935,28 @@ const handleCancelSelectedAppointment = async () => {
                   }} 
                   variant="outline" 
                   size="sm"
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
                 >
-                  <Calendar className="w-4 h-4" />
-                  <span>View Canceled</span>
+                  <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">View Canceled</span>
+                  <span className="sm:hidden">Canceled</span>
                 </Button>
                 <Button 
                   onClick={handleAlertEveryone}
                   variant="outline" 
                   size="sm"
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
                   disabled={alertLoading}
                 >
-                  <Bell className="w-4 h-4" />
-                  <span>Alert Everyone</span>
+                  <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Alert Everyone</span>
+                  <span className="sm:hidden">Alert</span>
                 </Button>
               </div>
               
               {/* View Settings */}
-              <div className="bg-white rounded-lg border p-2 flex items-center space-x-2">
-                <Settings className="w-4 h-4 text-muted-foreground" />
+              <div className="bg-white rounded-lg border p-1.5 sm:p-2 flex items-center space-x-1 sm:space-x-2 flex-shrink-0 self-start sm:self-auto">
+                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                 <div className="flex space-x-1">
                   <Button
                     variant={viewType === 'day' ? 'default' : 'outline'}
@@ -1964,7 +1968,7 @@ const handleCancelSelectedAppointment = async () => {
                       setSelectedDate(today);
                       setViewType('day');
                     }}
-                    className="px-3 py-1 text-xs"
+                    className="px-2 sm:px-3 py-1 text-xs"
                   >
                     Day
                   </Button>
@@ -1980,7 +1984,7 @@ const handleCancelSelectedAppointment = async () => {
                       setWeekStartDate(startOfWeek);
                       setViewType('week');
                     }}
-                    className="px-3 py-1 text-xs"
+                    className="px-2 sm:px-3 py-1 text-xs"
                   >
                     Week
                   </Button>
@@ -1995,29 +1999,30 @@ const handleCancelSelectedAppointment = async () => {
           <div className="space-y-6">
 
             {/* Current Week Header */}
-            <div className="bg-white rounded-lg border p-4">
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
               {viewType === 'day' ? (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 sm:gap-4">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => navigateDate(-1)}
                     disabled={!canNavigatePrevious()}
-                    className={`flex items-center space-x-2 ${
+                    className={`flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 ${
                       !canNavigatePrevious() 
                         ? 'opacity-50 cursor-not-allowed' 
                         : ''
                     }`}
                   >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>Previous Day</span>
+                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Previous Day</span>
+                    <span className="sm:hidden">Prev</span>
                   </Button>
 
-                  <div className="text-center">
-                    <h3 className="text-lg font-semibold text-foreground">
+                  <div className="text-center min-w-0 flex-1 px-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-foreground break-words">
                       {formatDate(selectedDate)}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Your daily schedule
                     </p>
                   </div>
@@ -2027,38 +2032,40 @@ const handleCancelSelectedAppointment = async () => {
                     size="sm"
                     onClick={() => navigateDate(1)}
                     disabled={!canNavigateNext()}
-                    className={`flex items-center space-x-2 ${
+                    className={`flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 ${
                       !canNavigateNext() 
                         ? 'opacity-50 cursor-not-allowed' 
                         : ''
                     }`}
                   >
-                    <span>Next Day</span>
-                    <ChevronRight className="w-4 h-4" />
+                    <span className="hidden sm:inline">Next Day</span>
+                    <span className="sm:hidden">Next</span>
+                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 sm:gap-4">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => navigateDate(-1)}
                     disabled={!canNavigatePrevious()}
-                    className={`flex items-center space-x-2 ${
+                    className={`flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 ${
                       !canNavigatePrevious() 
                         ? 'opacity-50 cursor-not-allowed' 
                         : ''
                     }`}
                   >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>Previous Week</span>
+                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Previous Week</span>
+                    <span className="sm:hidden">Prev</span>
                   </Button>
 
-                  <div className="text-center">
-                    <h3 className="text-lg font-semibold text-foreground">
+                  <div className="text-center min-w-0 flex-1 px-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-foreground break-words">
                       Week of {formatWeekRange()}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Your weekly schedule
                     </p>
             </div>
@@ -2068,21 +2075,22 @@ const handleCancelSelectedAppointment = async () => {
                     size="sm"
                     onClick={() => navigateDate(1)}
                     disabled={!canNavigateNext()}
-                    className={`flex items-center space-x-2 ${
+                    className={`flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 ${
                       !canNavigateNext() 
                         ? 'opacity-50 cursor-not-allowed' 
                         : ''
                     }`}
                   >
-                    <span>Next Week</span>
-                    <ChevronRight className="w-4 h-4" />
+                    <span className="hidden sm:inline">Next Week</span>
+                    <span className="sm:hidden">Next</span>
+                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </Button>
                 </div>
               )}
             </div>
 
             {viewType === 'day' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {revenueLoading ? (
                   <div className="col-span-full text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
@@ -2090,42 +2098,42 @@ const handleCancelSelectedAppointment = async () => {
                   </div>
                 ) : revenueData ? (
                   <>
-                    <div className="bg-white rounded-lg border p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <DollarSign className="w-5 h-5 text-green-600" />
+                    <div className="bg-white rounded-lg border p-3 sm:p-4">
+                      <div className="flex items-center space-x-2 sm:space-x-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Total Revenue</p>
-                          <p className="text-2xl font-bold text-green-800">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-medium text-foreground">Total Revenue</p>
+                          <p className="text-xl sm:text-2xl font-bold text-green-800 truncate">
                             ${parseFloat(revenueData.revenue_all_time || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-lg border p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <TrendingUp className="w-5 h-5 text-green-600" />
+                    <div className="bg-white rounded-lg border p-3 sm:p-4">
+                      <div className="flex items-center space-x-2 sm:space-x-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Last 7 Days</p>
-                          <p className="text-2xl font-bold text-green-800">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-medium text-foreground">Last 7 Days</p>
+                          <p className="text-xl sm:text-2xl font-bold text-green-800 truncate">
                             ${parseFloat(revenueData.revenue_past_week || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-lg border p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <Calendar className="w-5 h-5 text-green-600" />
+                    <div className="bg-white rounded-lg border p-3 sm:p-4">
+                      <div className="flex items-center space-x-2 sm:space-x-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Today</p>
-                          <p className="text-2xl font-bold text-green-800">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-medium text-foreground">Today</p>
+                          <p className="text-xl sm:text-2xl font-bold text-green-800 truncate">
                             ${parseFloat(revenueData.revenue_today || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
@@ -2143,37 +2151,37 @@ const handleCancelSelectedAppointment = async () => {
                 <p className="text-muted-foreground">Loading your schedule...</p>
               </div>
             ) : viewType === 'week' ? (
-              <div className="bg-white rounded-lg border p-4">
+              <div className="bg-white rounded-lg border p-3 sm:p-4">
                 {/* Legend */}
-                <div className="flex items-center space-x-6 mb-4 pb-4 border-b">
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm font-medium text-foreground">Availability:</span>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-green-300 opacity-40 rounded"></div>
-                      <span className="text-sm text-foreground">Available</span>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 mb-4 pb-4 border-b">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                    <span className="text-xs sm:text-sm font-medium text-foreground w-full sm:w-auto">Availability:</span>
+                    <div className="flex items-center space-x-1.5 sm:space-x-2">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-green-300 opacity-40 rounded flex-shrink-0"></div>
+                      <span className="text-xs sm:text-sm text-foreground">Available</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-gray-500 opacity-60 rounded"></div>
-                      <span className="text-sm text-foreground">Unavailable</span>
+                    <div className="flex items-center space-x-1.5 sm:space-x-2">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-500 opacity-60 rounded flex-shrink-0"></div>
+                      <span className="text-xs sm:text-sm text-foreground">Unavailable</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-red-400 opacity-40 rounded"></div>
-                      <span className="text-sm text-foreground">Booked</span>
+                    <div className="flex items-center space-x-1.5 sm:space-x-2">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-red-400 opacity-40 rounded flex-shrink-0"></div>
+                      <span className="text-xs sm:text-sm text-foreground">Booked</span>
                     </div>
                   </div>
                   
                   {/* Separator */}
-                  <div className="h-6 w-px bg-gray-300"></div>
+                  <div className="hidden sm:block h-6 w-px bg-gray-300"></div>
                   
-                                                                           <div className="flex items-center space-x-4">
-                      <span className="text-sm font-medium text-foreground">Bookings:</span>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-purple-200 border-l-4 border-purple-500 rounded"></div>
-                        <span className="text-sm text-foreground">Completed</span>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                      <span className="text-xs sm:text-sm font-medium text-foreground w-full sm:w-auto">Bookings:</span>
+                      <div className="flex items-center space-x-1.5 sm:space-x-2">
+                        <div className="w-5 h-5 sm:w-6 sm:h-6 bg-purple-200 border-l-4 border-purple-500 rounded flex-shrink-0"></div>
+                        <span className="text-xs sm:text-sm text-foreground">Completed</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-yellow-200 border-l-4 border-yellow-500 rounded"></div>
-                        <span className="text-sm text-foreground">Scheduled</span>
+                      <div className="flex items-center space-x-1.5 sm:space-x-2">
+                        <div className="w-5 h-5 sm:w-6 sm:h-6 bg-yellow-200 border-l-4 border-yellow-500 rounded flex-shrink-0"></div>
+                        <span className="text-xs sm:text-sm text-foreground">Scheduled</span>
                       </div>
                     </div>
                 </div>
@@ -2338,55 +2346,55 @@ const handleCancelSelectedAppointment = async () => {
                 ) : (
               <div className="space-y-4">
                 {/* Schedule Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white rounded-lg border p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-blue-600" />
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="bg-white rounded-lg border p-3 sm:p-4">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                         </div>
-                        <div>
-                        <p className="text-sm font-medium text-foreground">Total Appointments</p>
-                        <p className="text-2xl font-bold text-foreground">{dayAppointments.length}</p>
+                        <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-medium text-foreground">Total Appointments</p>
+                        <p className="text-xl sm:text-2xl font-bold text-foreground">{dayAppointments.length}</p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="bg-white rounded-lg border p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-purple-600" />
+                  <div className="bg-white rounded-lg border p-3 sm:p-4">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Completed</p>
-                        <p className="text-2xl font-bold text-foreground">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-medium text-foreground">Completed</p>
+                        <p className="text-xl sm:text-2xl font-bold text-foreground">
                           {dayAppointments.filter(apt => apt.status === 'completed').length}
                         </p>
                           </div>
                         </div>
                       </div>
                   
-                  <div className="bg-white rounded-lg border p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-yellow-600" />
+                  <div className="bg-white rounded-lg border p-3 sm:p-4">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Pending</p>
-                        <p className="text-2xl font-bold text-foreground">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-medium text-foreground">Pending</p>
+                        <p className="text-xl sm:text-2xl font-bold text-foreground">
                           {dayAppointments.filter(apt => apt.status === 'pending').length}
                         </p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="bg-white rounded-lg border p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-red-600" />
+                  <div className="bg-white rounded-lg border p-3 sm:p-4">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Canceled</p>
-                        <p className="text-2xl font-bold text-foreground">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-medium text-foreground">Canceled</p>
+                        <p className="text-xl sm:text-2xl font-bold text-foreground">
                           {dayAppointments.filter(apt => apt.status === 'canceled').length}
                         </p>
                       </div>
@@ -2416,31 +2424,31 @@ const handleCancelSelectedAppointment = async () => {
                           : 'Discount applied';
 
                         return (
-                          <div key={appointment.id} className="p-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-3 mb-2">
+                          <div key={appointment.id} className="p-3 sm:p-4">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
                                   <div className="flex items-center space-x-2">
-                                    <Clock className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
+                                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                                    <span className="text-sm sm:text-base font-medium text-foreground">{appointment.startTime} - {appointment.endTime}</span>
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     {hasDiscount && (
-                                      <Badge className="bg-sky-100 text-sky-700 border-sky-200">
+                                      <Badge className="bg-sky-100 text-sky-700 border-sky-200 text-xs">
                                         {promoInfo ? 'Promo Applied' : 'Discounted'}
                                       </Badge>
                                     )}
-                                    <Badge className={getStatusColor(appointment.status)}>
+                                    <Badge className={`${getStatusColor(appointment.status)} text-xs`}>
                                       {formatStatusLabel(appointment.status)}
                                     </Badge>
                                   </div>
                                 </div>
                                 
-                                <h4 className="font-semibold text-foreground mb-1">
+                                <h4 className="text-sm sm:text-base font-semibold text-foreground mb-1 break-words">
                                   {appointment.customer}
                                 </h4>
                                 
-                                <p className="text-sm text-muted-foreground mb-2">
+                                <p className="text-xs sm:text-sm text-muted-foreground mb-2 break-words">
                                   {appointment.service}
                                 </p>
                                 
@@ -2468,17 +2476,17 @@ const handleCancelSelectedAppointment = async () => {
                                   )}
                       </div>
                                 
-                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                <div className="flex items-center space-x-2 sm:space-x-4 text-xs sm:text-sm text-muted-foreground">
                                   {appointment.phone && (
                                     <div className="flex items-center space-x-1">
-                                      <Phone className="w-4 h-4" />
-                                      <span>{appointment.phone}</span>
+                                      <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                      <span className="break-all">{appointment.phone}</span>
                                     </div>
                                   )}
                                 </div>
                               </div>
                               
-                              <div className="ml-4">
+                              <div className="sm:ml-4 flex-shrink-0 mt-2 sm:mt-0">
                             <Button 
                               variant="outline" 
                               size="sm"
@@ -2486,6 +2494,7 @@ const handleCancelSelectedAppointment = async () => {
                                     setSelectedAppointment(appointment);
                                     setShowAppointmentPopup(true);
                                   }}
+                                  className="w-full sm:w-auto text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
                             >
                                   View Details
                             </Button>
@@ -2504,17 +2513,17 @@ const handleCancelSelectedAppointment = async () => {
 
         {activeTab === 'customers' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0">
               <div>
-                <h2 className="text-2xl font-bold text-foreground">Customer Visits</h2>
-                <p className="text-muted-foreground">View your customers' visit history</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">Customer Visits</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">View your customers' visit history</p>
               </div>
                             <Button 
                 onClick={toggleSortOrder}
                 variant="outline"
-                className="flex items-center space-x-2"
+                className="flex items-center space-x-2 text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 self-start sm:self-auto"
               >
-                <ArrowUpDown className="w-4 h-4" />
+                <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Sort: {sortOrder === 'desc' ? 'Most Frequent' : 'Least Frequent'}</span>
                             </Button>
             </div>
@@ -2537,25 +2546,25 @@ const handleCancelSelectedAppointment = async () => {
                 <div className="grid grid-cols-1 gap-4">
                   {customers.map((customer) => (
                     <Card key={customer.user_id} className="hover:shadow-lg transition-shadow">
-                      <CardContent className="p-6 pt-6">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                      <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1 break-words">
                               {customer.full_name}
                             </h3>
                             <div className="space-y-1">
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-xs sm:text-sm text-muted-foreground break-all">
                                 <span className="font-medium">Email:</span> {customer.email}
                               </p>
                               {customer.phone && (
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-xs sm:text-sm text-muted-foreground break-all">
                                   <span className="font-medium">Phone:</span> {customer.phone}
                                 </p>
                               )}
-                              <div className="flex items-center space-x-2 mt-2">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 sm:space-x-2 mt-2">
                                 <div className="flex items-center space-x-1">
-                                  <Clock className="w-4 h-4 text-blue-600" />
-                                  <span className="text-sm font-medium text-blue-600">
+                                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
+                                  <span className="text-xs sm:text-sm font-medium text-blue-600">
                                     {customer.total_visits} visit{customer.total_visits !== 1 ? 's' : ''}
                                   </span>
                                 </div>
@@ -2574,9 +2583,9 @@ const handleCancelSelectedAppointment = async () => {
                         <Button 
                             onClick={() => openCustomerVisitModal(customer)}
                           variant="outline" 
-                            className="flex items-center space-x-2"
+                            className="flex items-center space-x-2 text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 self-start sm:self-auto w-full sm:w-auto"
                         >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <span>View History</span>
                         </Button>
                       </div>
@@ -2587,28 +2596,30 @@ const handleCancelSelectedAppointment = async () => {
 
                 {/* Pagination Controls */}
                 {customerPagination.total_records > customerPagination.limit && (
-                  <div className="flex justify-between items-center pt-4">
-                    <div className="text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 pt-4">
+                    <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                       Showing {Math.min(customerPagination.offset + 1, customerPagination.total_records)} -{' '}
                       {Math.min(customerPagination.offset + customerPagination.limit, customerPagination.total_records)} of{' '}
                       {customerPagination.total_records} customers
                   </div>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 justify-center sm:justify-end">
                       <Button
                         variant="outline"
                         onClick={() => handleCustomersPagination('prev')}
                         disabled={customersLoading || customerPagination.offset === 0}
+                        className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
                       >
-                        <ChevronLeft className="w-4 h-4 mr-1" />
-                        Previous
+                        <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Previous</span>
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => handleCustomersPagination('next')}
                         disabled={customersLoading || !customerPagination.has_more}
+                        className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2"
                       >
-                        Next
-                        <ChevronRight className="w-4 h-4 ml-1" />
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:ml-1" />
                       </Button>
                         </div>
                   </div>
@@ -2622,10 +2633,10 @@ const handleCancelSelectedAppointment = async () => {
           <div className="space-y-6">
             {/* Sub-tabs for Salon Reviews vs My Reviews */}
             <div className="border-b border-muted">
-              <div className="flex space-x-8">
+              <div className="flex space-x-4 sm:space-x-8 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
                 <button
                   onClick={() => setReviewsSubTab('salon')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                     reviewsSubTab === 'salon'
                       ? 'border-primary text-primary'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
@@ -2635,7 +2646,7 @@ const handleCancelSelectedAppointment = async () => {
                 </button>
                 <button
                   onClick={() => setReviewsSubTab('my')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                     reviewsSubTab === 'my'
                       ? 'border-primary text-primary'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
@@ -2696,13 +2707,13 @@ const handleCancelSelectedAppointment = async () => {
 
         {activeTab === 'services' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0">
               <div>
-                <h2 className="text-2xl font-bold text-foreground">My Services</h2>
-                <p className="text-muted-foreground">Manage the services you offer</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">My Services</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">Manage the services you offer</p>
                         </div>
-              <Button onClick={() => setShowServiceModal(true)} className="flex items-center space-x-2">
-                <Plus className="w-4 h-4" />
+              <Button onClick={() => setShowServiceModal(true)} className="flex items-center space-x-2 text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 self-start sm:self-auto">
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Add Service</span>
               </Button>
                       </div>
@@ -2725,38 +2736,38 @@ const handleCancelSelectedAppointment = async () => {
                 </Button>
               </div>
             ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 items-stretch">
                  {services.map((service) => (
                    <Card key={service.service_id} className="hover:shadow-lg transition-shadow flex flex-col">
-                     <CardContent className="p-6 pt-5 flex flex-col flex-grow">
-                                             <div className="flex justify-between items-start mb-4">
-                         <h3 className="text-lg font-semibold text-foreground">{service.name}</h3>
-                         <div className="flex space-x-2">
+                     <CardContent className="p-4 sm:p-6 pt-4 sm:pt-5 flex flex-col flex-grow">
+                                             <div className="flex justify-between items-start mb-3 sm:mb-4 gap-2">
+                         <h3 className="text-base sm:text-lg font-semibold text-foreground break-words flex-1 min-w-0">{service.name}</h3>
+                         <div className="flex space-x-1 sm:space-x-2 flex-shrink-0">
                         <Button 
                              variant="ghost"
                           size="sm"
                              onClick={() => openEditModal(service)}
-                             className="h-10 w-10 p-0"
+                             className="h-8 w-8 sm:h-10 sm:w-10 p-0"
                         >
-                             <Edit className="w-6 h-6" />
+                             <Edit className="w-4 h-4 sm:w-6 sm:h-6" />
                         </Button>
                         <Button 
                              variant="ghost"
                           size="sm"
                              onClick={() => openDeleteModal(service)}
-                             className="h-10 w-10 p-0 text-red-600 hover:text-red-700"
+                             className="h-8 w-8 sm:h-10 sm:w-10 p-0 text-red-600 hover:text-red-700"
                         >
-                             <Trash2 className="w-6 h-6" />
+                             <Trash2 className="w-4 h-4 sm:w-6 sm:h-6" />
                         </Button>
                       </div>
                     </div>
-                      <p className="text-sm text-muted-foreground mb-4 flex-grow">{service.description}</p>
-                      <div className="flex justify-between items-center mt-auto">
-                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                          <Clock className="w-4 h-4" />
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 flex-grow break-words">{service.description}</p>
+                      <div className="flex justify-between items-center mt-auto gap-2">
+                        <div className="flex items-center space-x-1.5 sm:space-x-2 text-xs sm:text-sm text-muted-foreground">
+                          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                           <span className="text-blue-600 font-medium">{service.duration_minutes} min</span>
                         </div>
-                        <div className="text-lg font-semibold text-green-800">
+                        <div className="text-base sm:text-lg font-semibold text-green-800 whitespace-nowrap">
                           ${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}
                         </div>
                       </div>
@@ -2772,9 +2783,9 @@ const handleCancelSelectedAppointment = async () => {
 
         {/* BS-1.5: Block Time Slot Modal */}
         {showBlockModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-md mx-auto shadow-2xl">
-              <CardContent className="pt-8 px-6 pb-6">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <Card className="w-full max-w-md mx-auto shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+              <CardContent className="pt-6 sm:pt-8 px-4 sm:px-6 pb-4 sm:pb-6">
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3 bg-orange-50 p-3 rounded-lg">
@@ -3836,22 +3847,22 @@ const handleCancelSelectedAppointment = async () => {
 
       {/* Before/After Photos Modal */}
       {showPhotoModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
-            <CardContent className="p-0">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h3 className="text-lg font-semibold">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden my-4 sm:my-8 max-h-[95vh] sm:max-h-[90vh] flex flex-col">
+            <CardContent className="p-0 flex flex-col min-h-0">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b flex-shrink-0">
+                <h3 className="text-base sm:text-lg font-semibold">
                   {photoModalState.mode === 'upload' ? 'Upload Before/After Photos' : 'Before/After Photos'}
                 </h3>
-                <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)}>
-                  <X className="w-5 h-5" />
+                <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)} className="h-8 w-8 sm:h-10 sm:w-10 p-0">
+                  <X className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
               </div>
 
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1 min-h-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   <div>
-                    <h4 className="font-medium mb-2">Before</h4>
+                    <h4 className="font-medium mb-2 text-sm sm:text-base">Before</h4>
                     {photoModalState.mode === 'upload' ? (
                       <>
                         {photoModalState.beforeFileToCrop ? (
@@ -3881,9 +3892,9 @@ const handleCancelSelectedAppointment = async () => {
                           <>
                             <div className="mb-3">
                               {photoModalState.beforePreview ? (
-                                <img src={photoModalState.beforePreview} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                                <img src={photoModalState.beforePreview} alt="before" className="w-full max-w-sm h-64 sm:h-72 rounded-md object-contain border border-gray-200" />
                               ) : (
-                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                                <div className="w-full max-w-sm h-64 sm:h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
                               )}
                             </div>
                             <div>
@@ -3917,6 +3928,7 @@ const handleCancelSelectedAppointment = async () => {
                                 size="sm" 
                                 type="button"
                                 onClick={() => beforeFileInputRef.current?.click()}
+                                className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto"
                               >
                                 Choose File
                               </Button>
@@ -3932,7 +3944,7 @@ const handleCancelSelectedAppointment = async () => {
                               <img 
                                 src={photoModalState.beforePreview} 
                                 alt="before" 
-                                className={`w-full max-w-sm h-72 rounded-md object-cover border border-gray-200 ${photoModalState.beforeDelete ? 'opacity-50' : ''}`}
+                                className={`w-full max-w-sm h-64 sm:h-72 rounded-md object-contain border border-gray-200 ${photoModalState.beforeDelete ? 'opacity-50' : ''}`}
                               />
                               {photoModalState.beforeDelete && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-red-100/80 rounded-md">
@@ -3943,7 +3955,7 @@ const handleCancelSelectedAppointment = async () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto"
                               onClick={() => {
                                 // Toggle delete flag instead of calling API immediately
                                 if (photoModalState.beforeDelete) {
@@ -3997,7 +4009,7 @@ const handleCancelSelectedAppointment = async () => {
                               />
                             ) : (
                               <>
-                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                                <div className="w-full max-w-sm h-64 sm:h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
                                 <input
                                   ref={beforeFileInputRef}
                                   type="file"
@@ -4028,6 +4040,7 @@ const handleCancelSelectedAppointment = async () => {
                                   size="sm" 
                                   type="button"
                                   onClick={() => beforeFileInputRef.current?.click()}
+                                  className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto"
                                 >
                                   Upload Before Photo
                                 </Button>
@@ -4039,7 +4052,7 @@ const handleCancelSelectedAppointment = async () => {
                     )}
                   </div>
                   <div>
-                    <h4 className="font-medium mb-2">After</h4>
+                    <h4 className="font-medium mb-2 text-sm sm:text-base">After</h4>
                     {photoModalState.mode === 'upload' ? (
                       <>
                         {photoModalState.afterFileToCrop ? (
@@ -4070,9 +4083,9 @@ const handleCancelSelectedAppointment = async () => {
                           <>
                             <div className="mb-3">
                               {photoModalState.afterPreview ? (
-                                <img src={photoModalState.afterPreview} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                                <img src={photoModalState.afterPreview} alt="after" className="w-full max-w-sm h-64 sm:h-72 rounded-md object-contain border border-gray-200" />
                               ) : (
-                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                                <div className="w-full max-w-sm h-64 sm:h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
                               )}
                             </div>
                             <div>
@@ -4107,6 +4120,7 @@ const handleCancelSelectedAppointment = async () => {
                                 size="sm" 
                                 type="button"
                                 onClick={() => afterFileInputRef.current?.click()}
+                                className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto"
                               >
                                 Choose File
                               </Button>
@@ -4122,7 +4136,7 @@ const handleCancelSelectedAppointment = async () => {
                               <img 
                                 src={photoModalState.afterPreview} 
                                 alt="after" 
-                                className={`w-full max-w-sm h-72 rounded-md object-cover border border-gray-200 ${photoModalState.afterDelete ? 'opacity-50' : ''}`}
+                                className={`w-full max-w-sm h-64 sm:h-72 rounded-md object-contain border border-gray-200 ${photoModalState.afterDelete ? 'opacity-50' : ''}`}
                               />
                               {photoModalState.afterDelete && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-red-100/80 rounded-md">
@@ -4133,7 +4147,7 @@ const handleCancelSelectedAppointment = async () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto"
                               onClick={() => {
                                 // Toggle delete flag instead of calling API immediately
                                 if (photoModalState.afterDelete) {
@@ -4186,7 +4200,7 @@ const handleCancelSelectedAppointment = async () => {
                               />
                             ) : (
                               <>
-                                <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
+                                <div className="w-full max-w-sm h-64 sm:h-72 rounded-md border border-dashed border-gray-300 bg-gray-50"></div>
                                 <input
                                   ref={afterFileInputRef}
                                   type="file"
@@ -4216,6 +4230,7 @@ const handleCancelSelectedAppointment = async () => {
                                   size="sm" 
                                   type="button"
                                   onClick={() => afterFileInputRef.current?.click()}
+                                  className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto"
                                 >
                                   Upload After Photo
                                 </Button>
@@ -4229,7 +4244,7 @@ const handleCancelSelectedAppointment = async () => {
                 </div>
 
                 {photoModalState.mode === 'upload' && (
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
                     <Button 
                       variant="outline" 
                       onClick={() => {
@@ -4243,6 +4258,7 @@ const handleCancelSelectedAppointment = async () => {
                         setShowPhotoModal(false);
                       }}
                       disabled={photoModalState.uploading}
+                      className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
                     >
                       Cancel
                     </Button>
@@ -4327,17 +4343,18 @@ const handleCancelSelectedAppointment = async () => {
                         }
                       }}
                       disabled={photoModalState.uploading}
+                      className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
                     >
                       {photoModalState.uploading ? 'Uploading...' : 'Save'}
                     </Button>
                   </div>
                 )}
                 {photoModalState.mode === 'view' && (
-                  <div className="flex justify-between gap-2">
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-2 pt-4 border-t flex-shrink-0">
                     {(photoModalState.beforePreview && photoModalState.afterPreview) && (
                       <Button
                         variant="outline"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto"
                         onClick={() => {
                           // Toggle delete flags for both photos
                           const bothMarked = photoModalState.beforeDelete && photoModalState.afterDelete;
