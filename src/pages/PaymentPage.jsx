@@ -1123,7 +1123,7 @@ export default function PaymentPage() {
                 <p className="text-sm text-red-600">{promoCodeError}</p>
               )}
               {promoCodeData && !promoCodeError && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div id="promo-code-success-message" className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm font-medium text-green-800 mb-1">
                     Promo code applied: {promoCodeData.promo?.promo_code}
                   </p>

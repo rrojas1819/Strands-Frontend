@@ -96,12 +96,12 @@ export default function SalonBrowser() {
         // Backend sorts ALL salons before pagination, so we fetch all with sort parameter
         let allSalons = [];
         let offset = 0;
-        const limit = 1000; // Use high limit to get all salons in fewer requests
+        const backendLimit = 100; // Backend caps at 100, so use that for pagination
         let hasMore = true;
 
         while (hasMore) {
           const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&sort=${sortBy}&limit=${limit}&offset=${offset}`,
+            `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&sort=${sortBy}&limit=${backendLimit}&offset=${offset}`,
             {
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -136,11 +136,11 @@ export default function SalonBrowser() {
             const batchSalons = data.data || [];
             allSalons = [...allSalons, ...batchSalons];
             
-            // If we got fewer than the limit, we've reached the end
-            if (batchSalons.length < limit) {
+            // Use backend's hasMore flag from meta, or check if we got fewer than backend's limit
+            if (data.meta?.hasMore === false || batchSalons.length < backendLimit) {
               hasMore = false;
             } else {
-              offset += limit;
+              offset += backendLimit; // Use backend's actual limit for offset increment
             }
           }
         }
@@ -264,12 +264,12 @@ export default function SalonBrowser() {
           // Backend sorts ALL salons before pagination, so we fetch all with sort parameter
           let allSalons = [];
           let offset = 0;
-          const limit = 1000; // Use high limit to get all salons in fewer requests
+          const backendLimit = 100; // Backend caps at 100, so use that for pagination
           let hasMore = true;
 
           while (hasMore) {
             const response = await fetch(
-              `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&sort=${sortBy}&limit=${limit}&offset=${offset}`,
+              `${import.meta.env.VITE_API_URL}/salons/browse?status=APPROVED&sort=${sortBy}&limit=${backendLimit}&offset=${offset}`,
               {
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -304,11 +304,11 @@ export default function SalonBrowser() {
               const batchSalons = data.data || [];
               allSalons = [...allSalons, ...batchSalons];
               
-              // If we got fewer than the limit, we've reached the end
-              if (batchSalons.length < limit) {
+              // Use backend's hasMore flag from meta, or check if we got fewer than backend's limit
+              if (data.meta?.hasMore === false || batchSalons.length < backendLimit) {
                 hasMore = false;
               } else {
-                offset += limit;
+                offset += backendLimit; // Use backend's actual limit for offset increment
               }
             }
           }
@@ -485,6 +485,7 @@ export default function SalonBrowser() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <input
+                id="salon-search-input"
                 type="text"
                 placeholder="Search salons, services, or locations..."
                 value={searchTerm}
@@ -751,6 +752,7 @@ export default function SalonBrowser() {
             
             <div className="flex items-center gap-2">
               <Button
+                id="salon-browser-pagination-previous-button"
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(currentPage - 1)}
@@ -786,6 +788,7 @@ export default function SalonBrowser() {
               </form>
               
               <Button
+                id="salon-browser-pagination-next-button"
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(currentPage + 1)}

@@ -579,6 +579,7 @@ export default function SettingsPage() {
                   
                   <div className="flex gap-2 mt-auto pt-3">
                     <Button
+                      id="edit-address-button"
                       type="button"
                       variant="outline"
                       className="flex-1"
@@ -697,6 +698,7 @@ export default function SettingsPage() {
                   <div className="flex gap-2">
                     <Button 
                       type="submit" 
+                      id="save-address-button"
                       className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium" 
                       disabled={loading}
                     >
@@ -776,6 +778,7 @@ export default function SettingsPage() {
                 {/* Enter Card Details Button */}
                 {!enteringNewCard && (
                   <Button
+                    id="enter-card-details-button"
                     type="button"
                     variant="outline"
                     className="w-full h-11 border-gray-300 hover:bg-gray-50 mb-4"
@@ -844,7 +847,7 @@ export default function SettingsPage() {
                             setCardForm(prev => ({ ...prev, exp_month: value }));
                           }}
                         >
-                          <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                          <SelectTrigger id="exp_month-select" className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                             <SelectValue placeholder="MM" value={cardForm.exp_month}>
                               {cardForm.exp_month ? String(cardForm.exp_month).padStart(2, '0') : 'MM'}
                             </SelectValue>
@@ -869,7 +872,7 @@ export default function SettingsPage() {
                             setCardForm(prev => ({ ...prev, exp_year: value }));
                           }}
                         >
-                          <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                          <SelectTrigger id="exp_year-select" className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                             <SelectValue placeholder="YYYY" value={cardForm.exp_year}>
                               {cardForm.exp_year || 'YYYY'}
                             </SelectValue>
@@ -903,6 +906,7 @@ export default function SettingsPage() {
                     
                     <div className="flex gap-2">
                       <Button
+                        id="save-card-button"
                         type="submit"
                         className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium"
                         disabled={loading}

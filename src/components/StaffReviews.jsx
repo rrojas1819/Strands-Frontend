@@ -452,6 +452,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                             />
                           </div>
                           <button
+                            id={`review-star-${star}-half`}
                             type="button"
                             className="absolute focus:outline-none z-20 bg-transparent border-0 cursor-pointer"
                             style={{ 
@@ -475,6 +476,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                             aria-label={`${star - 0.5} stars`}
                           />
                           <button
+                            id={`review-star-${star}-full`}
                             type="button"
                             className="absolute focus:outline-none z-20 bg-transparent border-0 cursor-pointer"
                             style={{ 
@@ -505,6 +507,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                 <div>
                   <label className="text-sm font-medium mb-2 block">Comment (optional)</label>
                   <Textarea
+                    id="review-comment-textarea"
                     value={reviewMessage}
                     onChange={(e) => setReviewMessage(e.target.value)}
                     placeholder="Share your experience..."
@@ -513,6 +516,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                 </div>
                 <div className="flex space-x-2">
                   <Button
+                    id={myReview ? "update-review-button" : "submit-review-button"}
                     className="flex-1 bg-primary hover:bg-primary/90"
                     onClick={() => {
                       if (!reviewRating || reviewRating <= 0) {
@@ -606,6 +610,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                     </span>
                   </div>
                   <Button
+                    id="edit-review-form-button"
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowReviewForm(true)}
@@ -616,6 +621,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
               </div>
             ) : (
               <Button
+                id="write-review-button"
                 variant="outline"
                 className="w-full"
                 onClick={() => setShowReviewForm(true)}
@@ -754,6 +760,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                   {canReply && !review.reply && replyingTo !== review.staff_review_id && (
                     <div className="mt-3">
                       <Button
+                        id={`staff-reply-button-${review.staff_review_id}`}
                         variant="outline"
                         size="sm"
                         onClick={() => handleStartReply(review.staff_review_id)}
@@ -770,6 +777,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                     <div className="mt-4 pt-4 border-t border-muted">
                       <div className="space-y-3">
                         <Textarea
+                          id={`staff-reply-textarea-${review.staff_review_id}`}
                           placeholder="Write your reply..."
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
@@ -792,6 +800,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                               Cancel
                             </Button>
                             <Button
+                              id={`staff-send-reply-button-${review.staff_review_id}`}
                               size="sm"
                               onClick={() => handleCreateReply(review.staff_review_id)}
                               disabled={replyLoading || !replyText.trim()}
@@ -835,6 +844,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                       {editingReply === review.reply.staff_reply_id ? (
                         <div className="space-y-3">
                           <Textarea
+                            id={`staff-edit-reply-textarea-${review.reply.staff_reply_id}`}
                             placeholder="Write your reply..."
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
@@ -857,6 +867,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                                 Cancel
                               </Button>
                               <Button
+                                id={`staff-update-reply-button-${review.reply.staff_reply_id}`}
                                 size="sm"
                                 onClick={() => handleUpdateReply(review.reply.staff_reply_id)}
                                 disabled={replyLoading || !replyText.trim()}
@@ -872,6 +883,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
                           {canReply && (
                             <div className="flex justify-end space-x-2 -mt-1">
                               <Button
+                                id={`staff-edit-reply-button-${review.reply.staff_reply_id}`}
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleStartEdit(review.reply)}
@@ -942,6 +954,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
           }
         }}
         confirmText="Confirm"
+        confirmButtonId="review-confirm-button"
         showCancel={true}
         cancelText="Cancel"
       />

@@ -866,6 +866,7 @@ export default function Appointments() {
                     <div className="flex flex-wrap gap-2 ml-4 flex-shrink-0">
                       {isPast && appointment.stylists && appointment.stylists.length > 0 && (
                         <Button
+                          id={stylistReviews[appointment.stylists[0].employee_id] ? `edit-review-button-${appointment.stylists[0].employee_id}` : `review-stylist-button-${appointment.stylists[0].employee_id}`}
                           size="sm"
                           variant="outline"
                           onClick={() => {
@@ -1047,6 +1048,7 @@ export default function Appointments() {
                   </div>
                 </div>
                 <Button
+                  id="review-modal-close-button"
                   variant="ghost"
                   size="sm"
                   onClick={() => {

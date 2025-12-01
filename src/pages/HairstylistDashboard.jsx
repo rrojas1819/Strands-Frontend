@@ -1,7 +1,8 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import SalonReviews from '../components/SalonReviews';
+import StaffReviews from '../components/StaffReviews';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -12,12 +13,15 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import StrandsModal from '../components/ui/strands-modal';
 import { toast } from 'sonner';
+import { useNotifications } from '../hooks/useNotifications';
 
 export default function HairstylistDashboard() {
   const authContext = useContext(AuthContext);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('schedule');
+  const [reviewsSubTab, setReviewsSubTab] = useState('salon'); // 'salon' or 'my'
   const [salonData, setSalonData] = useState(null);
+  const [employeeId, setEmployeeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [scheduleData, setScheduleData] = useState([]);
@@ -188,6 +192,8 @@ export default function HairstylistDashboard() {
 
       if (response.ok) {
         setSalonData(data.data);
+        // Fetch employee_id from myServices endpoint
+        fetchEmployeeId();
       } else if (response.status === 404) {
         setError('You are not an employee of any salon');
       } else {
@@ -202,6 +208,31 @@ export default function HairstylistDashboard() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEmployeeId = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      
+      const response = await fetch(`${apiUrl}/salons/stylist/myServices`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // The endpoint returns data.employee.employee_id for stylist view
+        if (data.data?.employee?.employee_id) {
+          setEmployeeId(data.data.employee.employee_id);
+        }
+      }
+    } catch (err) {
+      // Silently handle errors
     }
   };
 
@@ -1447,7 +1478,7 @@ export default function HairstylistDashboard() {
               </div>
               <div className="flex-shrink-0">
                 <img
-                  src={salonPhotoUrl || strandsLogo}
+                  src={salonData?.photo_url || strandsLogo}
                   alt={salonData?.name || 'Salon'}
                   className="w-24 h-24 rounded-lg object-contain border shadow-sm bg-gray-50 p-2"
                   onError={(e) => {
@@ -1993,7 +2024,7 @@ export default function HairstylistDashboard() {
                 <>
                   <div className="grid grid-cols-1 gap-4">
                     {customers.map((customer) => (
-                      <Card key={customer.user_id} className="hover:shadow-lg transition-shadow">
+                      <Card key={customer.user_id} id={`customer-card-${customer.user_id}`} className="hover:shadow-lg transition-shadow">
                         <CardContent className="p-6 pt-6">
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
@@ -2001,7 +2032,7 @@ export default function HairstylistDashboard() {
                                 {customer.full_name}
                               </h3>
                               <div className="space-y-1">
-                                <p className="text-sm text-muted-foreground">
+                                <p id={`customer-email-${customer.user_id}`} className="text-sm text-muted-foreground">
                                   <span className="font-medium">Email:</span> {customer.email}
                                 </p>
                                 {customer.phone && (
@@ -2029,6 +2060,7 @@ export default function HairstylistDashboard() {
                               </div>
                             </div>
                             <Button
+                              id={`view-history-button-${customer.user_id}`}
                               onClick={() => openCustomerVisitModal(customer)}
                               variant="outline"
                               className="flex items-center space-x-2"
@@ -2078,8 +2110,40 @@ export default function HairstylistDashboard() {
 
         {
           activeTab === 'reviews' && (
+            <div className="space-y-6">
+              {/* Sub-tabs for Salon Reviews vs My Reviews */}
+              <div className="border-b border-muted">
+                <div className="flex space-x-8">
+                  <button
+                    id="reviews-subtab-salon"
+                    onClick={() => setReviewsSubTab('salon')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      reviewsSubTab === 'salon'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    }`}
+                  >
+                    Salon Reviews
+                  </button>
+                  <button
+                    id="reviews-subtab-my"
+                    onClick={() => setReviewsSubTab('my')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      reviewsSubTab === 'my'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    }`}
+                  >
+                    My Reviews
+                  </button>
+                </div>
+              </div>
+
+              {/* Salon Reviews Tab */}
+              {reviewsSubTab === 'salon' && (
             <SalonReviews
               salonId={salonData?.salon_id}
+                  salonName={salonData?.name}
               onError={(error) => {
                 setModalConfig({
                   title: 'Error',
@@ -2090,6 +2154,37 @@ export default function HairstylistDashboard() {
                 setShowModal(true);
               }}
             />
+              )}
+
+              {/* My Reviews Tab */}
+              {reviewsSubTab === 'my' && (
+                (salonData?.employee_id || employeeId) ? (
+                  <StaffReviews
+                    employeeId={salonData?.employee_id || employeeId}
+                    canReply={true}
+                    onError={(error) => {
+                      setModalConfig({
+                        title: 'Error',
+                        message: error,
+                        type: 'error',
+                        onConfirm: () => setShowModal(false)
+                      });
+                      setShowModal(true);
+                    }}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="text-center py-12">
+                      <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-foreground mb-2">Loading employee information...</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Please wait while we fetch your employee information.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )
+              )}
+            </div>
           )
         }
 
@@ -2841,6 +2936,7 @@ export default function HairstylistDashboard() {
                     </div>
                   </div>
                   <Button
+                    id="customer-visit-modal-close-button"
                     variant="ghost"
                     size="sm"
                     onClick={() => {

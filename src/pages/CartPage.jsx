@@ -219,7 +219,7 @@ export default function CartPage() {
               <ShoppingCart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Your cart is empty</h3>
               <p className="text-muted-foreground mb-4">Add products to get started</p>
-              <Button onClick={() => navigate(`/products/${salonId}`)}>
+              <Button id="browse-products-button" onClick={() => navigate(`/products/${salonId}`)}>
                 Browse Products
               </Button>
             </CardContent>
@@ -279,6 +279,7 @@ export default function CartPage() {
                         </div>
                         
                         <Button
+                          id={`delete-cart-item-button-${item.product_id}`}
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -321,6 +322,7 @@ export default function CartPage() {
                     </div>
                     
                     <Button
+                      id="proceed-to-checkout-button"
                       onClick={handleCheckout}
                       className="w-full"
                       size="lg"
@@ -330,6 +332,7 @@ export default function CartPage() {
                     </Button>
                     
                     <Button
+                      id="continue-shopping-button"
                       variant="outline"
                       onClick={() => navigate(-1)}
                       className="w-full mt-2"
@@ -356,6 +359,7 @@ export default function CartPage() {
         confirmText="Remove"
         cancelText="Cancel"
         type="warning"
+        confirmButtonId="remove-item-confirm-button"
       />
     </div>
   );

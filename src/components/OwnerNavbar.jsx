@@ -77,8 +77,7 @@ export default function OwnerNavbar({ salonStatus, handleLogout }) {
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 Owner
               </Badge>
-              {/* <Button id="owner-logout-button" variant="outline" onClick={handleLogout} className="flex items-center space-x-2"> */ /*OLD CODE HERE */}
-              <Button variant="outline" onClick={handleLogoutClick} className="flex items-center space-x-2">
+              <Button id="owner-logout-button" variant="outline" onClick={handleLogoutClick} className="flex items-center space-x-2">
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
               </Button>

@@ -499,8 +499,13 @@ class StrandsTestSuite:
             promo_input.clear()
             promo_input.send_keys(self.latest_promo_code)
             print(f"    ✓ Entered promo code: {self.latest_promo_code}")
+            
+            # Wait for debounce (500ms) + validation time
+            time.sleep(1.5)  # Give time for debounce and API call
+            
+            # Wait for success message using ID
             WebDriverWait(self.driver, 10).until(
-                EC.visibility_of_element_located((By.XPATH, "//p[contains(text(), 'Promo code applied')]"))
+                EC.visibility_of_element_located((By.ID, "promo-code-success-message"))
             )
             print("    ✓ Promo code applied successfully")
             time.sleep(1)
@@ -1203,6 +1208,38 @@ class StrandsTestSuite:
                         self.navigate_and_scroll(f"{BASE_URL}{path}")
                     else:
                         time.sleep(0.3)
+                    
+                    # Wait for page to load
+                    time.sleep(0.5)
+                    
+                    # Test pagination: click next, then previous
+                    print(f"    Testing pagination buttons...")
+                    try:
+                        # Check if pagination exists (only shows if totalPages > 1)
+                        next_button = self.driver.find_elements(By.ID, "pagination-next-button")
+                        if next_button and not next_button[0].get_attribute("disabled"):
+                            # Click next button
+                            print(f"      Clicking 'Next' pagination button...")
+                            self.scroll_to_element(next_button[0])
+                            time.sleep(0.2)
+                            next_button[0].click()
+                            time.sleep(0.5)
+                            print(f"      ✓ Clicked 'Next' button")
+                            
+                            # Now click previous button
+                            prev_button = self.wait.until(
+                                EC.element_to_be_clickable((By.ID, "pagination-previous-button"))
+                            )
+                            print(f"      Clicking 'Previous' pagination button...")
+                            self.scroll_to_element(prev_button)
+                            time.sleep(0.2)
+                            prev_button.click()
+                            time.sleep(0.5)
+                            print(f"      ✓ Clicked 'Previous' button")
+                        else:
+                            print(f"      ⚠ Pagination buttons not available or disabled (may be on first/last page or only one page)")
+                    except Exception as e:
+                        print(f"      ⚠ Could not test pagination: {e}")
                 elif name == "Loyalty Monitoring":
                     loyalty_clicked = self.safe_click(
                         By.XPATH,
@@ -1223,6 +1260,51 @@ class StrandsTestSuite:
                         self.navigate_and_scroll(f"{BASE_URL}{path}")
                     else:
                         time.sleep(0.3)
+                    
+                    # Wait for User Analytics page to load
+                    time.sleep(0.5)
+                    
+                    # First, scroll through the Overview tab (default/base tab)
+                    print(f"    Scrolling through 'Overview' subtab (default)...")
+                    time.sleep(0.5)
+                    page_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
+                    viewport_height = self.driver.execute_script("return window.innerHeight")
+                    
+                    # Scroll in increments to make it visible
+                    scroll_increment = viewport_height * 0.8
+                    current_scroll = 0
+                    while current_scroll < page_height:
+                        current_scroll += scroll_increment
+                        self.driver.execute_script(f"window.scrollTo(0, {current_scroll});")
+                        time.sleep(0.4)  # Delay to make scrolling visible
+                    
+                    # Scroll to bottom
+                    self.driver.execute_script(f"window.scrollTo(0, {page_height});")
+                    time.sleep(0.5)
+                    
+                    # Scroll back to top
+                    self.driver.execute_script("window.scrollTo(0, 0);")
+                    time.sleep(0.3)
+                    print(f"    ✓ Scrolled through 'Overview' subtab")
+                    
+                    # Click on "Activity & Retention" subtab
+                    print(f"    Clicking on 'Activity & Retention' subtab...")
+                    try:
+                        activity_retention_tab = self.wait.until(
+                            EC.element_to_be_clickable((By.XPATH, 
+                                "//button[contains(text(), 'Activity & Retention')] | "
+                                "//button[contains(text(), 'Activity and Retention')] | "
+                                "//a[contains(text(), 'Activity & Retention')] | "
+                                "//a[contains(text(), 'Activity and Retention')]"
+                            ))
+                        )
+                        self.scroll_to_element(activity_retention_tab)
+                        time.sleep(0.2)
+                        activity_retention_tab.click()
+                        time.sleep(0.5)
+                        print(f"    ✓ Clicked 'Activity & Retention' subtab")
+                    except Exception as e:
+                        print(f"    ⚠ Could not find or click 'Activity & Retention' subtab: {e}")
                 elif name == "Business Insights":
                     business_clicked = self.safe_click(
                         By.XPATH,
@@ -2059,33 +2141,8 @@ class StrandsTestSuite:
                     self.scroll_to_element(logout_button)
                     time.sleep(0.2)
                     logout_button.click()
-                    time.sleep(0.3)  # Wait for logout modal to appear
-                    
-                    # Handle logout success modal - click OK button
-                    print("  Handling logout success modal...")
-                    try:
-                        ok_button = WebDriverWait(self.driver, 5).until(
-                            EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
-                        )
-                        ok_button.click()
-                        time.sleep(0.5)
-                        print("  ✓ Clicked OK on logout modal")
-                    except:
-                        # Fallback: try to find OK button by text
-                        try:
-                            ok_button = WebDriverWait(self.driver, 3).until(
-                                EC.element_to_be_clickable((By.XPATH,
-                                    "//div[contains(@class, 'fixed')]//button[contains(text(), 'OK')] | "
-                                    "//div[@role='dialog']//button[contains(text(), 'OK')]"
-                                ))
-                            )
-                            ok_button.click()
-                            time.sleep(0.5)
-                            print("  ✓ Clicked OK on logout modal (fallback)")
-                        except:
-                            print("  ⚠ Could not find OK button on logout modal")
-                    
-                    time.sleep(0.3)
+                    # Wait for logout to process and redirect
+                    time.sleep(1.0)
                     print("  ✓ Logged out using owner logout button ID")
                 except:
                     # Fallback to XPath
@@ -2098,20 +2155,8 @@ class StrandsTestSuite:
                         self.scroll_to_element(logout_buttons[0])
                         time.sleep(0.2)
                         logout_buttons[0].click()
-                        time.sleep(0.5)
-                        
-                        # Handle logout modal
-                        try:
-                            ok_button = WebDriverWait(self.driver, 5).until(
-                                EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
-                            )
-                            ok_button.click()
-                            time.sleep(0.5)
-                            print("  ✓ Clicked OK on logout modal")
-                        except:
-                            pass
-                        
-                        time.sleep(0.3)
+                        # Wait for logout to process and redirect
+                        time.sleep(1.0)
                         print("  ✓ Logged out (fallback)")
                     else:
                         # Navigate to home and clear session
@@ -2522,7 +2567,7 @@ class StrandsTestSuite:
                         
                         # Define operating hours for each day (12-hour format with AM/PM)
                         operating_hours = {
-                            'sunday': ('09:00 AM', '05:00 PM'),
+                            'sunday': ('09:00 AM', '11:59 PM'),
                             'monday': ('08:00 AM', '08:00 PM'),
                             'tuesday': ('07:00 AM', '07:00 PM'),
                             'wednesday': ('09:00 AM', '06:00 PM'),
@@ -2721,24 +2766,51 @@ class StrandsTestSuite:
             # Log out of owner account
             print("\nLogging out of owner account...")
             try:
-                logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "owner-logout-button")))
-                self.scroll_to_element(logout_button)
-                time.sleep(0.2)
-                logout_button.click()
-                time.sleep(0.5)
-                
-                # Handle logout modal
+                # Wait for any toast notifications to disappear
+                time.sleep(2.0)
                 try:
-                    ok_button = WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
-                    )
-                    ok_button.click()
-                    time.sleep(0.5)
-                    print("  ✓ Logged out of owner account")
+                    toast_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'sonner-toast')]")
+                    if toast_elements:
+                        time.sleep(2.0)
                 except:
-                    print("  ⚠ Could not find logout modal OK button")
+                    pass
+                
+                # Try owner logout button ID first
+                try:
+                    logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "owner-logout-button")))
+                    self.scroll_to_element(logout_button)
+                    time.sleep(0.2)
+                    try:
+                        logout_button.click()
+                    except:
+                        # If regular click fails, use JavaScript click
+                        self.driver.execute_script("arguments[0].click();", logout_button)
+                    # Wait for logout to process and redirect
+                    time.sleep(1.0)
+                    print("  ✓ Logged out using owner logout button ID")
+                except:
+                    # Fallback to XPath
+                    logout_buttons = self.driver.find_elements(By.XPATH, 
+                        "//button[@id='owner-logout-button'] | "
+                        "//button[contains(text(), 'Logout')] | "
+                        "//button[contains(., 'Logout')]"
+                    )
+                    if logout_buttons:
+                        self.scroll_to_element(logout_buttons[0])
+                        time.sleep(0.2)
+                        try:
+                            logout_buttons[0].click()
+                        except:
+                            self.driver.execute_script("arguments[0].click();", logout_buttons[0])
+                        # Wait for logout to process and redirect
+                        time.sleep(1.0)
+                        print("  ✓ Logged out (fallback)")
+                    else:
+                        raise Exception("Could not find logout button")
             except Exception as e:
                 print(f"  ⚠ Error logging out: {e}")
+                import traceback
+                traceback.print_exc()
             
             # Navigate to landing page and sign up as stylist
             print("\nSigning up as stylist...")
@@ -3101,7 +3173,7 @@ class StrandsTestSuite:
                     # Define employee hours (within salon hours)
                     # Employee hours will be 1 hour after salon opens and 1 hour before salon closes
                     employee_hours = {
-                        'sunday': ('10:00 AM', '04:00 PM'),      # Salon: 09:00 AM - 05:00 PM
+                        'sunday': ('10:00 AM', '11:59 PM'),      # Salon: 09:00 AM - 11:59 PM
                         'monday': ('09:00 AM', '07:00 PM'),       # Salon: 08:00 AM - 08:00 PM
                         'tuesday': ('08:00 AM', '06:00 PM'),     # Salon: 07:00 AM - 07:00 PM
                         'wednesday': ('10:00 AM', '05:00 PM'),   # Salon: 09:00 AM - 06:00 PM
@@ -3266,24 +3338,51 @@ class StrandsTestSuite:
             # Log out of owner account
             print("\nLogging out of owner account...")
             try:
-                logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "owner-logout-button")))
-                self.scroll_to_element(logout_button)
-                time.sleep(0.2)
-                logout_button.click()
-                time.sleep(0.5)
-                
-                # Handle logout modal
+                # Wait for any toast notifications to disappear
+                time.sleep(2.0)
                 try:
-                    ok_button = WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.ID, "logout-modal-ok-button"))
-                    )
-                    ok_button.click()
-                    time.sleep(0.5)
-                    print("  ✓ Logged out of owner account")
+                    toast_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'sonner-toast')]")
+                    if toast_elements:
+                        time.sleep(2.0)
                 except:
-                    print("  ⚠ Could not find logout modal OK button")
+                    pass
+                
+                # Try owner logout button ID first
+                try:
+                    logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "owner-logout-button")))
+                    self.scroll_to_element(logout_button)
+                    time.sleep(0.2)
+                    try:
+                        logout_button.click()
+                    except:
+                        # If regular click fails, use JavaScript click
+                        self.driver.execute_script("arguments[0].click();", logout_button)
+                    # Wait for logout to process and redirect
+                    time.sleep(1.0)
+                    print("  ✓ Logged out using owner logout button ID")
+                except:
+                    # Fallback to XPath
+                    logout_buttons = self.driver.find_elements(By.XPATH, 
+                        "//button[@id='owner-logout-button'] | "
+                        "//button[contains(text(), 'Logout')] | "
+                        "//button[contains(., 'Logout')]"
+                    )
+                    if logout_buttons:
+                        self.scroll_to_element(logout_buttons[0])
+                        time.sleep(0.2)
+                        try:
+                            logout_buttons[0].click()
+                        except:
+                            self.driver.execute_script("arguments[0].click();", logout_buttons[0])
+                        # Wait for logout to process and redirect
+                        time.sleep(1.0)
+                        print("  ✓ Logged out (fallback)")
+                    else:
+                        raise Exception("Could not find logout button")
             except Exception as e:
                 print(f"  ⚠ Error logging out: {e}")
+                import traceback
+                traceback.print_exc()
             
             # Navigate to landing page and sign back into stylist account
             print("\nSigning back into stylist account...")
@@ -3690,7 +3789,7 @@ class StrandsTestSuite:
                         {
                             "name": "Haircut",
                             "description": "Professional haircut and styling",
-                            "duration": "30",
+                            "duration": "1",  # 1 minute for quick booking test
                             "price": "25.00"
                         },
                         {
@@ -3911,10 +4010,28 @@ class StrandsTestSuite:
             # Log out of stylist account
             print("Logging out of stylist account...")
             try:
+                # Wait for any toast notifications to disappear
+                try:
+                    toasts = self.driver.find_elements(By.XPATH, "//li[@data-sonner-toast]")
+                    if toasts:
+                        print("  Waiting for toast notifications to disappear...")
+                        WebDriverWait(self.driver, 5).until(
+                            lambda d: len(d.find_elements(By.XPATH, "//li[@data-sonner-toast and @data-visible='true']")) == 0
+                        )
+                        time.sleep(0.5)  # Extra wait for animation
+                except:
+                    pass  # No toasts or they already disappeared
+                
                 logout_button = self.wait.until(EC.element_to_be_clickable((By.ID, "stylist-logout-button")))
                 self.scroll_to_element(logout_button)
                 time.sleep(0.2)
-                logout_button.click()
+                
+                # Try regular click first, fallback to JavaScript click if intercepted
+                try:
+                    logout_button.click()
+                except:
+                    # If click is intercepted, use JavaScript click
+                    self.driver.execute_script("arguments[0].click();", logout_button)
                 time.sleep(0.5)
                 
                 # Handle logout confirmation modal if present
@@ -4769,24 +4886,44 @@ class StrandsTestSuite:
                                 import traceback
                                 traceback.print_exc()
 
-                            # Service - use same approach as first booking
-                            print("  [Second booking] Selecting a service...")
+                            # Service - select the 1-minute service (Haircut)
+                            print("  [Second booking] Selecting the 1-minute service (Haircut)...")
                             try:
                                 time.sleep(1)  # Wait for services to appear
                                 service_buttons = self.driver.find_elements(By.XPATH, "//div[contains(@id, 'select-service-button-')]")
                                 print(f"    [Second booking] Found {len(service_buttons)} service button(s)")
                                 
-                                if service_buttons:
-                                    service_button = service_buttons[0]  # Select first available service
-                                    self.scroll_to_element(service_button)
+                                # Find the service with "Haircut" name (1-minute service)
+                                haircut_service = None
+                                for btn in service_buttons:
+                                    try:
+                                        # Check if the button contains "Haircut" text
+                                        btn_text = btn.text
+                                        if "Haircut" in btn_text:
+                                            haircut_service = btn
+                                            print(f"    [Second booking] Found Haircut service: {btn_text}")
+                                            break
+                                    except:
+                                        continue
+                                
+                                if haircut_service:
+                                    self.scroll_to_element(haircut_service)
                                     time.sleep(0.2)
                                     try:
-                                        self.driver.execute_script("arguments[0].click();", service_button)
-                                        print("    ✓ [Second booking] Selected service (JavaScript click)")
+                                        self.driver.execute_script("arguments[0].click();", haircut_service)
+                                        print("    ✓ [Second booking] Selected 1-minute Haircut service (JavaScript click)")
                                     except:
-                                        service_button.click()
-                                        print("    ✓ [Second booking] Selected service (regular click)")
+                                        haircut_service.click()
+                                        print("    ✓ [Second booking] Selected 1-minute Haircut service (regular click)")
                                     time.sleep(2)  # Wait for dates to load
+                                elif service_buttons:
+                                    # Fallback to first service if Haircut not found
+                                    service_button = service_buttons[0]
+                                    self.scroll_to_element(service_button)
+                                    time.sleep(0.2)
+                                    service_button.click()
+                                    print("    ✓ [Second booking] Selected first available service (fallback)")
+                                    time.sleep(2)
                                 else:
                                     print("    ⚠ [Second booking] No services found - waiting longer...")
                                     time.sleep(2)
@@ -4805,8 +4942,8 @@ class StrandsTestSuite:
                                 import traceback
                                 traceback.print_exc()
 
-                            # Date (skip today again) - use same approach as first booking
-                            print("  [Second booking] Selecting a date (skipping today, selecting tomorrow or later)...")
+                            # Date - select today
+                            print("  [Second booking] Selecting today's date...")
                             try:
                                 time.sleep(1)  # Wait for dates to appear
                                 date_buttons = self.driver.find_elements(By.XPATH, "//button[contains(@id, 'select-date-button-')]")
@@ -4824,22 +4961,17 @@ class StrandsTestSuite:
                                 print(f"    [Second booking] Found {len(available_date_buttons)} available date(s)")
                                 
                                 if available_date_buttons:
-                                    # Skip the first date (today) and select the second one (tomorrow) or later
-                                    if len(available_date_buttons) > 1:
-                                        date_button = available_date_buttons[1]  # Select second available date (tomorrow)
-                                        print("    [Second booking] Selecting second date (tomorrow) to avoid today's time slot issues")
-                                    else:
-                                        date_button = available_date_buttons[0]  # Fallback to first if only one available
-                                        print("    [Second booking] Only one date available, selecting it")
-                                    
+                                    # Select the first date (today)
+                                    date_button = available_date_buttons[0]
+                                    print("    [Second booking] Selecting today's date")
                                     self.scroll_to_element(date_button)
                                     time.sleep(0.2)
                                     try:
                                         self.driver.execute_script("arguments[0].click();", date_button)
-                                        print("    ✓ [Second booking] Selected date (JavaScript click)")
+                                        print("    ✓ [Second booking] Selected today's date (JavaScript click)")
                                     except:
                                         date_button.click()
-                                        print("    ✓ [Second booking] Selected date (regular click)")
+                                        print("    ✓ [Second booking] Selected today's date (regular click)")
                                     time.sleep(2)  # Wait for time slots to load
                                 else:
                                     print("    ⚠ [Second booking] No available dates found")
@@ -4848,39 +4980,62 @@ class StrandsTestSuite:
                                 import traceback
                                 traceback.print_exc()
 
-                            # Time - use same approach as first booking
-                            print("  [Second booking] Selecting a time...")
+                            # Time - use custom time (1 minute after current time)
+                            print("  [Second booking] Selecting custom time (1 minute after current time)...")
                             try:
-                                time.sleep(1)  # Wait for time slots to appear
-                                time_buttons = self.driver.find_elements(By.XPATH, "//button[contains(@id, 'select-time-button-')]")
-                                print(f"    [Second booking] Found {len(time_buttons)} time button(s)")
+                                time.sleep(1)  # Wait for time options to appear
                                 
-                                # Filter out disabled time buttons
-                                available_time_buttons = []
-                                for btn in time_buttons:
-                                    try:
-                                        if btn.is_enabled():
-                                            available_time_buttons.append(btn)
-                                    except:
-                                        continue
-                                
-                                print(f"    [Second booking] Found {len(available_time_buttons)} available time(s)")
-                                
-                                if available_time_buttons:
-                                    time_button = available_time_buttons[0]  # Select first available time
-                                    self.scroll_to_element(time_button)
+                                # Click "Custom Time" button using ID
+                                try:
+                                    custom_time_button = self.wait.until(
+                                        EC.element_to_be_clickable((By.ID, "custom-time-button"))
+                                    )
+                                    self.scroll_to_element(custom_time_button)
                                     time.sleep(0.2)
-                                    try:
-                                        self.driver.execute_script("arguments[0].click();", time_button)
-                                        print("    ✓ [Second booking] Selected time (JavaScript click)")
-                                    except:
-                                        time_button.click()
-                                        print("    ✓ [Second booking] Selected time (regular click)")
-                                    time.sleep(1)
-                                else:
-                                    print("    ⚠ [Second booking] No available times found")
+                                    custom_time_button.click()
+                                    time.sleep(0.5)
+                                    print("    ✓ [Second booking] Clicked Custom Time button")
+                                except Exception as e:
+                                    print(f"    ⚠ [Second booking] Could not find/click Custom Time button: {e}")
+                                
+                                # Get current time and add 1 minute
+                                from datetime import datetime, timedelta
+                                now = datetime.now()
+                                future_time = now + timedelta(minutes=1)
+                                time_str = future_time.strftime("%H:%M")  # Format as HH:MM (24-hour)
+                                
+                                print(f"    [Second booking] Current time: {now.strftime('%H:%M')}, Booking for: {time_str}")
+                                
+                                # Find and fill the start time input using ID
+                                try:
+                                    start_time_input = self.wait.until(
+                                        EC.presence_of_element_located((By.ID, "custom-start-time"))
+                                    )
+                                    self.scroll_to_element(start_time_input)
+                                    time.sleep(0.2)
+                                    start_time_input.click()
+                                    time.sleep(0.1)
+                                    start_time_input.clear()
+                                    start_time_input.send_keys(time_str)
+                                    time.sleep(0.2)
+                                    
+                                    # Trigger React events
+                                    self.driver.execute_script(f"""
+                                        var input = arguments[0];
+                                        var value = '{time_str}';
+                                        var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                                        nativeInputValueSetter.call(input, value);
+                                        input.dispatchEvent(new Event('input', {{ bubbles: true, cancelable: true }}));
+                                        input.dispatchEvent(new Event('change', {{ bubbles: true, cancelable: true }}));
+                                    """, start_time_input)
+                                    time.sleep(0.5)
+                                    print(f"    ✓ [Second booking] Set custom time to {time_str}")
+                                except Exception as e:
+                                    print(f"    ⚠ [Second booking] Error setting custom time: {e}")
+                                    import traceback
+                                    traceback.print_exc()
                             except Exception as e:
-                                print(f"    ⚠ [Second booking] Error selecting time: {e}")
+                                print(f"    ⚠ [Second booking] Error selecting custom time: {e}")
                                 import traceback
                                 traceback.print_exc()
 
@@ -5279,6 +5434,1592 @@ class StrandsTestSuite:
                                     print("\n" + "="*70)
                                     print("PRIVATE NOTE FLOW COMPLETED")
                                     print("="*70)
+                                    
+                                    # PRODUCT PURCHASE FLOW
+                                    print("\n" + "="*70)
+                                    print("PRODUCT PURCHASE FLOW")
+                                    print("="*70)
+                                    
+                                    try:
+                                        # Get the salon ID from the booking or from the test
+                                        # We'll need to find the salon that was created in this test
+                                        # For now, we'll navigate to browse and find it by name
+                                        
+                                        # Click Browse Salons
+                                        print("\nNavigating to Browse Salons...")
+                                        try:
+                                            browse_salons_link = self.wait.until(
+                                                EC.element_to_be_clickable((By.XPATH,
+                                                    "//a[contains(text(), 'Browse Salons')] | "
+                                                    "//button[contains(text(), 'Browse Salons')]"
+                                                ))
+                                            )
+                                            self.scroll_to_element(browse_salons_link)
+                                            time.sleep(0.2)
+                                            browse_salons_link.click()
+                                            time.sleep(1.0)
+                                            print("  ✓ Clicked Browse Salons")
+                                        except Exception as e:
+                                            print(f"  ⚠ Error clicking Browse Salons: {e}")
+                                            # Try navigating directly
+                                            self.driver.get(f"{BASE_URL}/browser")
+                                            time.sleep(1.0)
+                                        
+                                        # Find the salon that was created in this test
+                                        # Look for the salon name that was created (should be "Selenium Test Salon" or similar)
+                                        print("\nFinding the test salon...")
+                                        time.sleep(1.0)
+                                        
+                                        # Try to find View Details button for the test salon
+                                        # We'll look for a salon card and click View Details
+                                        try:
+                                            # Look for view details buttons - we'll click the first one or find by salon name
+                                            view_details_buttons = self.driver.find_elements(
+                                                By.XPATH, 
+                                                "//button[contains(@id, 'view-details-button-')]"
+                                            )
+                                            
+                                            if view_details_buttons:
+                                                # Click the first salon's view details (assuming it's the test salon)
+                                                print(f"  Found {len(view_details_buttons)} salon(s), clicking first View Details...")
+                                                self.scroll_to_element(view_details_buttons[0])
+                                                time.sleep(0.2)
+                                                view_details_buttons[0].click()
+                                                time.sleep(1.0)
+                                                print("  ✓ Clicked View Details")
+                                                
+                                                # Extract salon ID from URL
+                                                current_url = self.driver.current_url
+                                                salon_id_match = None
+                                                if "/salon/" in current_url:
+                                                    try:
+                                                        salon_id_match = current_url.split("/salon/")[1].split("/")[0]
+                                                        print(f"  Found salon ID from URL: {salon_id_match}")
+                                                    except:
+                                                        pass
+                                                
+                                                # Wait for salon detail page to load
+                                                print("\nWaiting for salon detail page to load...")
+                                                try:
+                                                    # Wait for salon name or key elements to appear (indicating page has loaded)
+                                                    self.wait.until(
+                                                        EC.any_of(
+                                                            EC.presence_of_element_located((By.XPATH, "//h2[contains(@class, 'text-3xl')] | //h1[contains(@class, 'text-3xl')] | //*[contains(@class, 'CardTitle')]")),
+                                                            EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'View Products')]"))
+                                                        )
+                                                    )
+                                                    time.sleep(1.0)  # Additional wait for any animations/transitions
+                                                    print("  ✓ Salon detail page loaded")
+                                                except Exception as e:
+                                                    print(f"  ⚠ Warning: Could not confirm page load: {e}")
+                                                    time.sleep(2.0)  # Fallback wait
+                                                
+                                                # Click View Products button
+                                                print("\nClicking View Products...")
+                                                try:
+                                                    view_products_button = self.wait.until(
+                                                        EC.element_to_be_clickable((By.XPATH,
+                                                            "//button[contains(text(), 'View Products')]"
+                                                        ))
+                                                    )
+                                                    self.scroll_to_element(view_products_button)
+                                                    time.sleep(0.2)
+                                                    view_products_button.click()
+                                                    time.sleep(1.0)
+                                                    print("  ✓ Clicked View Products")
+                                                    
+                                                    # Wait for products page to load
+                                                    time.sleep(1.0)
+                                                    
+                                                    # Find products and add to cart
+                                                    print("\nAdding products to cart...")
+                                                    try:
+                                                        # Find all product cards
+                                                        product_cards = self.driver.find_elements(
+                                                            By.XPATH,
+                                                            "//div[contains(@class, 'card') or contains(@class, 'Card')]//button[contains(text(), 'Add to Cart')]/ancestor::div[contains(@class, 'card') or contains(@class, 'Card')]"
+                                                        )
+                                                        
+                                                        if product_cards:
+                                                            # Work with first product
+                                                            first_product = product_cards[0]
+                                                            
+                                                            # Find quantity controls (plus/minus buttons) using IDs
+                                                            print("  Adjusting product quantity...")
+                                                            try:
+                                                                # Extract product ID from the product card
+                                                                product_id = None
+                                                                # Try to find product ID from Add to Cart button ID
+                                                                add_to_cart_buttons = first_product.find_elements(
+                                                                    By.XPATH,
+                                                                    ".//button[contains(@id, 'add-to-cart-button-')]"
+                                                                )
+                                                                if add_to_cart_buttons:
+                                                                    button_id = add_to_cart_buttons[0].get_attribute("id")
+                                                                    if button_id:
+                                                                        product_id = button_id.replace("add-to-cart-button-", "")
+                                                                        print(f"    Found product ID: {product_id}")
+                                                                
+                                                                if product_id:
+                                                                    # Click plus button using ID
+                                                                    try:
+                                                                        plus_button = self.wait.until(
+                                                                            EC.element_to_be_clickable((By.ID, f"quantity-plus-button-{product_id}"))
+                                                                        )
+                                                                        self.scroll_to_element(plus_button)
+                                                                        time.sleep(0.2)
+                                                                        plus_button.click()
+                                                                        time.sleep(0.3)
+                                                                        print("    ✓ Increased quantity")
+                                                                        
+                                                                        # Click minus button using ID
+                                                                        minus_button = self.wait.until(
+                                                                            EC.element_to_be_clickable((By.ID, f"quantity-minus-button-{product_id}"))
+                                                                        )
+                                                                        self.scroll_to_element(minus_button)
+                                                                        time.sleep(0.2)
+                                                                        minus_button.click()
+                                                                        time.sleep(0.3)
+                                                                        print("    ✓ Decreased quantity")
+                                                                    except Exception as e:
+                                                                        print(f"    ⚠ Error using ID-based quantity buttons: {e}")
+                                                                        # Fallback to XPath
+                                                                        plus_buttons = first_product.find_elements(
+                                                                            By.XPATH,
+                                                                            ".//button[.//*[contains(@class, 'Plus') or contains(@class, 'plus')] or .//svg[contains(@class, 'lucide-plus')]]"
+                                                                        )
+                                                                        if plus_buttons:
+                                                                            self.scroll_to_element(plus_buttons[0])
+                                                                            time.sleep(0.2)
+                                                                            plus_buttons[0].click()
+                                                                            time.sleep(0.3)
+                                                                            print("    ✓ Increased quantity (fallback)")
+                                                                            
+                                                                            minus_buttons = first_product.find_elements(
+                                                                                By.XPATH,
+                                                                                ".//button[.//*[contains(@class, 'Minus') or contains(@class, 'minus')] or .//svg[contains(@class, 'lucide-minus')]]"
+                                                                            )
+                                                                            if minus_buttons:
+                                                                                self.scroll_to_element(minus_buttons[0])
+                                                                                time.sleep(0.2)
+                                                                                minus_buttons[0].click()
+                                                                                time.sleep(0.3)
+                                                                                print("    ✓ Decreased quantity (fallback)")
+                                                                else:
+                                                                    print("    ⚠ Could not find product ID, skipping quantity adjustment")
+                                                            except Exception as e:
+                                                                print(f"    ⚠ Error adjusting quantity: {e}")
+                                                            
+                                                            # Click Add to Cart using ID
+                                                            print("  Clicking Add to Cart...")
+                                                            try:
+                                                                if product_id:
+                                                                    add_to_cart_button = self.wait.until(
+                                                                        EC.element_to_be_clickable((By.ID, f"add-to-cart-button-{product_id}"))
+                                                                    )
+                                                                else:
+                                                                    # Fallback to XPath
+                                                                    add_to_cart_button = first_product.find_element(
+                                                                        By.XPATH,
+                                                                        ".//button[contains(text(), 'Add to Cart')]"
+                                                                    )
+                                                                self.scroll_to_element(add_to_cart_button)
+                                                                time.sleep(0.2)
+                                                                add_to_cart_button.click()
+                                                                time.sleep(1.0)
+                                                                print("    ✓ Clicked Add to Cart")
+                                                                
+                                                                # Wait for toast notification to appear and disappear
+                                                                try:
+                                                                    WebDriverWait(self.driver, 3).until(
+                                                                        EC.presence_of_element_located((By.XPATH, "//li[@data-sonner-toast]"))
+                                                                    )
+                                                                    time.sleep(0.5)
+                                                                    print("    ✓ Product added to cart notification shown")
+                                                                except:
+                                                                    pass
+                                                            except Exception as e:
+                                                                print(f"    ⚠ Error clicking Add to Cart: {e}")
+                                                        else:
+                                                            print("  ⚠ No products found on page")
+                                                    except Exception as e:
+                                                        print(f"  ⚠ Error adding products: {e}")
+                                                    
+                                                    # Click View Cart using ID
+                                                    print("\nClicking View Cart...")
+                                                    try:
+                                                        # Wait longer for cart count to update
+                                                        time.sleep(1.5)
+                                                        
+                                                        # Try using ID first
+                                                        try:
+                                                            view_cart_button = self.wait.until(
+                                                                EC.element_to_be_clickable((By.ID, "view-cart-button"))
+                                                            )
+                                                            # Wait for button to be enabled
+                                                            WebDriverWait(self.driver, 5).until(
+                                                                lambda d: view_cart_button.get_attribute("disabled") is None or view_cart_button.get_attribute("disabled") == "false"
+                                                            )
+                                                        except:
+                                                            # Fallback to XPath
+                                                            view_cart_button = self.wait.until(
+                                                                EC.element_to_be_clickable((By.XPATH,
+                                                                    "//button[@id='view-cart-button'] | "
+                                                                    "//button[.//span[contains(text(), 'View Cart')]] | "
+                                                                    "//button[contains(., 'View Cart')]"
+                                                                ))
+                                                            )
+                                                        
+                                                        self.scroll_to_element(view_cart_button)
+                                                        time.sleep(0.2)
+                                                        view_cart_button.click()
+                                                        time.sleep(1.0)
+                                                        print("  ✓ Clicked View Cart")
+                                                        
+                                                        # Wait for cart page to load
+                                                        time.sleep(1.0)
+                                                        
+                                                        # Click Continue Shopping using ID
+                                                        print("\nClicking Continue Shopping...")
+                                                        try:
+                                                            continue_shopping_button = self.wait.until(
+                                                                EC.element_to_be_clickable((By.ID, "continue-shopping-button"))
+                                                            )
+                                                            self.scroll_to_element(continue_shopping_button)
+                                                            time.sleep(0.2)
+                                                            continue_shopping_button.click()
+                                                            time.sleep(1.0)
+                                                            print("  ✓ Clicked Continue Shopping")
+                                                            
+                                                            # Add more products
+                                                            print("\nAdding more products...")
+                                                            time.sleep(1.0)
+                                                            try:
+                                                                # Find products again and add another one using IDs
+                                                                add_to_cart_buttons = self.driver.find_elements(
+                                                                    By.XPATH,
+                                                                    "//button[contains(@id, 'add-to-cart-button-')]"
+                                                                )
+                                                                
+                                                                if add_to_cart_buttons and len(add_to_cart_buttons) > 1:
+                                                                    # Add second product if available
+                                                                    add_to_cart_button = self.wait.until(
+                                                                        EC.element_to_be_clickable((By.ID, add_to_cart_buttons[1].get_attribute("id")))
+                                                                    )
+                                                                    self.scroll_to_element(add_to_cart_button)
+                                                                    time.sleep(0.2)
+                                                                    add_to_cart_button.click()
+                                                                    time.sleep(1.0)
+                                                                    print("  ✓ Added second product to cart")
+                                                                elif add_to_cart_buttons:
+                                                                    # Add same product again
+                                                                    add_to_cart_button = self.wait.until(
+                                                                        EC.element_to_be_clickable((By.ID, add_to_cart_buttons[0].get_attribute("id")))
+                                                                    )
+                                                                    self.scroll_to_element(add_to_cart_button)
+                                                                    time.sleep(0.2)
+                                                                    add_to_cart_button.click()
+                                                                    time.sleep(1.0)
+                                                                    print("  ✓ Added more of the same product to cart")
+                                                                else:
+                                                                    # Fallback to XPath
+                                                                    product_cards = self.driver.find_elements(
+                                                                        By.XPATH,
+                                                                        "//div[contains(@class, 'card') or contains(@class, 'Card')]//button[contains(text(), 'Add to Cart')]/ancestor::div[contains(@class, 'card') or contains(@class, 'Card')]"
+                                                                    )
+                                                                    if product_cards:
+                                                                        add_to_cart_button = product_cards[0].find_element(
+                                                                            By.XPATH,
+                                                                            ".//button[contains(text(), 'Add to Cart')]"
+                                                                        )
+                                                                        self.scroll_to_element(add_to_cart_button)
+                                                                        time.sleep(0.2)
+                                                                        add_to_cart_button.click()
+                                                                        time.sleep(1.0)
+                                                                        print("  ✓ Added product to cart (fallback)")
+                                                            except Exception as e:
+                                                                print(f"  ⚠ Error adding more products: {e}")
+                                                            
+                                                            # Click View Cart again using ID
+                                                            print("\nClicking View Cart again...")
+                                                            try:
+                                                                time.sleep(1.5)  # Wait for cart count to update
+                                                                view_cart_button = self.wait.until(
+                                                                    EC.element_to_be_clickable((By.ID, "view-cart-button"))
+                                                                )
+                                                                # Wait for button to be enabled
+                                                                WebDriverWait(self.driver, 5).until(
+                                                                    lambda d: view_cart_button.get_attribute("disabled") is None or view_cart_button.get_attribute("disabled") == "false"
+                                                                )
+                                                                self.scroll_to_element(view_cart_button)
+                                                                time.sleep(0.2)
+                                                                view_cart_button.click()
+                                                                time.sleep(1.0)
+                                                                print("  ✓ Clicked View Cart again")
+                                                            except Exception as e:
+                                                                print(f"  ⚠ Error clicking View Cart: {e}")
+                                                        except Exception as e:
+                                                            print(f"  ⚠ Error clicking Continue Shopping: {e}")
+                                                        
+                                                        # Delete item from cart before checkout
+                                                        print("\nDeleting item from cart...")
+                                                        try:
+                                                            # Find and click delete button (trash icon) using ID
+                                                            delete_buttons = self.driver.find_elements(
+                                                                By.XPATH,
+                                                                "//button[contains(@id, 'delete-cart-item-button-')]"
+                                                            )
+                                                            
+                                                            if delete_buttons:
+                                                                delete_button = delete_buttons[0]
+                                                                self.scroll_to_element(delete_button)
+                                                                time.sleep(0.2)
+                                                                delete_button.click()
+                                                                time.sleep(0.5)
+                                                                print("  ✓ Clicked delete button")
+                                                                
+                                                                # Wait for modal to appear and click Remove
+                                                                print("  Clicking Remove on confirmation modal...")
+                                                                try:
+                                                                    remove_button = self.wait.until(
+                                                                        EC.element_to_be_clickable((By.ID, "remove-item-confirm-button"))
+                                                                    )
+                                                                    self.scroll_to_element(remove_button)
+                                                                    time.sleep(0.2)
+                                                                    remove_button.click()
+                                                                    time.sleep(1.0)
+                                                                    print("  ✓ Clicked Remove on modal")
+                                                                    
+                                                                    # Wait for toast notification to appear and disappear
+                                                                    try:
+                                                                        WebDriverWait(self.driver, 3).until(
+                                                                            EC.presence_of_element_located((By.XPATH, "//li[@data-sonner-toast]"))
+                                                                        )
+                                                                        time.sleep(0.5)
+                                                                        print("  ✓ Item removed notification shown")
+                                                                        # Wait for toast to disappear
+                                                                        WebDriverWait(self.driver, 5).until(
+                                                                            lambda d: len(d.find_elements(By.XPATH, "//li[@data-sonner-toast and @data-visible='true']")) == 0
+                                                                        )
+                                                                        time.sleep(0.5)
+                                                                    except:
+                                                                        pass
+                                                                except Exception as e:
+                                                                    print(f"  ⚠ Error clicking Remove on modal: {e}")
+                                                            else:
+                                                                print("  ⚠ No delete buttons found")
+                                                        except Exception as e:
+                                                            print(f"  ⚠ Error deleting item: {e}")
+                                                        
+                                                        # Click Browse Products (appears when cart is empty)
+                                                        print("\nClicking Browse Products...")
+                                                        try:
+                                                            browse_products_button = self.wait.until(
+                                                                EC.element_to_be_clickable((By.ID, "browse-products-button"))
+                                                            )
+                                                            self.scroll_to_element(browse_products_button)
+                                                            time.sleep(0.2)
+                                                            browse_products_button.click()
+                                                            time.sleep(1.0)
+                                                            print("  ✓ Clicked Browse Products")
+                                                            
+                                                            # Wait for products page to load
+                                                            time.sleep(1.0)
+                                                            
+                                                            # Add product to cart again
+                                                            print("\nAdding product to cart again...")
+                                                            try:
+                                                                # Find Add to Cart button using ID
+                                                                add_to_cart_buttons = self.driver.find_elements(
+                                                                    By.XPATH,
+                                                                    "//button[contains(@id, 'add-to-cart-button-')]"
+                                                                )
+                                                                
+                                                                if add_to_cart_buttons:
+                                                                    add_to_cart_button = self.wait.until(
+                                                                        EC.element_to_be_clickable((By.ID, add_to_cart_buttons[0].get_attribute("id")))
+                                                                    )
+                                                                    self.scroll_to_element(add_to_cart_button)
+                                                                    time.sleep(0.2)
+                                                                    add_to_cart_button.click()
+                                                                    time.sleep(1.0)
+                                                                    print("  ✓ Added product to cart again")
+                                                                    
+                                                                    # Wait for toast notification
+                                                                    try:
+                                                                        WebDriverWait(self.driver, 3).until(
+                                                                            EC.presence_of_element_located((By.XPATH, "//li[@data-sonner-toast]"))
+                                                                        )
+                                                                        time.sleep(0.5)
+                                                                        print("  ✓ Product added to cart notification shown")
+                                                                    except:
+                                                                        pass
+                                                                else:
+                                                                    print("  ⚠ No Add to Cart buttons found")
+                                                            except Exception as e:
+                                                                print(f"  ⚠ Error adding product to cart: {e}")
+                                                        except Exception as e:
+                                                            print(f"  ⚠ Error clicking Browse Products: {e}")
+                                                        
+                                                        # Navigate back to cart
+                                                        print("\nNavigating to cart...")
+                                                        try:
+                                                            view_cart_button = self.wait.until(
+                                                                EC.element_to_be_clickable((By.ID, "view-cart-button"))
+                                                            )
+                                                            # Wait for button to be enabled
+                                                            WebDriverWait(self.driver, 5).until(
+                                                                lambda d: view_cart_button.get_attribute("disabled") is None or view_cart_button.get_attribute("disabled") == "false"
+                                                            )
+                                                            self.scroll_to_element(view_cart_button)
+                                                            time.sleep(0.2)
+                                                            view_cart_button.click()
+                                                            time.sleep(1.0)
+                                                            print("  ✓ Navigated to cart")
+                                                        except Exception as e:
+                                                            print(f"  ⚠ Error navigating to cart: {e}")
+                                                        
+                                                        # Click Proceed to Checkout using ID
+                                                        print("\nClicking Proceed to Checkout...")
+                                                        try:
+                                                            proceed_checkout_button = self.wait.until(
+                                                                EC.element_to_be_clickable((By.ID, "proceed-to-checkout-button"))
+                                                            )
+                                                            self.scroll_to_element(proceed_checkout_button)
+                                                            time.sleep(0.2)
+                                                            proceed_checkout_button.click()
+                                                            time.sleep(1.5)
+                                                            print("  ✓ Clicked Proceed to Checkout")
+                                                            
+                                                            # Wait for checkout page to load
+                                                            time.sleep(1.0)
+                                                            
+                                                            # Scroll down to find Complete Order button
+                                                            print("\nScrolling down to find Complete Order button...")
+                                                            page_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
+                                                            viewport_height = self.driver.execute_script("return window.innerHeight")
+                                                            
+                                                            # Scroll down incrementally
+                                                            scroll_position = 0
+                                                            while scroll_position < page_height:
+                                                                scroll_position += viewport_height * 0.5
+                                                                self.driver.execute_script(f"window.scrollTo(0, {scroll_position});")
+                                                                time.sleep(0.3)
+                                                                
+                                                                # Check if Complete Order button is visible using ID
+                                                                try:
+                                                                    complete_order_button = self.driver.find_element(
+                                                                        By.ID,
+                                                                        "complete-order-button"
+                                                                    )
+                                                                    if complete_order_button.is_displayed():
+                                                                        print("  ✓ Found Complete Order button")
+                                                                        break
+                                                                except:
+                                                                    pass
+                                                            
+                                                            # Click Complete Order button using ID
+                                                            print("\nClicking Complete Order...")
+                                                            try:
+                                                                complete_order_button = self.wait.until(
+                                                                    EC.element_to_be_clickable((By.ID, "complete-order-button"))
+                                                                )
+                                                                self.scroll_to_element(complete_order_button)
+                                                                time.sleep(0.2)
+                                                                complete_order_button.click()
+                                                                time.sleep(1.0)
+                                                                print("  ✓ Clicked Complete Order")
+                                                                
+                                                                # After completing order, user is taken to order history
+                                                                # Wait for Order History page to load
+                                                                print("\nWaiting for Order History page to load...")
+                                                                try:
+                                                                    # Wait for either the "Your Orders" heading or order cards to appear
+                                                                    WebDriverWait(self.driver, 10).until(
+                                                                        EC.any_of(
+                                                                            EC.presence_of_element_located((By.XPATH, "//h2[contains(text(), 'Your Orders')]")),
+                                                                            EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'card')]//div[contains(text(), 'Order #')]")),
+                                                                            EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'No orders found')]"))
+                                                                        )
+                                                                    )
+                                                                    time.sleep(1.0)  # Extra wait for content to fully render
+                                                                    print("  ✓ Order History page loaded")
+                                                                except Exception as e:
+                                                                    print(f"  ⚠ Order History page may not have loaded: {e}")
+                                                                
+                                                                # Scroll on order history page
+                                                                print("\nScrolling on Order History page...")
+                                                                page_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
+                                                                viewport_height = self.driver.execute_script("return window.innerHeight")
+                                                                
+                                                                scroll_increment = viewport_height * 0.8
+                                                                current_scroll = 0
+                                                                while current_scroll < page_height:
+                                                                    current_scroll += scroll_increment
+                                                                    self.driver.execute_script(f"window.scrollTo(0, {current_scroll});")
+                                                                    time.sleep(0.3)
+                                                                
+                                                                # Scroll back to top
+                                                                self.driver.execute_script("window.scrollTo(0, 0);")
+                                                                time.sleep(0.5)
+                                                                print("  ✓ Scrolled through Order History page")
+                                                                
+                                                                # Navigate to Loyalty Program tab
+                                                                print("\nNavigating to Loyalty Program tab...")
+                                                                try:
+                                                                    loyalty_program_link = self.wait.until(
+                                                                        EC.element_to_be_clickable((By.XPATH,
+                                                                            "//a[contains(text(), 'Loyalty Program')] | "
+                                                                            "//button[contains(text(), 'Loyalty Program')]"
+                                                                        ))
+                                                                    )
+                                                                    self.scroll_to_element(loyalty_program_link)
+                                                                    time.sleep(0.2)
+                                                                    loyalty_program_link.click()
+                                                                    time.sleep(1.0)
+                                                                    print("  ✓ Clicked Loyalty Program tab")
+                                                                    
+                                                                    # Wait for Loyalty Program page to load
+                                                                    print("  Waiting for Loyalty Program page to load...")
+                                                                    try:
+                                                                        # Wait for either "Your Salon Progress" heading or loyalty cards to appear
+                                                                        WebDriverWait(self.driver, 10).until(
+                                                                            EC.any_of(
+                                                                                EC.presence_of_element_located((By.XPATH, "//h2[contains(text(), 'Your Salon Progress')]")),
+                                                                                EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'Total Visits')]")),
+                                                                                EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'Gold Salons')]")),
+                                                                                EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'No Loyalty Data Yet')]"))
+                                                                            )
+                                                                        )
+                                                                        time.sleep(1.0)  # Extra wait for content to fully render
+                                                                        print("  ✓ Loyalty Program page loaded")
+                                                                    except Exception as e:
+                                                                        print(f"  ⚠ Loyalty Program page may not have loaded: {e}")
+                                                                    
+                                                                    # Scroll around on Loyalty Program page
+                                                                    print("  Scrolling on Loyalty Program page...")
+                                                                    time.sleep(0.5)
+                                                                    page_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
+                                                                    scroll_increment = viewport_height * 0.8
+                                                                    current_scroll = 0
+                                                                    while current_scroll < page_height:
+                                                                        current_scroll += scroll_increment
+                                                                        self.driver.execute_script(f"window.scrollTo(0, {current_scroll});")
+                                                                        time.sleep(0.3)
+                                                                    
+                                                                    # Scroll back to top
+                                                                    self.driver.execute_script("window.scrollTo(0, 0);")
+                                                                    time.sleep(0.5)
+                                                                    print("  ✓ Scrolled through Loyalty Program page")
+                                                                except Exception as e:
+                                                                    print(f"  ⚠ Error navigating to Loyalty Program: {e}")
+                                                                
+                                                                # Navigate to Settings tab
+                                                                print("\nNavigating to Settings tab...")
+                                                                try:
+                                                                    settings_link = self.wait.until(
+                                                                        EC.element_to_be_clickable((By.XPATH,
+                                                                            "//a[contains(text(), 'Settings')] | "
+                                                                            "//button[contains(text(), 'Settings')]"
+                                                                        ))
+                                                                    )
+                                                                    self.scroll_to_element(settings_link)
+                                                                    time.sleep(0.2)
+                                                                    settings_link.click()
+                                                                    time.sleep(1.0)
+                                                                    print("  ✓ Clicked Settings tab")
+                                                                    
+                                                                    # Wait for Settings page to load
+                                                                    time.sleep(1.0)
+                                                                    
+                                                                    # Click Edit Address button
+                                                                    print("\nClicking Edit Address...")
+                                                                    try:
+                                                                        edit_address_button = self.wait.until(
+                                                                            EC.element_to_be_clickable((By.ID, "edit-address-button"))
+                                                                        )
+                                                                        self.scroll_to_element(edit_address_button)
+                                                                        time.sleep(0.2)
+                                                                        edit_address_button.click()
+                                                                        time.sleep(0.5)
+                                                                        print("  ✓ Clicked Edit Address")
+                                                                        
+                                                                        # Wait for address form to appear
+                                                                        time.sleep(0.5)
+                                                                        
+                                                                        # Click Save Address button
+                                                                        print("\nClicking Save Address...")
+                                                                        try:
+                                                                            save_address_button = self.wait.until(
+                                                                                EC.element_to_be_clickable((By.ID, "save-address-button"))
+                                                                            )
+                                                                            self.scroll_to_element(save_address_button)
+                                                                            time.sleep(0.2)
+                                                                            save_address_button.click()
+                                                                            time.sleep(1.5)
+                                                                            print("  ✓ Clicked Save Address")
+                                                                            
+                                                                            # Wait for success notification
+                                                                            try:
+                                                                                WebDriverWait(self.driver, 3).until(
+                                                                                    EC.presence_of_element_located((By.XPATH, "//li[@data-sonner-toast]"))
+                                                                                )
+                                                                                time.sleep(0.5)
+                                                                                print("  ✓ Address saved notification shown")
+                                                                            except:
+                                                                                pass
+                                                                        except Exception as e:
+                                                                            print(f"  ⚠ Error clicking Save Address: {e}")
+                                                                    except Exception as e:
+                                                                        print(f"  ⚠ Error clicking Edit Address: {e}")
+                                                                    
+                                                                    # Click Enter Card Details button
+                                                                    print("\nClicking Enter Card Details...")
+                                                                    try:
+                                                                        enter_card_button = self.wait.until(
+                                                                            EC.element_to_be_clickable((By.ID, "enter-card-details-button"))
+                                                                        )
+                                                                        self.scroll_to_element(enter_card_button)
+                                                                        time.sleep(0.2)
+                                                                        enter_card_button.click()
+                                                                        time.sleep(0.5)
+                                                                        print("  ✓ Clicked Enter Card Details")
+                                                                        
+                                                                        # Wait for card form to appear
+                                                                        time.sleep(0.5)
+                                                                        
+                                                                        # Fill in card details
+                                                                        print("\nFilling in card details...")
+                                                                        try:
+                                                                            # Card Number: 5555 5555 5555 4444
+                                                                            card_number_input = self.wait.until(
+                                                                                EC.presence_of_element_located((By.ID, "card_number"))
+                                                                            )
+                                                                            self.scroll_to_element(card_number_input)
+                                                                            time.sleep(0.2)
+                                                                            card_number_input.clear()
+                                                                            card_number_input.send_keys("5555 5555 5555 4444")
+                                                                            time.sleep(0.3)
+                                                                            print("  ✓ Entered card number")
+                                                                            
+                                                                            # Cardholder Name
+                                                                            cardholder_name_input = self.wait.until(
+                                                                                EC.presence_of_element_located((By.ID, "cardholder_name"))
+                                                                            )
+                                                                            self.scroll_to_element(cardholder_name_input)
+                                                                            time.sleep(0.2)
+                                                                            cardholder_name_input.clear()
+                                                                            cardholder_name_input.send_keys("Test User")
+                                                                            time.sleep(0.3)
+                                                                            print("  ✓ Entered cardholder name")
+                                                                            
+                                                                            # Expiration Month: 12 (using same pattern as appointment booking)
+                                                                            exp_month_select = self.wait.until(
+                                                                                EC.element_to_be_clickable((By.ID, "exp_month-select"))
+                                                                            )
+                                                                            exp_month_select.click()
+                                                                            time.sleep(0.3)
+                                                                            month_option = WebDriverWait(self.driver, 3).until(
+                                                                                EC.element_to_be_clickable((By.XPATH, "//div[@role='option' and text()='12']"))
+                                                                            )
+                                                                            month_option.click()
+                                                                            time.sleep(0.3)
+                                                                            print("  ✓ Selected expiration month: 12")
+                                                                            
+                                                                            # Expiration Year: 2025 (using same pattern as appointment booking)
+                                                                            exp_year_select = self.wait.until(
+                                                                                EC.element_to_be_clickable((By.ID, "exp_year-select"))
+                                                                            )
+                                                                            exp_year_select.click()
+                                                                            time.sleep(0.3)
+                                                                            year_option = WebDriverWait(self.driver, 3).until(
+                                                                                EC.element_to_be_clickable((By.XPATH, "//div[@role='option' and text()='2025']"))
+                                                                            )
+                                                                            year_option.click()
+                                                                            time.sleep(0.3)
+                                                                            print("  ✓ Selected expiration year: 2025")
+                                                                            
+                                                                            # CVV: 123
+                                                                            cvc_input = self.wait.until(
+                                                                                EC.presence_of_element_located((By.ID, "cvc"))
+                                                                            )
+                                                                            self.scroll_to_element(cvc_input)
+                                                                            time.sleep(0.2)
+                                                                            cvc_input.clear()
+                                                                            cvc_input.send_keys("123")
+                                                                            time.sleep(0.3)
+                                                                            print("  ✓ Entered CVV")
+                                                                            
+                                                                            # Click Save Card button
+                                                                            print("\nClicking Save Card...")
+                                                                            save_card_button = self.wait.until(
+                                                                                EC.element_to_be_clickable((By.ID, "save-card-button"))
+                                                                            )
+                                                                            self.scroll_to_element(save_card_button)
+                                                                            time.sleep(0.2)
+                                                                            save_card_button.click()
+                                                                            time.sleep(1.5)
+                                                                            print("  ✓ Clicked Save Card")
+                                                                            
+                                                                            # Wait for success notification
+                                                                            try:
+                                                                                WebDriverWait(self.driver, 3).until(
+                                                                                    EC.presence_of_element_located((By.XPATH, "//li[@data-sonner-toast]"))
+                                                                                )
+                                                                                time.sleep(0.5)
+                                                                                print("  ✓ Card saved notification shown")
+                                                                            except:
+                                                                                pass
+                                                                            
+                                                                            # Wait a couple seconds after saving card
+                                                                            time.sleep(2.0)
+                                                                            
+                                                                            # Navigate to Browse Salons
+                                                                            print("\nNavigating to Browse Salons...")
+                                                                            try:
+                                                                                browse_salons_link = self.wait.until(
+                                                                                    EC.element_to_be_clickable((By.XPATH,
+                                                                                        "//a[contains(text(), 'Browse Salons')] | "
+                                                                                        "//button[contains(text(), 'Browse Salons')]"
+                                                                                    ))
+                                                                                )
+                                                                                self.scroll_to_element(browse_salons_link)
+                                                                                time.sleep(0.2)
+                                                                                browse_salons_link.click()
+                                                                                time.sleep(1.0)
+                                                                                print("  ✓ Clicked Browse Salons")
+                                                                                
+                                                                                # Wait for page to load
+                                                                                time.sleep(1.0)
+                                                                                
+                                                                                # Scroll down to find pagination
+                                                                                print("\nScrolling down to find pagination...")
+                                                                                page_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
+                                                                                viewport_height = self.driver.execute_script("return window.innerHeight")
+                                                                                
+                                                                                # Scroll down incrementally
+                                                                                scroll_position = 0
+                                                                                while scroll_position < page_height:
+                                                                                    scroll_position += viewport_height * 0.5
+                                                                                    self.driver.execute_script(f"window.scrollTo(0, {scroll_position});")
+                                                                                    time.sleep(0.3)
+                                                                                
+                                                                                print("  ✓ Scrolled to pagination area")
+                                                                                
+                                                                                # Test pagination: click next, then previous
+                                                                                print("\nTesting pagination...")
+                                                                                try:
+                                                                                    # Check if pagination exists (only shows if totalPages > 1)
+                                                                                    next_button = self.driver.find_elements(By.ID, "salon-browser-pagination-next-button")
+                                                                                    if next_button and not next_button[0].get_attribute("disabled"):
+                                                                                        # Click next button
+                                                                                        print("  Clicking 'Next' pagination button...")
+                                                                                        self.scroll_to_element(next_button[0])
+                                                                                        time.sleep(0.2)
+                                                                                        next_button[0].click()
+                                                                                        time.sleep(0.5)
+                                                                                        print("  ✓ Clicked 'Next' button")
+                                                                                        
+                                                                                        # Now click previous button
+                                                                                        prev_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "salon-browser-pagination-previous-button"))
+                                                                                        )
+                                                                                        print("  Clicking 'Previous' pagination button...")
+                                                                                        self.scroll_to_element(prev_button)
+                                                                                        time.sleep(0.2)
+                                                                                        prev_button.click()
+                                                                                        time.sleep(0.5)
+                                                                                        print("  ✓ Clicked 'Previous' button")
+                                                                                    else:
+                                                                                        print("  ⚠ Pagination buttons not available or disabled (may be on first/last page or only one page)")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Could not test pagination: {e}")
+                                                                                
+                                                                                # Scroll back up to search bar
+                                                                                print("\nScrolling up to search bar...")
+                                                                                self.driver.execute_script("window.scrollTo(0, 0);")
+                                                                                time.sleep(0.5)
+                                                                                print("  ✓ Scrolled to top")
+                                                                                
+                                                                                # Use search bar to search for "Trim"
+                                                                                print("\nSearching for 'Trim'...")
+                                                                                try:
+                                                                                    search_input = self.wait.until(
+                                                                                        EC.presence_of_element_located((By.ID, "salon-search-input"))
+                                                                                    )
+                                                                                    self.scroll_to_element(search_input)
+                                                                                    time.sleep(0.2)
+                                                                                    search_input.clear()
+                                                                                    search_input.send_keys("Trim")
+                                                                                    time.sleep(1.0)  # Wait for search results to filter
+                                                                                    print("  ✓ Searched for 'Trim'")
+                                                                                    
+                                                                                    # Wait a moment for results to appear
+                                                                                    time.sleep(0.5)
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error searching: {e}")
+                                                                                
+                                                                                # Before logout, check My Appointments - Completed tab and review flow
+                                                                                print("\n" + "="*70)
+                                                                                print("CHECKING MY APPOINTMENTS - COMPLETED AND REVIEW FLOW")
+                                                                                print("="*70)
+                                                                                
+                                                                                # Navigate to My Appointments
+                                                                                print("\nNavigating to My Appointments...")
+                                                                                try:
+                                                                                    self.driver.get(f"{BASE_URL}/appointments")
+                                                                                    time.sleep(2)  # Wait for page to load
+                                                                                    print("  ✓ Navigated to My Appointments page")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error navigating to My Appointments: {e}")
+                                                                                
+                                                                                # Click Completed tab
+                                                                                print("\nClicking Completed tab...")
+                                                                                try:
+                                                                                    completed_tab = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "appointments-filter-past"))
+                                                                                    )
+                                                                                    self.scroll_to_element(completed_tab)
+                                                                                    time.sleep(0.2)
+                                                                                    completed_tab.click()
+                                                                                    time.sleep(2.0)  # Wait 2 seconds on the completed tab
+                                                                                    print("  ✓ Clicked Completed tab and waited 2 seconds")
+                                                                                    
+                                                                                    # Check if there are any appointments in the Completed tab
+                                                                                    try:
+                                                                                        # Look for empty state message
+                                                                                        empty_state_message = self.driver.find_elements(
+                                                                                            By.XPATH, 
+                                                                                            "//*[contains(text(), 'No past appointments') or contains(text(), 'No appointments found')]"
+                                                                                        )
+                                                                                        # Also check for actual appointment cards
+                                                                                        actual_appointments = self.driver.find_elements(
+                                                                                            By.XPATH,
+                                                                                            "//div[contains(@class, 'grid')]//div[contains(@class, 'card') or contains(@class, 'Card')]"
+                                                                                        )
+                                                                                        
+                                                                                        # If we see "No past appointments" message and no actual appointment cards
+                                                                                        if empty_state_message and len(actual_appointments) == 0:
+                                                                                            print("  ⚠ No appointments found in Completed tab")
+                                                                                            print("  Waiting 2 seconds, then refreshing page...")
+                                                                                            time.sleep(2.0)
+                                                                                            
+                                                                                            # Refresh the page
+                                                                                            self.driver.refresh()
+                                                                                            time.sleep(2.0)  # Wait for page to reload
+                                                                                            print("  ✓ Page refreshed")
+                                                                                            
+                                                                                            # Click Completed tab again
+                                                                                            completed_tab = self.wait.until(
+                                                                                                EC.element_to_be_clickable((By.ID, "appointments-filter-past"))
+                                                                                            )
+                                                                                            self.scroll_to_element(completed_tab)
+                                                                                            time.sleep(0.2)
+                                                                                            completed_tab.click()
+                                                                                            time.sleep(2.0)  # Wait 2 seconds on the completed tab again
+                                                                                            print("  ✓ Clicked Completed tab again after refresh")
+                                                                                        else:
+                                                                                            print("  ✓ Appointments found in Completed tab")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error checking for appointments: {e}")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Completed tab: {e}")
+                                                                                
+                                                                                # After waiting 2 seconds on Completed tab, click Review Stylist button
+                                                                                print("\nClicking Review Stylist button...")
+                                                                                try:
+                                                                                    # Find the Review Stylist button using ID pattern
+                                                                                    review_stylist_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.XPATH, "//button[starts-with(@id, 'review-stylist-button-')]"))
+                                                                                    )
+                                                                                    self.scroll_to_element(review_stylist_button)
+                                                                                    time.sleep(0.2)
+                                                                                    review_stylist_button.click()
+                                                                                    time.sleep(1.0)  # Wait for review modal to open
+                                                                                    print("  ✓ Clicked Review Stylist button")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Review Stylist button: {e}")
+                                                                                
+                                                                                # After clicking Review Stylist, click "Write a Review" button in the modal
+                                                                                print("\nClicking Write a Review button...")
+                                                                                try:
+                                                                                    write_review_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "write-review-button"))
+                                                                                    )
+                                                                                    self.scroll_to_element(write_review_button)
+                                                                                    time.sleep(0.2)
+                                                                                    write_review_button.click()
+                                                                                    time.sleep(0.5)  # Wait for review form to appear
+                                                                                    print("  ✓ Clicked Write a Review button")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Write a Review button: {e}")
+                                                                                
+                                                                                # Write a review - select rating (5 stars)
+                                                                                print("\nSelecting 5-star rating...")
+                                                                                try:
+                                                                                    # Click the full 5th star button (right half)
+                                                                                    fifth_star_full = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "review-star-5-full"))
+                                                                                    )
+                                                                                    self.scroll_to_element(fifth_star_full)
+                                                                                    time.sleep(0.2)
+                                                                                    fifth_star_full.click()
+                                                                                    time.sleep(0.3)
+                                                                                    print("  ✓ Selected 5-star rating")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error selecting rating: {e}")
+                                                                                
+                                                                                # Write a comment
+                                                                                print("\nWriting review comment...")
+                                                                                try:
+                                                                                    comment_textarea = self.wait.until(
+                                                                                        EC.presence_of_element_located((By.ID, "review-comment-textarea"))
+                                                                                    )
+                                                                                    self.scroll_to_element(comment_textarea)
+                                                                                    time.sleep(0.2)
+                                                                                    comment_textarea.click()
+                                                                                    time.sleep(0.1)
+                                                                                    comment_textarea.clear()
+                                                                                    comment_textarea.send_keys("Great service! Very professional and friendly.")
+                                                                                    time.sleep(0.3)
+                                                                                    print("  ✓ Wrote review comment")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error writing comment: {e}")
+                                                                                
+                                                                                # Submit the review
+                                                                                print("\nSubmitting review...")
+                                                                                try:
+                                                                                    submit_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "submit-review-button"))
+                                                                                    )
+                                                                                    self.scroll_to_element(submit_button)
+                                                                                    time.sleep(0.2)
+                                                                                    submit_button.click()
+                                                                                    time.sleep(1.0)  # Wait for confirmation modal
+                                                                                    
+                                                                                    # Click Confirm on the confirmation modal
+                                                                                    try:
+                                                                                        confirm_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "review-confirm-button"))
+                                                                                        )
+                                                                                        self.scroll_to_element(confirm_button)
+                                                                                        time.sleep(0.2)
+                                                                                        confirm_button.click()
+                                                                                        time.sleep(2.0)  # Wait for review to be submitted
+                                                                                        print("  ✓ Submitted review")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error confirming review submission: {e}")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error submitting review: {e}")
+                                                                                
+                                                                                # After submitting, click Edit Review button
+                                                                                print("\nClicking Edit Review button...")
+                                                                                try:
+                                                                                    # Close the review modal first if it's still open
+                                                                                    try:
+                                                                                        close_button = self.driver.find_element(By.ID, "review-modal-close-button")
+                                                                                        if close_button:
+                                                                                            close_button.click()
+                                                                                            time.sleep(0.5)
+                                                                                    except:
+                                                                                        pass
+                                                                                    
+                                                                                    # Wait for toast notifications to disappear
+                                                                                    time.sleep(2.0)  # Wait for modal to close and page to settle
+                                                                                    
+                                                                                    # Extract employee_id from the Review Stylist button we clicked earlier
+                                                                                    employee_id = None
+                                                                                    try:
+                                                                                        review_stylist_button = self.driver.find_element(By.XPATH, "//button[starts-with(@id, 'review-stylist-button-')]")
+                                                                                        button_id = review_stylist_button.get_attribute("id")
+                                                                                        if button_id:
+                                                                                            employee_id = button_id.replace("review-stylist-button-", "")
+                                                                                    except:
+                                                                                        # If Review Stylist button is gone, try to find Edit Review button and extract ID
+                                                                                        try:
+                                                                                            edit_btn = self.driver.find_element(By.XPATH, "//button[starts-with(@id, 'edit-review-button-')]")
+                                                                                            button_id = edit_btn.get_attribute("id")
+                                                                                            if button_id:
+                                                                                                employee_id = button_id.replace("edit-review-button-", "")
+                                                                                        except:
+                                                                                            pass
+                                                                                    
+                                                                                    if employee_id:
+                                                                                        # Wait for the Edit Review button to appear using the employee_id
+                                                                                        edit_review_button = self.wait.until(
+                                                                                            EC.presence_of_element_located((By.ID, f"edit-review-button-{employee_id}"))
+                                                                                        )
+                                                                                        
+                                                                                        # Scroll the button into view using JavaScript
+                                                                                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", edit_review_button)
+                                                                                        time.sleep(0.5)
+                                                                                        
+                                                                                        # Try regular click first
+                                                                                        try:
+                                                                                            edit_review_button.click()
+                                                                                            time.sleep(1.0)
+                                                                                            print("  ✓ Clicked Edit Review button")
+                                                                                        except Exception as click_error:
+                                                                                            # If regular click fails, use JavaScript click
+                                                                                            print(f"  ⚠ Regular click failed, trying JavaScript click: {click_error}")
+                                                                                            self.driver.execute_script("arguments[0].click();", edit_review_button)
+                                                                                            time.sleep(1.0)
+                                                                                            print("  ✓ Clicked Edit Review button (JavaScript)")
+                                                                                    else:
+                                                                                        # Fallback: find by XPath if we couldn't extract employee_id
+                                                                                        edit_review_button = self.wait.until(
+                                                                                            EC.presence_of_element_located((By.XPATH, "//button[starts-with(@id, 'edit-review-button-')]"))
+                                                                                        )
+                                                                                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", edit_review_button)
+                                                                                        time.sleep(0.5)
+                                                                                        try:
+                                                                                            edit_review_button.click()
+                                                                                            time.sleep(1.0)
+                                                                                            print("  ✓ Clicked Edit Review button (fallback)")
+                                                                                        except:
+                                                                                            self.driver.execute_script("arguments[0].click();", edit_review_button)
+                                                                                            time.sleep(1.0)
+                                                                                            print("  ✓ Clicked Edit Review button (JavaScript fallback)")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Edit Review button: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                # Edit the review - change rating and comment
+                                                                                print("\nEditing review...")
+                                                                                try:
+                                                                                    # Click the Edit button in the review display to open the form
+                                                                                    try:
+                                                                                        edit_form_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "edit-review-form-button"))
+                                                                                        )
+                                                                                        self.scroll_to_element(edit_form_button)
+                                                                                        time.sleep(0.2)
+                                                                                        edit_form_button.click()
+                                                                                        time.sleep(0.5)
+                                                                                        print("  ✓ Opened review form for editing")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error opening review form: {e}")
+                                                                                    
+                                                                                    # Change rating to 4 stars (click the full 4th star button)
+                                                                                    try:
+                                                                                        fourth_star_full = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "review-star-4-full"))
+                                                                                        )
+                                                                                        self.scroll_to_element(fourth_star_full)
+                                                                                        time.sleep(0.2)
+                                                                                        fourth_star_full.click()
+                                                                                        time.sleep(0.3)
+                                                                                        print("  ✓ Changed rating to 4 stars")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error changing rating: {e}")
+                                                                                    
+                                                                                    # Update the comment
+                                                                                    try:
+                                                                                        comment_textarea = self.wait.until(
+                                                                                            EC.presence_of_element_located((By.ID, "review-comment-textarea"))
+                                                                                        )
+                                                                                        self.scroll_to_element(comment_textarea)
+                                                                                        time.sleep(0.2)
+                                                                                        comment_textarea.click()
+                                                                                        time.sleep(0.1)
+                                                                                        comment_textarea.clear()
+                                                                                        comment_textarea.send_keys("Updated: Excellent service! Highly recommend.")
+                                                                                        time.sleep(0.3)
+                                                                                        print("  ✓ Updated review comment")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error updating comment: {e}")
+                                                                                    
+                                                                                    # Click Update Review button
+                                                                                    try:
+                                                                                        update_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "update-review-button"))
+                                                                                        )
+                                                                                        self.scroll_to_element(update_button)
+                                                                                        time.sleep(0.2)
+                                                                                        update_button.click()
+                                                                                        time.sleep(1.0)  # Wait for confirmation modal
+                                                                                        
+                                                                                        # Click Confirm on the confirmation modal
+                                                                                        try:
+                                                                                            confirm_button = self.wait.until(
+                                                                                                EC.element_to_be_clickable((By.ID, "review-confirm-button"))
+                                                                                            )
+                                                                                            self.scroll_to_element(confirm_button)
+                                                                                            time.sleep(0.2)
+                                                                                            confirm_button.click()
+                                                                                            time.sleep(2.0)  # Wait for review to be updated
+                                                                                            print("  ✓ Updated review")
+                                                                                        except Exception as e:
+                                                                                            print(f"  ⚠ Error confirming review update: {e}")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error clicking Update Review button: {e}")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error editing review: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                                
+                                                                                # Close the review modal after editing
+                                                                                print("\nClosing review modal...")
+                                                                                try:
+                                                                                    close_modal_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "review-modal-close-button"))
+                                                                                    )
+                                                                                    self.scroll_to_element(close_modal_button)
+                                                                                    time.sleep(0.2)
+                                                                                    close_modal_button.click()
+                                                                                    time.sleep(1.0)  # Wait for modal to close
+                                                                                    print("  ✓ Closed review modal")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error closing review modal: {e}")
+                                                                                
+                                                                                # Before logout, go to Browse Salons and write a salon review
+                                                                                print("\n" + "="*70)
+                                                                                print("BROWSE SALONS AND WRITE SALON REVIEW")
+                                                                                print("="*70)
+                                                                                
+                                                                                # Navigate to Browse Salons
+                                                                                print("\nNavigating to Browse Salons...")
+                                                                                try:
+                                                                                    self.driver.get(f"{BASE_URL}/browser")
+                                                                                    time.sleep(2)  # Wait for page to load
+                                                                                    print("  ✓ Navigated to Browse Salons page")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error navigating to Browse Salons: {e}")
+                                                                                
+                                                                                # Find and click View Details for "Selenium Test Salon"
+                                                                                print("\nFinding and clicking View Details for Selenium Test Salon...")
+                                                                                try:
+                                                                                    # Find the salon card by name
+                                                                                    salon_cards = self.driver.find_elements(
+                                                                                        By.XPATH,
+                                                                                        "//*[contains(text(), 'Selenium Test Salon')]/ancestor::div[contains(@class, 'card') or contains(@class, 'Card')]"
+                                                                                    )
+                                                                                    
+                                                                                    if salon_cards:
+                                                                                        salon_card = salon_cards[0]  # Get first matching salon
+                                                                                        # Find View Details button within this card
+                                                                                        view_details_button = salon_card.find_element(
+                                                                                            By.XPATH, ".//button[starts-with(@id, 'view-details-button-')]"
+                                                                                        )
+                                                                                        self.scroll_to_element(view_details_button)
+                                                                                        time.sleep(0.2)
+                                                                                        view_details_button.click()
+                                                                                        time.sleep(1.0)  # Initial wait
+                                                                                        print("  ✓ Clicked View Details for Selenium Test Salon")
+                                                                                        
+                                                                                        # Wait for salon detail page to load
+                                                                                        print("  Waiting for salon detail page to load...")
+                                                                                        try:
+                                                                                            # Wait for salon name or key elements to appear (indicating page has loaded)
+                                                                                            self.wait.until(
+                                                                                                EC.any_of(
+                                                                                                    EC.presence_of_element_located((By.XPATH, "//h2[contains(@class, 'text-3xl')] | //h1[contains(@class, 'text-3xl')] | //*[contains(@class, 'CardTitle')]")),
+                                                                                                    EC.presence_of_element_located((By.ID, "salon-write-review-button"))
+                                                                                                )
+                                                                                            )
+                                                                                            time.sleep(1.0)  # Additional wait for any animations/transitions
+                                                                                            print("  ✓ Salon detail page loaded")
+                                                                                        except Exception as e:
+                                                                                            print(f"  ⚠ Warning: Could not confirm page load: {e}")
+                                                                                            time.sleep(2.0)  # Fallback wait
+                                                                                    else:
+                                                                                        print("  ⚠ Could not find Selenium Test Salon")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error finding/clicking View Details: {e}")
+                                                                                
+                                                                                # Scroll on the salon detail page
+                                                                                print("\nScrolling on salon detail page...")
+                                                                                try:
+                                                                                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                                                                                    time.sleep(0.5)
+                                                                                    self.driver.execute_script("window.scrollTo(0, 0);")
+                                                                                    time.sleep(0.5)
+                                                                                    print("  ✓ Scrolled on salon detail page")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error scrolling: {e}")
+                                                                                
+                                                                                # Find and click Write a Review button
+                                                                                print("\nClicking Write a Review button...")
+                                                                                try:
+                                                                                    write_review_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "salon-write-review-button"))
+                                                                                    )
+                                                                                    self.scroll_to_element(write_review_button)
+                                                                                    time.sleep(0.2)
+                                                                                    write_review_button.click()
+                                                                                    time.sleep(0.5)  # Wait for review form to appear
+                                                                                    print("  ✓ Clicked Write a Review button")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Write a Review button: {e}")
+                                                                                
+                                                                                # Fill out review - select rating (5 stars)
+                                                                                print("\nSelecting 5-star rating for salon...")
+                                                                                try:
+                                                                                    fifth_star_full = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "salon-review-star-5-full"))
+                                                                                    )
+                                                                                    self.scroll_to_element(fifth_star_full)
+                                                                                    time.sleep(0.2)
+                                                                                    fifth_star_full.click()
+                                                                                    time.sleep(0.3)
+                                                                                    print("  ✓ Selected 5-star rating for salon")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error selecting rating: {e}")
+                                                                                
+                                                                                # Write a comment
+                                                                                print("\nWriting salon review comment...")
+                                                                                try:
+                                                                                    comment_textarea = self.wait.until(
+                                                                                        EC.presence_of_element_located((By.ID, "salon-review-comment-textarea"))
+                                                                                    )
+                                                                                    self.scroll_to_element(comment_textarea)
+                                                                                    time.sleep(0.2)
+                                                                                    comment_textarea.click()
+                                                                                    time.sleep(0.1)
+                                                                                    comment_textarea.clear()
+                                                                                    comment_textarea.send_keys("Great salon! Excellent service and friendly staff.")
+                                                                                    time.sleep(0.3)
+                                                                                    print("  ✓ Wrote salon review comment")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error writing comment: {e}")
+                                                                                
+                                                                                # Submit the review
+                                                                                print("\nSubmitting salon review...")
+                                                                                try:
+                                                                                    submit_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "salon-submit-review-button"))
+                                                                                    )
+                                                                                    self.scroll_to_element(submit_button)
+                                                                                    time.sleep(0.2)
+                                                                                    submit_button.click()
+                                                                                    time.sleep(1.0)  # Wait for confirmation modal
+                                                                                    
+                                                                                    # Click Confirm on the confirmation modal
+                                                                                    try:
+                                                                                        confirm_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "salon-review-confirm-button"))
+                                                                                        )
+                                                                                        self.scroll_to_element(confirm_button)
+                                                                                        time.sleep(0.2)
+                                                                                        confirm_button.click()
+                                                                                        time.sleep(2.0)  # Wait for review to be submitted
+                                                                                        print("  ✓ Submitted salon review")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error confirming review submission: {e}")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error submitting review: {e}")
+                                                                                
+                                                                                # Wait for any toast notifications to disappear before logout
+                                                                                print("\nWaiting for toast notifications to disappear...")
+                                                                                try:
+                                                                                    toasts = self.driver.find_elements(By.XPATH, "//li[@data-sonner-toast]")
+                                                                                    if toasts:
+                                                                                        print("  Toast notifications found, waiting for them to disappear...")
+                                                                                        WebDriverWait(self.driver, 5).until(
+                                                                                            lambda d: len(d.find_elements(By.XPATH, "//li[@data-sonner-toast and @data-visible='true']")) == 0
+                                                                                        )
+                                                                                        time.sleep(0.5)  # Extra wait for animation
+                                                                                        print("  ✓ Toast notifications disappeared")
+                                                                                except:
+                                                                                    pass  # No toasts or they already disappeared
+                                                                                
+                                                                                # Click logout
+                                                                                print("\nClicking Logout...")
+                                                                                try:
+                                                                                    logout_button = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "customer-logout-button"))
+                                                                                    )
+                                                                                    self.scroll_to_element(logout_button)
+                                                                                    time.sleep(0.2)
+                                                                                    
+                                                                                    # Try regular click first, fallback to JavaScript click if intercepted
+                                                                                    try:
+                                                                                        logout_button.click()
+                                                                                    except:
+                                                                                        # If click is intercepted, use JavaScript click
+                                                                                        self.driver.execute_script("arguments[0].click();", logout_button)
+                                                                                    
+                                                                                    time.sleep(1.0)
+                                                                                    print("  ✓ Clicked Logout")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking Logout: {e}")
+                                                                                
+                                                                                # After customer logout, log back into stylist account
+                                                                                print("\n" + "="*70)
+                                                                                print("LOGGING BACK INTO STYLIST ACCOUNT")
+                                                                                print("="*70)
+                                                                                
+                                                                                # Navigate to landing page and sign back into stylist account
+                                                                                print("\nSigning back into stylist account...")
+                                                                                time.sleep(0.5)
+                                                                                self.navigate_and_scroll(f"{BASE_URL}/")
+                                                                                time.sleep(0.3)
+                                                                                
+                                                                                if not self.login(self.stylist_email, "test123", "Stylist"):
+                                                                                    print("  ⚠ Failed to log back into stylist account")
+                                                                                    return False
+                                                                                
+                                                                                print("  ✓ Logged back into stylist account")
+                                                                                
+                                                                                # Navigate to Customers tab
+                                                                                print("\nNavigating to Customers tab...")
+                                                                                try:
+                                                                                    customers_tab = self.wait.until(
+                                                                                        EC.element_to_be_clickable((By.ID, "stylist-tab-customers"))
+                                                                                    )
+                                                                                    self.scroll_to_element(customers_tab)
+                                                                                    time.sleep(0.2)
+                                                                                    customers_tab.click()
+                                                                                    time.sleep(1.0)  # Wait for customers to load
+                                                                                    print("  ✓ Opened Customers tab")
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error opening Customers tab: {e}")
+                                                                                
+                                                                                # Find and click "View History" for the customer we created
+                                                                                print(f"\nLooking for customer: {self.user_email}")
+                                                                                try:
+                                                                                    # Wait for customers to load
+                                                                                    print(f"  Waiting for customer list to load...")
+                                                                                    time.sleep(2.0)  # Give more time for customers to load
+                                                                                    
+                                                                                    # Find the customer email element - email is in a <p> tag with a nested <span>
+                                                                                    # Use XPath that checks all text nodes within the paragraph
+                                                                                    customer_email_element = self.wait.until(
+                                                                                        EC.presence_of_element_located((By.XPATH, f"//p[.//text()[contains(., '{self.user_email}')]]"))
+                                                                                    )
+                                                                                    print(f"  ✓ Found customer email element")
+                                                                                    
+                                                                                    # Get the ID of the email element to extract user_id
+                                                                                    email_element_id = customer_email_element.get_attribute("id")
+                                                                                    if email_element_id and email_element_id.startswith("customer-email-"):
+                                                                                        user_id = email_element_id.replace("customer-email-", "")
+                                                                                        print(f"  ✓ Extracted user_id: {user_id}")
+                                                                                        
+                                                                                        # Find the View History button using the user_id
+                                                                                        view_history_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, f"view-history-button-{user_id}"))
+                                                                                        )
+                                                                                    else:
+                                                                                        # Fallback: find the parent card and then the button
+                                                                                        print(f"  ⚠ Could not extract user_id from email element ID, using fallback method")
+                                                                                        customer_card = customer_email_element.find_element(By.XPATH, "./ancestor::div[starts-with(@id, 'customer-card-')]")
+                                                                                        card_id = customer_card.get_attribute("id")
+                                                                                        if card_id:
+                                                                                            user_id = card_id.replace("customer-card-", "")
+                                                                                            view_history_button = self.wait.until(
+                                                                                                EC.element_to_be_clickable((By.ID, f"view-history-button-{user_id}"))
+                                                                                            )
+                                                                                        else:
+                                                                                            # Last resort: find button by XPath within the card
+                                                                                            view_history_button = customer_card.find_element(
+                                                                                                By.XPATH, ".//button[starts-with(@id, 'view-history-button-')]"
+                                                                                            )
+                                                                                    
+                                                                                    # Scroll to and click the button
+                                                                                    self.scroll_to_element(view_history_button)
+                                                                                    time.sleep(0.3)
+                                                                                    view_history_button.click()
+                                                                                    time.sleep(1.0)  # Wait for modal to open
+                                                                                    print("  ✓ Clicked 'View History' for customer")
+                                                                                    
+                                                                                    # Close the customer visit history modal
+                                                                                    print("\nClosing customer visit history modal...")
+                                                                                    try:
+                                                                                        close_modal_button = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "customer-visit-modal-close-button"))
+                                                                                        )
+                                                                                        self.scroll_to_element(close_modal_button)
+                                                                                        time.sleep(0.2)
+                                                                                        close_modal_button.click()
+                                                                                        time.sleep(0.5)  # Wait for modal to close
+                                                                                        print("  ✓ Closed customer visit history modal")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error closing modal: {e}")
+                                                                                    
+                                                                                    # Navigate to Reviews tab
+                                                                                    print("\nNavigating to Reviews tab...")
+                                                                                    try:
+                                                                                        reviews_tab = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "stylist-tab-reviews"))
+                                                                                        )
+                                                                                        self.scroll_to_element(reviews_tab)
+                                                                                        time.sleep(0.2)
+                                                                                        reviews_tab.click()
+                                                                                        time.sleep(1.0)  # Wait for reviews to load
+                                                                                        print("  ✓ Opened Reviews tab")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error opening Reviews tab: {e}")
+                                                                                    
+                                                                                    # Click "My Reviews" sub-tab
+                                                                                    print("\nClicking 'My Reviews' sub-tab...")
+                                                                                    try:
+                                                                                        my_reviews_tab = self.wait.until(
+                                                                                            EC.element_to_be_clickable((By.ID, "reviews-subtab-my"))
+                                                                                        )
+                                                                                        self.scroll_to_element(my_reviews_tab)
+                                                                                        time.sleep(0.2)
+                                                                                        my_reviews_tab.click()
+                                                                                        time.sleep(1.5)  # Wait for My Reviews to load
+                                                                                        print("  ✓ Clicked 'My Reviews' sub-tab")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error clicking 'My Reviews' sub-tab: {e}")
+                                                                                    
+                                                                                    # Find a review without a reply and reply to it
+                                                                                    print("\nLooking for a review without a reply...")
+                                                                                    try:
+                                                                                        # Wait for reviews to be visible
+                                                                                        time.sleep(1.0)
+                                                                                        
+                                                                                        # Find all Reply buttons (reviews without replies)
+                                                                                        reply_buttons = self.driver.find_elements(By.XPATH, "//button[starts-with(@id, 'staff-reply-button-')]")
+                                                                                        
+                                                                                        if reply_buttons:
+                                                                                            # Get the first reply button
+                                                                                            reply_button = reply_buttons[0]
+                                                                                            reply_button_id = reply_button.get_attribute("id")
+                                                                                            # Extract review_id from ID (format: staff-reply-button-{review_id})
+                                                                                            review_id = reply_button_id.replace("staff-reply-button-", "")
+                                                                                            print(f"  ✓ Found a review without a reply (review_id: {review_id})")
+                                                                                            
+                                                                                            # Click Reply button
+                                                                                            print("\nClicking Reply button...")
+                                                                                            self.scroll_to_element(reply_button)
+                                                                                            time.sleep(0.2)
+                                                                                            reply_button.click()
+                                                                                            time.sleep(0.5)
+                                                                                            print("  ✓ Clicked Reply button")
+                                                                                            
+                                                                                            # Find the reply textarea using ID
+                                                                                            print("\nFilling reply textarea...")
+                                                                                            reply_textarea = self.wait.until(
+                                                                                                EC.presence_of_element_located((By.ID, f"staff-reply-textarea-{review_id}"))
+                                                                                            )
+                                                                                            self.scroll_to_element(reply_textarea)
+                                                                                            time.sleep(0.2)
+                                                                                            reply_textarea.click()
+                                                                                            time.sleep(0.1)
+                                                                                            reply_textarea.clear()
+                                                                                            reply_text = "Thank you for your feedback! I'm glad you enjoyed the service."
+                                                                                            reply_textarea.send_keys(reply_text)
+                                                                                            time.sleep(0.3)
+                                                                                            print(f"  ✓ Filled reply textarea with: {reply_text}")
+                                                                                            
+                                                                                            # Click Send Reply button using ID
+                                                                                            print("\nClicking Send Reply button...")
+                                                                                            send_reply_button = self.wait.until(
+                                                                                                EC.element_to_be_clickable((By.ID, f"staff-send-reply-button-{review_id}"))
+                                                                                            )
+                                                                                            self.scroll_to_element(send_reply_button)
+                                                                                            time.sleep(0.2)
+                                                                                            send_reply_button.click()
+                                                                                            time.sleep(2.0)  # Wait for reply to be saved
+                                                                                            print("  ✓ Clicked Send Reply button")
+                                                                                            
+                                                                                            # Wait for toast notifications to disappear
+                                                                                            time.sleep(1.0)
+                                                                                            
+                                                                                            # Now find the Edit button for the reply we just created
+                                                                                            print("\nLooking for the Edit button for the reply we just created...")
+                                                                                            time.sleep(1.0)
+                                                                                            
+                                                                                            # Find all Edit buttons (reviews with replies)
+                                                                                            edit_buttons = self.driver.find_elements(By.XPATH, "//button[starts-with(@id, 'staff-edit-reply-button-')]")
+                                                                                            
+                                                                                            if edit_buttons:
+                                                                                                # Get the first edit button (should be the one we just created)
+                                                                                                edit_button = edit_buttons[0]
+                                                                                                edit_button_id = edit_button.get_attribute("id")
+                                                                                                # Extract reply_id from ID (format: staff-edit-reply-button-{reply_id})
+                                                                                                reply_id = edit_button_id.replace("staff-edit-reply-button-", "")
+                                                                                                print(f"  ✓ Found Edit button for reply (reply_id: {reply_id})")
+                                                                                                
+                                                                                                # Click Edit button
+                                                                                                print("\nClicking Edit button...")
+                                                                                                self.scroll_to_element(edit_button)
+                                                                                                time.sleep(0.2)
+                                                                                                edit_button.click()
+                                                                                                time.sleep(0.5)
+                                                                                                print("  ✓ Clicked Edit button")
+                                                                                                
+                                                                                                # Find the edit textarea using ID
+                                                                                                print("\nUpdating reply text...")
+                                                                                                edit_textarea = self.wait.until(
+                                                                                                    EC.presence_of_element_located((By.ID, f"staff-edit-reply-textarea-{reply_id}"))
+                                                                                                )
+                                                                                                self.scroll_to_element(edit_textarea)
+                                                                                                time.sleep(0.2)
+                                                                                                edit_textarea.click()
+                                                                                                time.sleep(0.1)
+                                                                                                edit_textarea.clear()
+                                                                                                updated_reply_text = "Thank you so much for your kind words! I really appreciate your feedback and look forward to serving you again."
+                                                                                                edit_textarea.send_keys(updated_reply_text)
+                                                                                                time.sleep(0.3)
+                                                                                                print(f"  ✓ Updated reply text to: {updated_reply_text}")
+                                                                                                
+                                                                                                # Click Update Reply button using ID
+                                                                                                print("\nClicking Update Reply button...")
+                                                                                                update_reply_button = self.wait.until(
+                                                                                                    EC.element_to_be_clickable((By.ID, f"staff-update-reply-button-{reply_id}"))
+                                                                                                )
+                                                                                                self.scroll_to_element(update_reply_button)
+                                                                                                time.sleep(0.2)
+                                                                                                update_reply_button.click()
+                                                                                                time.sleep(2.0)  # Wait for reply to be updated
+                                                                                                print("  ✓ Clicked Update Reply button")
+                                                                                                
+                                                                                                # Wait for toast notifications to disappear
+                                                                                                time.sleep(1.0)
+                                                                                                
+                                                                                                print("\n" + "="*70)
+                                                                                                print("MY REVIEWS REPLY AND EDIT FLOW COMPLETED")
+                                                                                                print("="*70)
+                                                                                            else:
+                                                                                                print("  ⚠ Could not find Edit button for the reply")
+                                                                                        else:
+                                                                                            print("  ⚠ No reviews without replies found, or all reviews already have replies")
+                                                                                    except Exception as e:
+                                                                                        print(f"  ⚠ Error in My Reviews reply/edit flow: {e}")
+                                                                                        import traceback
+                                                                                        traceback.print_exc()
+                                                                                    
+                                                                                except Exception as e:
+                                                                                    print(f"  ⚠ Error clicking View History: {e}")
+                                                                                    import traceback
+                                                                                    traceback.print_exc()
+                                                                            except Exception as e:
+                                                                                print(f"  ⚠ Error navigating to Browse Salons: {e}")
+                                                                        except Exception as e:
+                                                                            print(f"  ⚠ Error filling card details: {e}")
+                                                                            import traceback
+                                                                            traceback.print_exc()
+                                                                    except Exception as e:
+                                                                        print(f"  ⚠ Error clicking Enter Card Details: {e}")
+                                                                except Exception as e:
+                                                                    print(f"  ⚠ Error navigating to Settings: {e}")
+                                                            except Exception as e:
+                                                                print(f"  ⚠ Error clicking Complete Order: {e}")
+                                                        except Exception as e:
+                                                            print(f"  ⚠ Error clicking Proceed to Checkout: {e}")
+                                                    except Exception as e:
+                                                        print(f"  ⚠ Error clicking View Cart: {e}")
+                                                except Exception as e:
+                                                    print(f"  ⚠ Error clicking View Products: {e}")
+                                            else:
+                                                print("  ⚠ No View Details buttons found")
+                                        except Exception as e:
+                                            print(f"  ⚠ Error finding salon: {e}")
+                                            import traceback
+                                            traceback.print_exc()
+                                        
+                                        print("\n" + "="*70)
+                                        print("PRODUCT PURCHASE FLOW COMPLETED")
+                                        print("="*70)
+                                        
+                                    except Exception as e:
+                                        print(f"  ⚠ Error in product purchase flow: {e}")
+                                        import traceback
+                                        traceback.print_exc()
                                     
                                 except Exception as e:
                                     print(f"  ⚠ Error in private note flow: {e}")

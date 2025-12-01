@@ -176,6 +176,7 @@ export default function ProductsPage() {
             <p className="text-muted-foreground">Browse and add products to your cart</p>
           </div>
           <Button
+            id="view-cart-button"
             onClick={() => navigate(`/cart/${salonId}`)}
             className="flex items-center space-x-2"
             disabled={cartItemCount === 0}
@@ -249,6 +250,7 @@ export default function ProductsPage() {
                     <div className="flex items-center space-x-2">
                       <div className="flex items-center border rounded-lg">
                         <Button
+                          id={`quantity-minus-button-${product.product_id}`}
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -274,6 +276,7 @@ export default function ProductsPage() {
                           className="w-16 text-center border-0 h-8 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                         />
                         <Button
+                          id={`quantity-plus-button-${product.product_id}`}
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -286,6 +289,7 @@ export default function ProductsPage() {
                       </div>
                       
                       <Button
+                        id={`add-to-cart-button-${product.product_id}`}
                         onClick={() => handleAddToCart(product.product_id, quantities[product.product_id] || 1)}
                         className="flex-1"
                         disabled={!product.stock_qty || product.stock_qty === 0}

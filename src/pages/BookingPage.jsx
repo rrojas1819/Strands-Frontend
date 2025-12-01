@@ -827,6 +827,7 @@ export default function BookingPage() {
                   {/* Toggle between predefined slots and custom time */}
                   <div className="flex items-center space-x-2 pb-2 border-b">
                     <Button
+                      id="predefined-slots-button"
                       variant={!useCustomTime ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => {
@@ -839,6 +840,7 @@ export default function BookingPage() {
                       Predefined Slots
                     </Button>
                     <Button
+                      id="custom-time-button"
                       variant={useCustomTime ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => {

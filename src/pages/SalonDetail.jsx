@@ -49,8 +49,6 @@ export default function SalonDetail() {
         const token = localStorage.getItem('auth_token');
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
         
-        // Fetch only the specific salon - much faster!
-        // Also fetch loyalty and reviews data in parallel
         // Ensure salonId is a number for consistency
         const salonIdNum = parseInt(salonId, 10);
         if (isNaN(salonIdNum)) {
@@ -58,11 +56,52 @@ export default function SalonDetail() {
         }
         
         // Backend's browseSalons doesn't filter by salon_id, so we need to fetch and filter client-side
-        // Fetch a reasonable number of salons and find the matching one
-        const fetchPromises = [
-          fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=1000&offset=0`, {
+        // Backend caps limit at 100, so we need to paginate through all salons to find the target
+        const backendLimit = 100; // Backend's max limit
+        let offset = 0;
+        let hasMore = true;
+        let foundSalon = null;
+        
+        // Paginate through all salons until we find the target salon
+        while (hasMore && !foundSalon) {
+          const response = await fetch(
+            `${apiUrl}/salons/browse?status=APPROVED&limit=${backendLimit}&offset=${offset}`,
+            {
             headers: { 'Authorization': `Bearer ${token}` },
-          }),
+            }
+          );
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch salon details');
+          }
+          
+          const salonData = await response.json();
+          const batchSalons = salonData.data || [];
+          
+          // Find the salon with matching salon_id in this batch
+          foundSalon = batchSalons.find(s => s.salon_id === salonIdNum);
+          
+          if (foundSalon) {
+            // Found the salon, stop paginating
+            break;
+          }
+          
+          // Check if there are more salons to fetch
+          if (salonData.meta?.hasMore === false || batchSalons.length < backendLimit) {
+            hasMore = false;
+          } else {
+            offset += backendLimit; // Use backend's actual limit for offset increment
+          }
+        }
+        
+        if (!foundSalon) {
+          throw new Error(`Salon with ID ${salonIdNum} not found`);
+        }
+        
+        setSalon(foundSalon);
+        
+        // Fetch loyalty and reviews data in parallel (now that we have the salon)
+        const fetchPromises = [
           fetch(`${apiUrl}/user/loyalty/view?salon_id=${salonIdNum}`, {
             headers: { 'Authorization': `Bearer ${token}` },
           }),
@@ -81,24 +120,9 @@ export default function SalonDetail() {
         }
 
         const responses = await Promise.allSettled(fetchPromises);
-        const salonResponse = responses[0];
-        const loyaltyResponse = responses[1];
-        const reviewsResponse = responses[2];
-        const myReviewResponse = user?.role === 'CUSTOMER' ? responses[3] : null;
-
-        // Handle salon data
-        if (salonResponse.status === 'fulfilled' && salonResponse.value.ok) {
-          const salonData = await salonResponse.value.json();
-          const allSalons = salonData.data || [];
-          
-          // Find the salon with matching salon_id
-          const foundSalon = allSalons.find(s => s.salon_id === salonIdNum);
-          
-          if (!foundSalon) {
-            throw new Error(`Salon with ID ${salonIdNum} not found`);
-          }
-          
-          setSalon(foundSalon);
+        const loyaltyResponse = responses[0];
+        const reviewsResponse = responses[1];
+        const myReviewResponse = user?.role === 'CUSTOMER' ? responses[2] : null;
           
           // Use photo_url from backend response if available (instant, no extra API call)
           if (foundSalon.photo_url) {
@@ -126,9 +150,6 @@ export default function SalonDetail() {
                 // Silently fail - photo is optional, set null to prevent retries
                 setSalonPhotoUrl(null);
               });
-          }
-        } else {
-          throw new Error('Failed to fetch salon details');
         }
 
         // Handle loyalty data (optional)
@@ -775,6 +796,7 @@ export default function SalonDetail() {
                                   />
                                 </div>
                                 <button
+                                  id={`salon-review-star-${star}-half`}
                                   type="button"
                                   className="absolute focus:outline-none z-20 bg-transparent border-0 cursor-pointer"
                                   style={{ 
@@ -798,6 +820,7 @@ export default function SalonDetail() {
                                   aria-label={`${star - 0.5} stars`}
                                 />
                                 <button
+                                  id={`salon-review-star-${star}-full`}
                                   type="button"
                                   className="absolute focus:outline-none z-20 bg-transparent border-0 cursor-pointer"
                                   style={{ 
@@ -828,6 +851,7 @@ export default function SalonDetail() {
                       <div>
                         <label className="text-sm font-medium mb-2 block">Comment (optional)</label>
                         <Textarea
+                          id="salon-review-comment-textarea"
                           value={reviewMessage}
                           onChange={(e) => setReviewMessage(e.target.value)}
                           placeholder="Share your experience..."
@@ -836,6 +860,7 @@ export default function SalonDetail() {
                       </div>
                       <div className="flex space-x-2">
                         <Button
+                          id={myReview ? "salon-update-review-button" : "salon-submit-review-button"}
                           className="flex-1 bg-primary hover:bg-primary/90"
                           onClick={() => {
                             if (!reviewRating || reviewRating <= 0) {
@@ -956,6 +981,7 @@ export default function SalonDetail() {
                     </div>
                   ) : (
                     <Button 
+                      id="salon-write-review-button"
                       variant="outline" 
                       className="w-full"
                       onClick={() => setShowReviewForm(true)}
@@ -997,6 +1023,7 @@ export default function SalonDetail() {
         title={confirmModalConfig.title || 'Confirm'}
         message={confirmModalConfig.message || ''}
         confirmText="Confirm"
+        confirmButtonId="salon-review-confirm-button"
         cancelText="Cancel"
         type={confirmModalConfig.type || 'info'}
       />

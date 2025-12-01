@@ -1332,6 +1332,7 @@ export default function ProductCheckoutPage() {
                 
                 {/* Process Payment Button */}
                 <Button 
+                  id="complete-order-button"
                   type="submit" 
                   className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm disabled:opacity-50 mt-3" 
                   disabled={loading || (!selectedCardId && !enteringNewCard) || !billingAddress || cartItems.length === 0}

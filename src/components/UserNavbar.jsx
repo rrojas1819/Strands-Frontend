@@ -83,7 +83,7 @@ export default function UserNavbar({ activeTab, title, subtitle }) {
                   {user?.full_name || user?.name || 'User'}
                 </span>
               </div>
-              <Button variant="outline" onClick={handleLogout} className="hidden sm:flex items-center space-x-2 text-xs sm:text-sm px-2 sm:px-4">
+              <Button id="customer-logout-button" variant="outline" onClick={handleLogout} className="hidden sm:flex items-center space-x-2 text-xs sm:text-sm px-2 sm:px-4">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden lg:inline">Logout</span>
               </Button>

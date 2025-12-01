@@ -618,6 +618,7 @@ export default function SalonVerification() {
                 
                 <div className="flex items-center gap-2">
                   <Button
+                    id="pagination-previous-button"
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(currentPage - 1)}
@@ -653,6 +654,7 @@ export default function SalonVerification() {
                   </form>
                   
                   <Button
+                    id="pagination-next-button"
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(currentPage + 1)}
