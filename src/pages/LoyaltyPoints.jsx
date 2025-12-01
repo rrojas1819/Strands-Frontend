@@ -348,6 +348,7 @@ export default function LoyaltyPoints() {
         // Process results as they come in (progressive loading)
         const salonProgress = [];
         let totalVisits = 0;
+        let totalVisitsForUser = 0;
         let goldenSalons = 0;
         const recentActivity = [];
         
@@ -370,7 +371,6 @@ export default function LoyaltyPoints() {
                 const loyaltyData = await response.json();
               const userData = loyaltyData.userData;
               const userRewards = loyaltyData.userRewards || [];
-                
                 // Get available rewards count for this salon from the allAvailableRewards array
                 const availableCount = allAvailableRewards.filter(r => {
                   const salonId = r.salon_id || salonNameToId[r.salon_name];
@@ -383,7 +383,8 @@ export default function LoyaltyPoints() {
                 const discountPercentage = userData.discount_percentage || 10;
                 const salonName = userData.salon_name || salon.name;
                 
-                totalVisits += visits;
+                totalVisitsForUser += userData.total_visits_count || 0;
+
                 if (visits >= 5) goldenSalons++;
                 
                 const salonProgressItem = {
@@ -494,6 +495,8 @@ export default function LoyaltyPoints() {
           .sort((a, b) => b.sortOrder - a.sortOrder)
           .slice(0, 4)
           .map(({ activity }) => activity);
+
+        totalVisits = totalVisitsForUser;
 
         const finalData = {
           salonProgress: salonProgress,
