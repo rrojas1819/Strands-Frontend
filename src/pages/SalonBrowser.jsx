@@ -775,7 +775,7 @@ export default function SalonBrowser() {
                         if (user) {
                           trackSalonView(salon.salon_id, user.user_id);
                         }
-                        navigate(`/salon/${salon.salon_id}/book`);
+                        navigate(`/salon/${salon.salon_id}/book`, { state: { salonName: salon.name } });
                       }}
                     >
                       Book Now

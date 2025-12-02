@@ -579,7 +579,7 @@ export default function BookingPage() {
       <UserNavbar 
         activeTab="booking" 
         title="Book Appointment" 
-        subtitle={salon?.name || 'Select salon services and time'} 
+        subtitle={location.state?.salonName || salon?.name || salon?.salon_name || 'Select salon services and time'} 
       />
 
       {/* Main Content */}
