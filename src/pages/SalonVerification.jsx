@@ -70,9 +70,9 @@ export default function SalonVerification() {
               const fallbackResponse = await fetch(
                 `${import.meta.env.VITE_API_URL}/salons/browse?status=all&sort=${sortBy}`,
                 {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                  },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
                 }
               );
               if (!fallbackResponse.ok) {
@@ -84,10 +84,10 @@ export default function SalonVerification() {
               hasMore = false;
             } else {
               const errorData = await response.json().catch(() => ({}));
-              throw new Error(errorData.message || 'Failed to fetch salons');
-            }
+          throw new Error(errorData.message || 'Failed to fetch salons');
+        }
           } else {
-            const data = await response.json();
+        const data = await response.json();
             const batchSalons = data.data || [];
             allSalons = [...allSalons, ...batchSalons];
             
@@ -278,9 +278,9 @@ export default function SalonVerification() {
   // Memoize filtered salons (client-side filtering only, sorting is done by backend)
   const filteredSalons = useMemo(() => {
     let filtered = salons.filter(salon => {
-      if (filter === 'all') return true;
-      return salon.status === filter;
-    });
+    if (filter === 'all') return true;
+    return salon.status === filter;
+  });
 
     // Backend handles sorting, so we just return filtered results
     return filtered;
@@ -538,13 +538,13 @@ export default function SalonVerification() {
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg break-words">{salon.name}</CardTitle>
                       <CardDescription className="mt-1 whitespace-nowrap">
-                        <Building className="w-4 h-4 inline mr-1" />
-                        {salon.category.replace('_', ' ')}
-                      </CardDescription>
+                      <Building className="w-4 h-4 inline mr-1" />
+                      {salon.category.replace('_', ' ')}
+                    </CardDescription>
                     </div>
                   </div>
                   <div className="flex-shrink-0">
-                    {getStatusBadge(salon.status)}
+                  {getStatusBadge(salon.status)}
                   </div>
                 </div>
               </CardHeader>

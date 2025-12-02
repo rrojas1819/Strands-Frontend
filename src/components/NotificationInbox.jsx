@@ -654,88 +654,88 @@ export default function NotificationInbox({ isOpen, onClose }) {
                       {getNotificationIcon(notification.type_code)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <p className="font-semibold text-foreground">
-                              {notification.sender_email || 'System'}
-                            </p>
-                            {getNotificationBadge(notification.status)}
-                            {markingRead === notification.notification_id && (
-                              <span className="text-xs text-muted-foreground">Marking as read...</span>
-                            )}
-                            {deletingId === notification.notification_id && (
-                              <span className="text-xs text-muted-foreground">Deleting...</span>
-                            )}
-                          </div>
-                          <div className="text-xs sm:text-sm text-foreground mb-2 whitespace-pre-line break-words overflow-wrap-anywhere leading-relaxed">
-                            {decryptedMessages[notification.notification_id] || notification.message}
-                          </div>
-                          {/* Promo Code Copy Section - Only show if not already redeemed */}
-                          {(() => {
-                            // Don't show copy section for redeemed promo codes
-                            if (notification.type_code === 'PROMO_REDEEMED') {
-                              return null;
-                            }
-                            
-                            // Extract all promo codes from message
-                            const messagePromoCodes = extractPromoCodes(notification.message);
-                            // Also check if notification has a promo_code field
-                            const notificationPromoCode = notification.promo_code ? [notification.promo_code.toUpperCase()] : [];
-                            // Combine and get unique codes
-                            const allPromoCodes = [...new Set([...messagePromoCodes, ...notificationPromoCode])];
-                            
-                            if (allPromoCodes.length > 0) {
-                              return (
-                                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
-                                  <p className="text-xs font-medium text-blue-900 mb-2">
-                                    {allPromoCodes.length === 1 ? 'Promo Code:' : 'Promo Codes:'}
-                                  </p>
-                                  {allPromoCodes.map((promoCode, index) => (
-                                    <div key={index} className="flex items-center gap-2">
-                                      <Input
-                                        value={promoCode}
-                                        readOnly
-                                        className="font-mono font-bold text-lg bg-white border-0 text-blue-900 cursor-pointer flex-1"
-                                        onClick={(e) => e.target.select()}
-                                      />
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleCopyPromoCode(promoCode)}
-                                        className="flex items-center gap-1"
-                                      >
-                                        {copiedPromoCode === promoCode ? (
-                                          <>
-                                            <Check className="w-4 h-4 text-green-600" />
-                                            <span className="text-green-600">Copied!</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Copy className="w-4 h-4" />
-                                            <span>Copy</span>
-                                          </>
-                                        )}
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-xs text-muted-foreground">
-                            {notification.sent && (
-                              <span>Sent: {formatNotificationDateTime(notification.sent)}</span>
-                            )}
-                            {(notification.read_at || notification.read_at_formatted) && (
-                              <span>
-                                Read: {formatNotificationDateTime(notification.read_at || notification.read_at_formatted)}
-                              </span>
-                            )}
-                          </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <p className="font-semibold text-foreground">
+                            {notification.sender_email || 'System'}
+                          </p>
+                          {getNotificationBadge(notification.status)}
+                          {markingRead === notification.notification_id && (
+                            <span className="text-xs text-muted-foreground">Marking as read...</span>
+                          )}
+                          {deletingId === notification.notification_id && (
+                            <span className="text-xs text-muted-foreground">Deleting...</span>
+                          )}
                         </div>
-                        <div className="flex items-center space-x-1 sm:space-x-2 ml-2 flex-shrink-0">
+                        <div className="text-xs sm:text-sm text-foreground mb-2 whitespace-pre-line break-words overflow-wrap-anywhere leading-relaxed">
+                          {decryptedMessages[notification.notification_id] || notification.message}
+                        </div>
+                        {/* Promo Code Copy Section - Only show if not already redeemed */}
+                        {(() => {
+                          // Don't show copy section for redeemed promo codes
+                          if (notification.type_code === 'PROMO_REDEEMED') {
+                            return null;
+                          }
+                          
+                          // Extract all promo codes from message
+                          const messagePromoCodes = extractPromoCodes(notification.message);
+                          // Also check if notification has a promo_code field
+                          const notificationPromoCode = notification.promo_code ? [notification.promo_code.toUpperCase()] : [];
+                          // Combine and get unique codes
+                          const allPromoCodes = [...new Set([...messagePromoCodes, ...notificationPromoCode])];
+                          
+                          if (allPromoCodes.length > 0) {
+                            return (
+                              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                                <p className="text-xs font-medium text-blue-900 mb-2">
+                                  {allPromoCodes.length === 1 ? 'Promo Code:' : 'Promo Codes:'}
+                                </p>
+                                {allPromoCodes.map((promoCode, index) => (
+                                  <div key={index} className="flex items-center gap-2">
+                                    <Input
+                                      value={promoCode}
+                                      readOnly
+                                      className="font-mono font-bold text-lg bg-white border-0 text-blue-900 cursor-pointer flex-1"
+                                      onClick={(e) => e.target.select()}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleCopyPromoCode(promoCode)}
+                                      className="flex items-center gap-1"
+                                    >
+                                      {copiedPromoCode === promoCode ? (
+                                        <>
+                                          <Check className="w-4 h-4 text-green-600" />
+                                          <span className="text-green-600">Copied!</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="w-4 h-4" />
+                                          <span>Copy</span>
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-xs text-muted-foreground">
+                          {notification.sent && (
+                            <span><span className="font-semibold">Sent:</span> {formatNotificationDateTime(notification.sent)}</span>
+                          )}
+                          {(notification.read_at || notification.read_at_formatted) && (
+                            <span>
+                              <span className="font-semibold">Read:</span> {formatNotificationDateTime(notification.read_at || notification.read_at_formatted)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2 sm:space-x-2">
                           {notification.status === 'UNREAD' && (
                             <Button
                               variant="ghost"
@@ -745,9 +745,10 @@ export default function NotificationInbox({ isOpen, onClose }) {
                                 markAsRead(notification.notification_id);
                               }}
                               disabled={markingRead === notification.notification_id || deletingId === notification.notification_id}
-                              className="flex items-center space-x-1 px-2 sm:px-3"
+                              className="flex items-center justify-center space-x-1 h-9 w-9 sm:h-auto sm:w-auto sm:px-3 p-0 sm:p-0 rounded-full sm:rounded-md hover:bg-gray-100 sm:hover:bg-transparent"
+                              title="Mark as read"
                             >
-                              <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              <Eye className="w-5 h-5 sm:w-4 sm:h-4" />
                               <span className="hidden sm:inline text-xs sm:text-sm">Read</span>
                             </Button>
                           )}
@@ -759,9 +760,10 @@ export default function NotificationInbox({ isOpen, onClose }) {
                               handleDeleteClick(notification.notification_id);
                             }}
                             disabled={markingRead === notification.notification_id || deletingId === notification.notification_id}
-                            className="flex items-center space-x-1 text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50 px-2 sm:px-3"
+                            className="flex items-center justify-center space-x-1 h-9 w-9 sm:h-auto sm:w-auto sm:px-3 p-0 sm:p-0 rounded-full sm:rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            title="Delete notification"
                           >
-                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <Trash2 className="w-5 h-5 sm:w-4 sm:h-4" />
                             <span className="hidden sm:inline text-xs sm:text-sm">{deletingId === notification.notification_id ? 'Deleting...' : 'Delete'}</span>
                           </Button>
                         </div>

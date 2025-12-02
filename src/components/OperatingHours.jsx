@@ -139,56 +139,56 @@ const OperatingHours = ({ onSuccess, onError }) => {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="bg-background border rounded-lg p-6">
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
-            <Clock className="w-5 h-5" />
+    <div className="space-y-4 sm:space-y-8">
+      <div className="bg-background border rounded-lg p-4 sm:p-6">
+        <div className="mb-4 sm:mb-6">
+          <h3 className="text-lg sm:text-xl font-semibold mb-2 flex items-center gap-2">
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
             Operating Hours
           </h3>
-          <p className="text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Set your salon's operating hours for each day of the week. These hours will be used to determine when customers can book appointments.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {isLoadingData ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {WEEKDAYS.map(day => {
                 const dayHours = weeklyHours[day.value] || { is_open: false, start_time: '', end_time: '' };
                 return (
-                  <div key={day.value} className="flex items-center gap-4 p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-3 w-32">
-                      <span className="font-medium">{day.label}</span>
+                  <div key={day.value} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3 w-full sm:w-32 flex-shrink-0">
+                      <span className="font-medium text-sm sm:text-base">{day.label}</span>
                     </div>
 
                     {dayHours.is_open && (
                       <>
-                        <div className="flex items-center gap-2 flex-1">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
                           <input
                             type="time"
                             value={dayHours.start_time || ''}
                             onChange={(e) => handleDayChange(day.value, 'start_time', e.target.value)}
-                            className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-2 sm:px-3 py-1.5 sm:py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base flex-1 min-w-0"
                             required={dayHours.is_open}
                           />
-                          <span className="text-muted-foreground">to</span>
+                          <span className="text-muted-foreground text-xs sm:text-sm flex-shrink-0">to</span>
                           <input
                             type="time"
                             value={dayHours.end_time || ''}
                             onChange={(e) => handleDayChange(day.value, 'end_time', e.target.value)}
-                            className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-2 sm:px-3 py-1.5 sm:py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base flex-1 min-w-0"
                             required={dayHours.is_open}
                           />
                         </div>
                         <button
                           type="button"
                           onClick={() => toggleDay(day.value)}
-                          className="px-4 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors font-medium"
+                          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors font-medium text-xs sm:text-sm w-full sm:w-auto"
                         >
                           Open
                         </button>
@@ -197,11 +197,11 @@ const OperatingHours = ({ onSuccess, onError }) => {
 
                     {!dayHours.is_open && (
                       <>
-                        <div className="flex-1"></div>
+                        <div className="flex-1 hidden sm:block"></div>
                         <button
                           type="button"
                           onClick={() => toggleDay(day.value)}
-                          className="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors font-medium"
+                          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors font-medium text-xs sm:text-sm w-full sm:w-auto"
                         >
                           Closed
                         </button>
@@ -214,7 +214,7 @@ const OperatingHours = ({ onSuccess, onError }) => {
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-md text-xs sm:text-sm">
               {error}
             </div>
           )}
@@ -223,7 +223,7 @@ const OperatingHours = ({ onSuccess, onError }) => {
             <Button 
               type="submit" 
               disabled={isLoading || isLoadingData}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm w-full sm:w-auto"
             >
               {isLoading ? 'Saving...' : 'Save Operating Hours'}
             </Button>
