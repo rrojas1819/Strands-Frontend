@@ -14,9 +14,9 @@ import { Button } from '../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
-import {
+import { 
   Building2,
-  Users,
+  Users, 
   ShoppingBag,
   Gift,
   History,
@@ -114,7 +114,7 @@ export default function SalonOwnerDashboard() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [salonInfo, setSalonInfo] = useState(null);
   const [salonInfoLoading, setSalonInfoLoading] = useState(false);
-
+  
   // UPH-1.2: Customer visit history state
   const [customers, setCustomers] = useState([]);
   const [customersLoading, setCustomersLoading] = useState(false);
@@ -146,7 +146,7 @@ export default function SalonOwnerDashboard() {
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [showStylistBreakdownModal, setShowStylistBreakdownModal] = useState(false);
   const [selectedStylist, setSelectedStylist] = useState(null);
-
+  
   // Salon photo state
   const [salonPhotoUrl, setSalonPhotoUrl] = useState(null);
   const [salonPhotoLoading, setSalonPhotoLoading] = useState(false);
@@ -160,7 +160,7 @@ export default function SalonOwnerDashboard() {
     // Determine active tab from route path
     const path = location.pathname;
     let tabFromRoute = 'overview';
-
+    
     if (path === '/owner/overview' || path === '/dashboard') {
       tabFromRoute = 'overview';
     } else if (path === '/owner/staff') {
@@ -178,9 +178,9 @@ export default function SalonOwnerDashboard() {
     } else if (path === '/owner/settings') {
       tabFromRoute = 'settings';
     }
-
+    
     setActiveTab(tabFromRoute);
-
+    
     // Restore reviews sub-tab from localStorage when navigating to reviews tab
     if (tabFromRoute === 'reviews') {
       const saved = localStorage.getItem('reviewsSubTab');
@@ -188,7 +188,7 @@ export default function SalonOwnerDashboard() {
         setReviewsSubTab(saved);
       }
     }
-
+    
     // Restore loyalty sub-tab from localStorage when navigating to loyalty tab
     if (tabFromRoute === 'loyalty') {
       const saved = localStorage.getItem('loyaltySubTab');
@@ -278,14 +278,14 @@ export default function SalonOwnerDashboard() {
 
   const fetchEmployees = async (page = 1) => {
     setEmployeesLoading(true);
-
+    
     try {
       const token = localStorage.getItem('auth_token');
       const userData = JSON.parse(localStorage.getItem('user_data'));
-
+      
       const limit = 10;
       const offset = (page - 1) * limit;
-
+      
       const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/viewEmployees`, {
         method: 'POST',
         headers: {
@@ -298,9 +298,9 @@ export default function SalonOwnerDashboard() {
           offset: offset
         })
       });
-
+      
       const data = await response.json();
-
+      
       if (response.ok) {
         setEmployees(data.data);
         setPagination(data.pagination);
@@ -329,10 +329,10 @@ export default function SalonOwnerDashboard() {
 
   const fetchSalonInfo = async () => {
     setSalonInfoLoading(true);
-
+    
     try {
       const token = localStorage.getItem('auth_token');
-
+      
       const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/information`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -340,7 +340,7 @@ export default function SalonOwnerDashboard() {
       });
 
       const data = await response.json();
-
+      
       if (response.ok) {
         setSalonInfo(data.data);
         // Check if photo_url is in the response
@@ -362,14 +362,14 @@ export default function SalonOwnerDashboard() {
     try {
       setSalonPhotoLoading(true);
       const token = localStorage.getItem('auth_token');
-
+      
       // Get salon_id from salonInfo if available, otherwise try user_data
       let salonId = salonInfo?.salon_id;
       if (!salonId) {
         const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
         salonId = userData?.salon_id;
       }
-
+      
       if (!salonId) {
         console.log('No salon_id found. Waiting for salonInfo to load...');
         setSalonPhotoLoading(false);
@@ -377,7 +377,7 @@ export default function SalonOwnerDashboard() {
       }
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
+      
       // Try the browse endpoint first (which now includes photo_url)
       try {
         const browseResponse = await fetch(`${apiUrl}/salons/browse?status=APPROVED`, {
@@ -385,7 +385,7 @@ export default function SalonOwnerDashboard() {
             'Authorization': `Bearer ${token}`
           }
         });
-
+        
         if (browseResponse.ok) {
           const browseData = await browseResponse.json();
           const salons = browseData.data || [];
@@ -400,7 +400,7 @@ export default function SalonOwnerDashboard() {
       } catch (browseError) {
         console.log('Browse endpoint failed, trying direct photo endpoint:', browseError);
       }
-
+      
       // Fallback to direct photo endpoint
       const response = await fetch(`${apiUrl}/file/get-salon-photo?salon_id=${salonId}`, {
         headers: {
@@ -443,14 +443,14 @@ export default function SalonOwnerDashboard() {
     try {
       setSalonPhotoUploading(true);
       const token = localStorage.getItem('auth_token');
-
+      
       // Get salon_id from salonInfo if available, otherwise try user_data
       let salonId = salonInfo?.salon_id;
       if (!salonId) {
         const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
         salonId = userData?.salon_id;
       }
-
+      
       if (!salonId) {
         toast.error('Salon ID not found. Please refresh the page.');
         setSalonPhotoUploading(false);
@@ -458,7 +458,7 @@ export default function SalonOwnerDashboard() {
       }
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
+      
       // If a photo already exists, delete it first (no update endpoint)
       if (salonPhotoUrl) {
         try {
@@ -471,7 +471,7 @@ export default function SalonOwnerDashboard() {
             },
             body: JSON.stringify({ salon_id: salonId })
           });
-
+          
           if (deleteResponse.ok) {
             console.log('Existing photo deleted successfully');
           } else {
@@ -486,7 +486,7 @@ export default function SalonOwnerDashboard() {
 
       // Now upload the new photo
       const formData = new FormData();
-
+      
       // Use original file (no compression) to allow full-size upload
       formData.append('file', salonPhotoFile);
       formData.append('salon_id', salonId.toString());
@@ -553,14 +553,14 @@ export default function SalonOwnerDashboard() {
     try {
       setSalonPhotoLoading(true);
       const token = localStorage.getItem('auth_token');
-
+      
       // Get salon_id from salonInfo if available, otherwise try user_data
       let salonId = salonInfo?.salon_id;
       if (!salonId) {
         const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
         salonId = userData?.salon_id;
       }
-
+      
       if (!salonId) {
         toast.error('Salon ID not found. Please refresh the page.');
         setSalonPhotoLoading(false);
@@ -609,11 +609,11 @@ export default function SalonOwnerDashboard() {
   const handleAddEmployee = async (e) => {
     e.preventDefault();
     setIsAddingEmployee(true);
-
+    
     try {
       const token = localStorage.getItem('auth_token');
       const userData = JSON.parse(localStorage.getItem('user_data'));
-
+      
       const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/addEmployee`, {
         method: 'POST',
         headers: {
@@ -628,7 +628,7 @@ export default function SalonOwnerDashboard() {
       });
 
       const data = await response.json();
-
+      
       if (response.ok) {
         setModalConfig({
           title: 'Success',
@@ -690,7 +690,7 @@ export default function SalonOwnerDashboard() {
     try {
       const token = localStorage.getItem('auth_token');
       const userData = JSON.parse(localStorage.getItem('user_data'));
-
+      
       const response = await fetch(`${import.meta.env.VITE_API_URL}/salons/removeEmployee`, {
         method: 'DELETE',
         headers: {
@@ -704,7 +704,7 @@ export default function SalonOwnerDashboard() {
       });
 
       const data = await response.json();
-
+      
       if (response.ok) {
         setModalConfig({
           title: 'Success',
@@ -738,14 +738,14 @@ export default function SalonOwnerDashboard() {
   };
 
   const handleLogout = () => {
-    authContext?.logout();
+          authContext?.logout();
   };
 
   // UPH-1.2: Fetch customers list
   const fetchCustomers = async () => {
     try {
       setCustomersLoading(true);
-
+      
       const token = localStorage.getItem('auth_token');
       if (!token) {
         console.error('No authentication token found');
@@ -767,16 +767,16 @@ export default function SalonOwnerDashboard() {
       );
 
       const data = await response.json();
-
+      
       if (response.ok && data.data) {
         let customersList = data.data.customers || [];
-
+        
         if (sortOrder === 'asc') {
           customersList.sort((a, b) => a.total_visits - b.total_visits);
         } else {
           customersList.sort((a, b) => b.total_visits - a.total_visits);
         }
-
+        
         setCustomers(customersList);
         setCustomerPagination({
           limit: data.data.limit || 20,
@@ -798,16 +798,16 @@ export default function SalonOwnerDashboard() {
 
   // UPH-1.2: Fetch next page of customers
   const handleCustomersPagination = async (direction) => {
-    const newOffset = direction === 'next'
+    const newOffset = direction === 'next' 
       ? customerPagination.offset + customerPagination.limit
       : Math.max(0, customerPagination.offset - customerPagination.limit);
-
+    
     if (newOffset < 0) return;
-
+    
     try {
       setCustomersLoading(true);
       const token = localStorage.getItem('auth_token');
-
+      
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/bookings/visits/customers?limit=${customerPagination.limit}&offset=${newOffset}`,
         {
@@ -820,16 +820,16 @@ export default function SalonOwnerDashboard() {
       );
 
       const data = await response.json();
-
+      
       if (response.ok && data.data) {
         let customersList = data.data.customers || [];
-
+        
         if (sortOrder === 'asc') {
           customersList.sort((a, b) => a.total_visits - b.total_visits);
         } else {
           customersList.sort((a, b) => b.total_visits - a.total_visits);
         }
-
+        
         setCustomers(customersList);
         setCustomerPagination({
           limit: data.data.limit || 20,
@@ -857,14 +857,14 @@ export default function SalonOwnerDashboard() {
   const openCustomerVisitModal = async (customer) => {
     setSelectedCustomer(customer);
     setShowCustomerVisitModal(true);
-
+    
     setVisitsPagination({
       limit: 20,
       offset: 0,
       total_records: 0,
       has_more: false
     });
-
+    
     await fetchCustomerVisitHistory(customer.user_id, 0);
   };
 
@@ -872,7 +872,7 @@ export default function SalonOwnerDashboard() {
   const fetchCustomerVisitHistory = async (customerId, offset = 0) => {
     try {
       setVisitsLoading(true);
-
+      
       const token = localStorage.getItem('auth_token');
       if (!token) {
         console.error('No authentication token found');
@@ -891,7 +891,7 @@ export default function SalonOwnerDashboard() {
       );
 
       const data = await response.json();
-
+      
       if (response.ok && data.data) {
         const visits = data.data.visits || [];
         setCustomerVisits(visits);
@@ -901,7 +901,7 @@ export default function SalonOwnerDashboard() {
           total_records: data.data.summary?.total_records || 0,
           has_more: data.data.has_more || false
         });
-
+        
         // Check for photos in all visits
         visits.forEach(visit => {
           if (visit.booking_id) {
@@ -927,7 +927,7 @@ export default function SalonOwnerDashboard() {
       if (!token) return;
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
+      
       // Check if photos exist - use new API format
       const response = await fetch(
         `${apiUrl}/file/get-photo?booking_id=${bookingId}`,
@@ -946,7 +946,7 @@ export default function SalonOwnerDashboard() {
         // Handle both new format and legacy format for safety
         let beforeUrl = null;
         let afterUrl = null;
-
+        
         if (data.before !== undefined || data.after !== undefined) {
           // New format: { before: "...", after: "..." }
           beforeUrl = (data.before && data.before.trim()) || null;
@@ -958,7 +958,7 @@ export default function SalonOwnerDashboard() {
         }
         hasPhotos = Boolean(beforeUrl || afterUrl);
       }
-
+      
       setBookingPhotos((prev) => ({
         ...prev,
         [bookingId]: { hasPhotos }
@@ -977,7 +977,7 @@ export default function SalonOwnerDashboard() {
       if (!token) return;
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
+      
       // CHECK FIRST: Don't open modal until we confirm photos exist
       const response = await fetch(`${apiUrl}/file/get-photo?booking_id=${bookingId}`, {
         method: 'GET',
@@ -996,13 +996,13 @@ export default function SalonOwnerDashboard() {
       }
 
       const data = await response.json();
-
+      
       // Backend returns { before: "...", after: "..." } format
       // Empty strings mean no photo for that type
       // Handle both new format and legacy format for safety
       let beforeUrl = null;
       let afterUrl = null;
-
+      
       if (data.before !== undefined || data.after !== undefined) {
         // New format: { before: "...", after: "..." }
         beforeUrl = (data.before && data.before.trim()) || null;
@@ -1012,13 +1012,13 @@ export default function SalonOwnerDashboard() {
         beforeUrl = data.urls[0] || null;
         afterUrl = data.urls[1] || null;
       }
-
+      
       // If both are empty/null, no photos exist
       if (!beforeUrl && !afterUrl) {
         toast.error('Stylist has not uploaded any photos for this appointment.');
         return;
       }
-
+      
       // Photos exist (at least one) - NOW open modal
 
       setPhotoModalState({
@@ -1034,10 +1034,10 @@ export default function SalonOwnerDashboard() {
 
   // UPH-1.2: Handle visit history pagination
   const handleVisitsPagination = (direction) => {
-    const newOffset = direction === 'next'
+    const newOffset = direction === 'next' 
       ? visitsPagination.offset + visitsPagination.limit
       : Math.max(0, visitsPagination.offset - visitsPagination.limit);
-
+    
     if (selectedCustomer) {
       fetchCustomerVisitHistory(selectedCustomer.user_id, newOffset);
     }
@@ -1047,7 +1047,7 @@ export default function SalonOwnerDashboard() {
     try {
       setRevenueLoading(true);
       const token = localStorage.getItem('auth_token');
-
+      
       if (!token) {
         setModalConfig({
           title: 'Error',
@@ -1068,27 +1068,44 @@ export default function SalonOwnerDashboard() {
       });
 
       const data = await response.json();
-
+      
       if (response.ok) {
+        // Set revenue data even if it's empty (for new owners without salons)
         setRevenueData(data);
       } else {
-        setModalConfig({
-          title: 'Error',
-          message: data.message || 'Failed to fetch revenue metrics',
-          type: 'error',
-          onConfirm: () => setShowModal(false)
-        });
-        setShowModal(true);
+        // If it's a 500 error and the message is "Internal Server Error", 
+        // it might be a new owner case - set empty data instead of showing error
+        if (response.status === 500 && data.message === 'Internal Server Error') {
+          // Set empty revenue data for new owners
+          setRevenueData({
+            stylists: [],
+            totalProductRevenue: 0,
+            totalSalonRevenue: 0,
+            services: [],
+            productsRevenue: []
+          });
+        } else {
+          // Only show error for other types of errors
+          setModalConfig({
+            title: 'Error',
+            message: data.message || 'Failed to fetch revenue metrics',
+            type: 'error',
+            onConfirm: () => setShowModal(false)
+          });
+          setShowModal(true);
+        }
       }
     } catch (error) {
       console.error('Fetch revenue metrics error:', error);
-      setModalConfig({
-        title: 'Error',
-        message: 'Failed to fetch revenue metrics. Please try again.',
-        type: 'error',
-        onConfirm: () => setShowModal(false)
+      // On network errors, set empty data instead of showing error modal
+      // This handles cases where the owner might not have a salon yet
+      setRevenueData({
+        stylists: [],
+        totalProductRevenue: 0,
+        totalSalonRevenue: 0,
+        services: [],
+        productsRevenue: []
       });
-      setShowModal(true);
     } finally {
       setRevenueLoading(false);
     }
@@ -1096,7 +1113,7 @@ export default function SalonOwnerDashboard() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <OwnerNavbar
+      <OwnerNavbar 
         salonStatus={salonStatus}
         handleLogout={handleLogout}
       />
@@ -1116,8 +1133,8 @@ export default function SalonOwnerDashboard() {
                   Welcome, {authContext?.user?.full_name}!
                 </h2>
                 <p className="text-muted-foreground">
-                  {hasSalon
-                    ? 'Manage your salon business and grow your customer base.'
+                  {hasSalon 
+                    ? 'Manage your salon business and grow your customer base.' 
                     : 'Register your salon to start accepting bookings and managing your business.'
                   }
                 </p>
@@ -1126,216 +1143,247 @@ export default function SalonOwnerDashboard() {
 
             {/* Only show registration form if we've confirmed there's no salon */}
             {!hasSalon && <SalonRegistrationForm />}
-
+            
             {hasSalon && salonStatus !== 'APPROVED' && (
-              <div className="max-w-2xl mx-auto">
-                <div className="bg-background border rounded-lg p-8 text-center">
-                  <div className="flex justify-center mb-6">
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-background border rounded-lg p-8 text-center">
+              <div className="flex justify-center mb-6">
                     <div className={`w-16 h-16 rounded-full flex items-center justify-center ${salonStatus === 'APPROVED' ? 'bg-green-100' :
-                        salonStatus === 'PENDING' ? 'bg-yellow-100' :
-                          'bg-red-100'
-                      }`}>
+                  salonStatus === 'PENDING' ? 'bg-yellow-100' :
+                  'bg-red-100'
+                }`}>
                       <Building2 className={`w-8 h-8 ${salonStatus === 'APPROVED' ? 'text-green-600' :
-                          salonStatus === 'PENDING' ? 'text-yellow-600' :
-                            'text-red-600'
-                        }`} />
+                    salonStatus === 'PENDING' ? 'text-yellow-600' :
+                    'text-red-600'
+                  }`} />
+            </div>
+          </div>
+              
+              <h3 className="text-2xl font-bold mb-2">
+                {salonStatus === 'APPROVED' ? 'Salon Approved' :
+                 salonStatus === 'PENDING' ? 'Pending Review' :
+                 'Registration Rejected'}
+              </h3>
+              
+              <p className="text-muted-foreground mb-6">
+                {salonStatus === 'APPROVED' ? 'Your salon is live and accepting bookings! You can now manage your business through the dashboard.' :
+                 salonStatus === 'PENDING' ? 'Your salon registration is under review. Please wait for approval before you can start accepting bookings.' :
+                 'Your salon registration was rejected. Please contact support for further inquiries.'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'overview' && hasSalon && salonStatus === 'APPROVED' && (
+          <div className="bg-background border rounded-lg p-6">
+            {salonInfo && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                    <h3 className="text-xl font-semibold mb-4">Salon Information</h3>
+                    <div className="space-y-3">
+                    <div>
+                        <p className="text-sm text-muted-foreground">Name</p>
+                        <p className="font-medium">{salonInfo.name}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground">Category</p>
+                        <p className="font-medium">{salonInfo.category}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground">Description</p>
+                        <p className="font-medium">{salonInfo.description || 'No description'}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${salonInfo.status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-200' : salonInfo.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
+                          {formatStatusLabel(salonInfo.status)}
+                        </span>
+                  </div>
                     </div>
                   </div>
 
-                  <h3 className="text-2xl font-bold mb-2">
-                    {salonStatus === 'APPROVED' ? 'Salon Approved' :
-                      salonStatus === 'PENDING' ? 'Pending Review' :
-                        'Registration Rejected'}
-                  </h3>
-
-                  <p className="text-muted-foreground mb-6">
-                    {salonStatus === 'APPROVED' ? 'Your salon is live and accepting bookings! You can now manage your business through the dashboard.' :
-                      salonStatus === 'PENDING' ? 'Your salon registration is under review. Please wait for approval before you can start accepting bookings.' :
-                        'Your salon registration was rejected. Please contact support for further inquiries.'}
-                  </p>
+                    <div>
+                    <h3 className="text-xl font-semibold mb-4">Contact Information</h3>
+                    <div className="space-y-3">
+                      {salonInfo.phone && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Phone</p>
+                          <p className="font-medium">{salonInfo.phone}</p>
+                    </div>
+                      )}
+                      {salonInfo.email && (
+                    <div>
+                          <p className="text-sm text-muted-foreground">Email</p>
+                          <p className="font-medium">{salonInfo.email}</p>
+                    </div>
+                      )}
+                    <div>
+                        <p className="text-sm text-muted-foreground">Address</p>
+                        <p className="font-medium">
+                          {salonInfo.address || 'No address'}
+                        </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+                </div>
 
-            {activeTab === 'overview' && hasSalon && salonStatus === 'APPROVED' && (
-              <div className="bg-background border rounded-lg p-6">
-                {salonInfo && (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="text-xl font-semibold mb-4">Salon Information</h3>
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Name</p>
-                            <p className="font-medium">{salonInfo.name}</p>
+                <div className="border-t pt-6">
+                  <h3 className="text-xl font-semibold mb-4">Operating Hours</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {Object.entries(salonInfo.weekly_hours || {}).map(([day, hours]) => (
+                      <div key={day} className="flex flex-col">
+                        <p className="text-sm font-medium mb-2">{getShortDayName(day)}</p>
+                        <p className={`text-sm ${hours.is_open ? 'text-muted-foreground' : 'text-red-500'}`}>
+                          {hours.is_open 
+                            ? `${formatTimeTo12Hour(hours.start_time)} - ${formatTimeTo12Hour(hours.end_time)}`
+                            : 'Closed'
+                          }
+                    </p>
+                  </div>
+                    ))}
+                        </div>
                           </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Category</p>
-                            <p className="font-medium">{salonInfo.category}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Description</p>
-                            <p className="font-medium">{salonInfo.description || 'No description'}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Status</p>
-                            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${salonInfo.status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-200' : salonInfo.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
-                              {formatStatusLabel(salonInfo.status)}
-                            </span>
-                          </div>
+
+                {/* Salon Photo Section */}
+                <div className="border-t pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold">Salon Photo</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={fetchSalonPhoto}
+                      disabled={salonPhotoLoading}
+                    >
+                      <Image className="w-4 h-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
+                  <div className="space-y-4">
+                    {salonPhotoLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : salonPhotoUrl ? (
+                      <div className="space-y-3">
+                        <div className="relative w-full max-w-md">
+                          <img 
+                            src={salonPhotoUrl} 
+                            alt="Salon photo" 
+                            className="w-full h-64 object-contain rounded-lg border bg-gray-50"
+                            onError={(e) => {
+                              console.error('Failed to load salon photo:', salonPhotoUrl);
+                              toast.error('Failed to load photo. The URL may be invalid.');
+                              // Don't hide, show error state
+                            }}
+                            onLoad={() => {
+                              console.log('Salon photo loaded successfully:', salonPhotoUrl);
+                            }}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                    onClick={() => {
+                      setSalonPhotoFile(null);
+                      if (salonPhotoPreview) {
+                        URL.revokeObjectURL(salonPhotoPreview);
+                      }
+                      setSalonPhotoPreview(null);
+                      setShowSalonPhotoModal(true);
+                    }}
+                            disabled={salonPhotoLoading}
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Change Photo
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleSalonPhotoDelete}
+                            disabled={salonPhotoLoading}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Photo
+                          </Button>
                         </div>
                       </div>
-
-                      <div>
-                        <h3 className="text-xl font-semibold mb-4">Contact Information</h3>
-                        <div className="space-y-3">
-                          {salonInfo.phone && (
-                            <div>
-                              <p className="text-sm text-muted-foreground">Phone</p>
-                              <p className="font-medium">{salonInfo.phone}</p>
-                            </div>
-                          )}
-                          {salonInfo.email && (
-                            <div>
-                              <p className="text-sm text-muted-foreground">Email</p>
-                              <p className="font-medium">{salonInfo.email}</p>
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-sm text-muted-foreground">Address</p>
-                            <p className="font-medium">
-                              {salonInfo.address || 'No address'}
-                            </p>
-                          </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                          <Image className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                          <p className="text-sm text-muted-foreground mb-4">
+                            No photo uploaded. Upload a storefront or logo photo.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                    onClick={() => {
+                      setSalonPhotoFile(null);
+                      if (salonPhotoPreview) {
+                        URL.revokeObjectURL(salonPhotoPreview);
+                      }
+                      setSalonPhotoPreview(null);
+                      setShowSalonPhotoModal(true);
+                    }}
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Photo
+                          </Button>
                         </div>
                       </div>
-                    </div>
-
-                    <div className="border-t pt-6">
-                      <h3 className="text-xl font-semibold mb-4">Operating Hours</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {Object.entries(salonInfo.weekly_hours || {}).map(([day, hours]) => (
-                          <div key={day} className="flex flex-col">
-                            <p className="text-sm font-medium mb-2">{getShortDayName(day)}</p>
-                            <p className={`text-sm ${hours.is_open ? 'text-muted-foreground' : 'text-red-500'}`}>
-                              {hours.is_open
-                                ? `${formatTimeTo12Hour(hours.start_time)} - ${formatTimeTo12Hour(hours.end_time)}`
-                                : 'Closed'
-                              }
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Salon Photo Section */}
-                    <div className="border-t pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-semibold">Salon Photo</h3>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={fetchSalonPhoto}
-                          disabled={salonPhotoLoading}
-                        >
-                          <Image className="w-4 h-4 mr-2" />
-                          Refresh
-                        </Button>
-                      </div>
-                      <div className="space-y-4">
-                        {salonPhotoLoading ? (
-                          <div className="flex items-center justify-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                          </div>
-                        ) : salonPhotoUrl ? (
-                          <div className="space-y-3">
-                            <div className="relative w-full max-w-md">
-                              <img
-                                src={salonPhotoUrl}
-                                alt="Salon photo"
-                                className="w-full h-64 object-contain rounded-lg border bg-gray-50"
-                                onError={(e) => {
-                                  console.error('Failed to load salon photo:', salonPhotoUrl);
-                                  toast.error('Failed to load photo. The URL may be invalid.');
-                                  // Don't hide, show error state
-                                }}
-                                onLoad={() => {
-                                  console.log('Salon photo loaded successfully:', salonPhotoUrl);
-                                }}
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSalonPhotoFile(null);
-                                  if (salonPhotoPreview) {
-                                    URL.revokeObjectURL(salonPhotoPreview);
-                                  }
-                                  setSalonPhotoPreview(null);
-                                  setShowSalonPhotoModal(true);
-                                }}
-                                disabled={salonPhotoLoading}
-                              >
-                                <Upload className="w-4 h-4 mr-2" />
-                                Change Photo
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleSalonPhotoDelete}
-                                disabled={salonPhotoLoading}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete Photo
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                              <Image className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                              <p className="text-sm text-muted-foreground mb-4">
-                                No photo uploaded. Upload a storefront or logo photo.
-                              </p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSalonPhotoFile(null);
-                                  if (salonPhotoPreview) {
-                                    URL.revokeObjectURL(salonPhotoPreview);
-                                  }
-                                  setSalonPhotoPreview(null);
-                                  setShowSalonPhotoModal(true);
-                                }}
-                              >
-                                <Upload className="w-4 h-4 mr-2" />
-                                Upload Photo
-                              </Button>
-                            </div>
-                          </div>
+                    )}
+                  </div>
+                </div>
+                        </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+        )}
 
-            {/* Salon Photo Upload Modal */}
-            {showSalonPhotoModal && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <Card className="w-full max-w-2xl mx-auto shadow-2xl">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>{salonPhotoUrl ? 'Change Salon Photo' : 'Upload Salon Photo'}</CardTitle>
+        {/* Salon Photo Upload Modal */}
+        {showSalonPhotoModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl mx-auto shadow-2xl">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>{salonPhotoUrl ? 'Change Salon Photo' : 'Upload Salon Photo'}</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowSalonPhotoModal(false);
+                      setSalonPhotoFile(null);
+                      if (salonPhotoPreview) {
+                        URL.revokeObjectURL(salonPhotoPreview);
+                      }
+                      setSalonPhotoPreview(null);
+                      if (salonPhotoInputRef.current) {
+                        salonPhotoInputRef.current.value = '';
+                      }
+                    }}
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+                <CardDescription>
+                  Upload a storefront or logo photo for your salon. The photo will be displayed at full size.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {salonPhotoPreview ? (
+                  <div className="space-y-4">
+                    <div className="relative w-full flex justify-center items-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 p-8 min-h-[300px]">
+                      <img 
+                        src={salonPhotoPreview} 
+                        alt="Preview" 
+                        className="max-w-full max-h-[400px] object-contain"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
                       <Button
-                        variant="ghost"
-                        size="sm"
+                        variant="outline"
                         onClick={() => {
-                          setShowSalonPhotoModal(false);
                           setSalonPhotoFile(null);
                           if (salonPhotoPreview) {
                             URL.revokeObjectURL(salonPhotoPreview);
@@ -1346,246 +1394,386 @@ export default function SalonOwnerDashboard() {
                           }
                         }}
                       >
-                        <X className="w-5 h-5" />
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSalonPhotoUpload}
+                        disabled={salonPhotoUploading}
+                      >
+                        {salonPhotoUploading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            {salonPhotoUrl ? 'Update Photo' : 'Upload Photo'}
+                          </>
+                        )}
                       </Button>
                     </div>
-                    <CardDescription>
-                      Upload a storefront or logo photo for your salon. The photo will be displayed at full size.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {salonPhotoPreview ? (
-                      <div className="space-y-4">
-                        <div className="relative w-full flex justify-center items-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 p-8 min-h-[300px]">
-                          <img
-                            src={salonPhotoPreview}
-                            alt="Preview"
-                            className="max-w-full max-h-[400px] object-contain"
-                          />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <input
+                      ref={salonPhotoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const validation = validateImageFile(file);
+                          if (!validation.valid) {
+                            toast.error(validation.error);
+                            if (salonPhotoInputRef.current) {
+                              salonPhotoInputRef.current.value = '';
+                            }
+                            return;
+                          }
+                          // Use the file directly without cropping
+                          const preview = URL.createObjectURL(file);
+                          setSalonPhotoFile(file);
+                          setSalonPhotoPreview(preview);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <div
+                      onClick={() => salonPhotoInputRef.current?.click()}
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
+                    >
+                      <div className="flex flex-col items-center justify-center space-y-4">
+                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Upload className="w-8 h-8 text-primary" />
                         </div>
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setSalonPhotoFile(null);
-                              if (salonPhotoPreview) {
-                                URL.revokeObjectURL(salonPhotoPreview);
-                              }
-                              setSalonPhotoPreview(null);
-                              if (salonPhotoInputRef.current) {
-                                salonPhotoInputRef.current.value = '';
-                              }
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleSalonPhotoUpload}
-                            disabled={salonPhotoUploading}
-                          >
-                            {salonPhotoUploading ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                Uploading...
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="w-4 h-4 mr-2" />
-                                {salonPhotoUrl ? 'Update Photo' : 'Upload Photo'}
-                              </>
-                            )}
-                          </Button>
+                        <div>
+                          <p className="text-lg font-medium text-foreground mb-1">
+                            Click to upload or drag and drop
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            PNG, JPG, or WEBP (max 10MB)
+                          </p>
                         </div>
+                        <Button variant="outline" className="mt-2">
+                          Select Photo
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'staff-services' && salonStatus === 'APPROVED' && (
+          <div className="space-y-8">
+            <div className="bg-background border rounded-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                  <div>
+                  <h3 className="text-xl font-semibold">Staff Management</h3>
+                  <p className="text-muted-foreground">
+                    Manage your salon employees ({pagination.total_employees} total)
+                  </p>
+                  </div>
+                    <Button id="add-employee-page-button" onClick={() => setShowAddEmployeeModal(true)}>
+                  <Users className="w-4 h-4 mr-2" />
+                    Add Employee
+                  </Button>
+                </div>
+              
+              {employeesLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    {employees.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No employees added yet</p>
+                        <p className="text-sm">Add your first stylist to get started</p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        <input
-                          ref={salonPhotoInputRef}
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const validation = validateImageFile(file);
-                              if (!validation.valid) {
-                                toast.error(validation.error);
-                                if (salonPhotoInputRef.current) {
-                                  salonPhotoInputRef.current.value = '';
-                                }
-                                return;
-                              }
-                              // Use the file directly without cropping
-                              const preview = URL.createObjectURL(file);
-                              setSalonPhotoFile(file);
-                              setSalonPhotoPreview(preview);
-                            }
-                          }}
-                          className="hidden"
-                        />
-                        <div
-                          onClick={() => salonPhotoInputRef.current?.click()}
-                          className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
-                        >
-                          <div className="flex flex-col items-center justify-center space-y-4">
-                            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                              <Upload className="w-8 h-8 text-primary" />
-                            </div>
-                            <div>
-                              <p className="text-lg font-medium text-foreground mb-1">
-                                Click to upload or drag and drop
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                PNG, JPG, or WEBP (max 10MB)
-                              </p>
-                            </div>
-                            <Button variant="outline" className="mt-2">
-                              Select Photo
-                            </Button>
-                          </div>
+                      employees.map((employee) => (
+                  <div key={employee.employee_id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <Avatar>
+                              <AvatarImage src={employee.profile_picture_url} />
+                        <AvatarFallback>
+                                {employee.full_name.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                              <h4 className="font-medium">{employee.full_name}</h4>
+                              <p className="text-sm text-muted-foreground">{employee.email}</p>
+                              <div className="flex items-center space-x-2 mt-1">
+                                <Badge variant="outline">{employee.title}</Badge>
+                                <Badge variant="outline" className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${employee.active ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
+                          {employee.active ? 'Active' : 'Inactive'}
+                        </Badge>
                         </div>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {activeTab === 'staff-services' && salonStatus === 'APPROVED' && (
-              <div className="space-y-8">
-                <div className="bg-background border rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h3 className="text-xl font-semibold">Staff Management</h3>
-                      <p className="text-muted-foreground">
-                        Manage your salon employees ({pagination.total_employees} total)
-                      </p>
                     </div>
-                    <Button id="add-employee-page-button" onClick={() => setShowAddEmployeeModal(true)}>
-                      <Users className="w-4 h-4 mr-2" />
-                      Add Employee
-                    </Button>
-                  </div>
-
-                  {employeesLoading ? (
-                    <div className="flex justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="space-y-4">
-                        {employees.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p>No employees added yet</p>
-                            <p className="text-sm">Add your first stylist to get started</p>
-                          </div>
-                        ) : (
-                          employees.map((employee) => (
-                            <div key={employee.employee_id} className="flex items-center justify-between p-4 border rounded-lg">
-                              <div className="flex items-center space-x-4">
-                                <Avatar>
-                                  <AvatarImage src={employee.profile_picture_url} />
-                                  <AvatarFallback>
-                                    {employee.full_name.split(' ').map(n => n[0]).join('')}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <h4 className="font-medium">{employee.full_name}</h4>
-                                  <p className="text-sm text-muted-foreground">{employee.email}</p>
-                                  <div className="flex items-center space-x-2 mt-1">
-                                    <Badge variant="outline">{employee.title}</Badge>
-                                    <Badge variant="outline" className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${employee.active ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
-                                      {employee.active ? 'Active' : 'Inactive'}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Button
+                    <div className="flex items-center space-x-2">
+                      <Button 
                                   id={`set-hours-button-${employee.employee_id}`}
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleSetEmployeeHours(employee)}
-                                  className="hover:bg-blue-50 hover:border-blue-300"
-                                >
-                                  Set Hours
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleFireEmployee(employee)}
-                                  className="bg-red-600 hover:bg-red-700 text-white"
-                                >
-                                  Fire
-                                </Button>
-                              </div>
-                            </div>
-                          ))
-                        )}
+                        variant="outline" 
+                        size="sm"
+                              onClick={() => handleSetEmployeeHours(employee)}
+                              className="hover:bg-blue-50 hover:border-blue-300"
+                      >
+                              Set Hours
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                              onClick={() => handleFireEmployee(employee)}
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                              Fire
+                      </Button>
+                    </div>
+                  </div>
+                      ))
+                    )}
+                  </div>
+                  
+                  {pagination.total_pages > 1 && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                      <div className="text-sm text-muted-foreground">
+                        Showing {employees.length} of {pagination.total_employees} employees
+                  </div>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                          onClick={() => fetchEmployees(pagination.current_page - 1)}
+                          disabled={!pagination.has_prev_page}
+                        >
+                          Previous
+                  </Button>
+                        
+                        <div className="flex items-center space-x-1">
+                          {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
+                            const pageNum = i + 1;
+                            return (
+                              <Button
+                                key={pageNum}
+                                variant={pagination.current_page === pageNum ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => fetchEmployees(pageNum)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {pageNum}
+                      </Button>
+                            );
+                          })}
+                </div>
+                        
+                      <Button 
+                          variant="outline"
+                        size="sm"
+                          onClick={() => fetchEmployees(pagination.current_page + 1)}
+                          disabled={!pagination.has_next_page}
+                      >
+                          Next
+                      </Button>
                       </div>
-
-                      {pagination.total_pages > 1 && (
-                        <div className="flex items-center justify-between mt-6 pt-4 border-t">
-                          <div className="text-sm text-muted-foreground">
-                            Showing {employees.length} of {pagination.total_employees} employees
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => fetchEmployees(pagination.current_page - 1)}
-                              disabled={!pagination.has_prev_page}
-                            >
-                              Previous
-                            </Button>
-
-                            <div className="flex items-center space-x-1">
-                              {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
-                                const pageNum = i + 1;
-                                return (
-                                  <Button
-                                    key={pageNum}
-                                    variant={pagination.current_page === pageNum ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => fetchEmployees(pageNum)}
-                                    className="w-8 h-8 p-0"
-                                  >
-                                    {pageNum}
-                                  </Button>
-                                );
-                              })}
-                            </div>
-
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => fetchEmployees(pagination.current_page + 1)}
-                              disabled={!pagination.has_next_page}
-                            >
-                              Next
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </>
+                    </div>
                   )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'products' && salonStatus === 'APPROVED' && salonInfo && (
+          <div className="bg-background border rounded-lg p-6">
+            <ProductManagement
+              salonId={salonInfo.salon_id}
+              onSuccess={(message) => {
+                setModalConfig({
+                  title: 'Success',
+                  message: message,
+                  type: 'success',
+                  onConfirm: () => setShowModal(false)
+                });
+                setShowModal(true);
+              }}
+              onError={(error) => {
+                setModalConfig({
+                  title: 'Error',
+                  message: error,
+                  type: 'error',
+                  onConfirm: () => setShowModal(false)
+                });
+                setShowModal(true);
+              }}
+            />
+          </div>
+        )}
+
+        {activeTab === 'customers' && salonStatus === 'APPROVED' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                      <div>
+                <h2 className="text-2xl font-bold text-foreground">Customer Visits</h2>
+                <p className="text-muted-foreground">View your customers' visit history</p>
+              </div>
+              <Button 
+                onClick={toggleSortOrder}
+                variant="outline"
+                className="flex items-center space-x-2"
+              >
+                <ArrowUpDown className="w-4 h-4" />
+                <span>Sort: {sortOrder === 'desc' ? 'Most Frequent' : 'Least Frequent'}</span>
+              </Button>
+            </div>
+
+            {customersLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading customers...</p>
+              </div>
+            ) : customers.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-lg border">
+                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No customers yet</h3>
+                <p className="text-sm text-muted-foreground">
+                  You haven't had any completed appointments yet.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4">
+                  {customers.map((customer) => (
+                        <Card key={customer.user_id} id={`owner-customer-card-${customer.user_id}`} className="hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6 pt-6">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                              {customer.full_name}
+                            </h3>
+                            <div className="space-y-1">
+                                  <p id={`owner-customer-email-${customer.user_id}`} className="text-sm text-muted-foreground">
+                                <span className="font-medium">Email:</span> {customer.email}
+                              </p>
+                              {customer.phone && (
+                                <p className="text-sm text-muted-foreground">
+                                  <span className="font-medium">Phone:</span> {customer.phone}
+                                </p>
+                              )}
+                              <div className="flex items-center space-x-2 mt-2">
+                                <div className="flex items-center space-x-1">
+                                  <Clock className="w-4 h-4 text-blue-600" />
+                                  <span className="text-sm font-medium text-blue-600">
+                                    {customer.total_visits} visit{customer.total_visits !== 1 ? 's' : ''}
+                          </span>
+                                </div>
+                                {customer.last_visit && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Last visit: {new Date(customer.last_visit).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                          </span>
+                                )}
+                        </div>
+                      </div>
+                    </div>
+                      <Button 
+                                id={`owner-view-history-button-${customer.user_id}`}
+                            onClick={() => openCustomerVisitModal(customer)}
+                        variant="outline" 
+                            className="flex items-center space-x-2"
+                      >
+                            <Eye className="w-4 h-4" />
+                            <span>View History</span>
+                      </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {customerPagination.total_records > customerPagination.limit && (
+                  <div className="flex justify-between items-center pt-4">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {Math.min(customerPagination.offset + 1, customerPagination.total_records)} -{' '}
+                      {Math.min(customerPagination.offset + customerPagination.limit, customerPagination.total_records)} of{' '}
+                      {customerPagination.total_records} customers
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline"
+                        onClick={() => handleCustomersPagination('prev')}
+                        disabled={customersLoading || customerPagination.offset === 0}
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCustomersPagination('next')}
+                        disabled={customersLoading || !customerPagination.has_more}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'reviews' && salonStatus === 'APPROVED' && (
+          salonInfoLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          ) : salonInfo?.salon_id ? (
+            <div className="space-y-6">
+              <div className="border-b border-muted">
+                <div className="flex space-x-8">
+                  <button
+                        id="reviews-subtab-salon"
+                    onClick={() => {
+                      setReviewsSubTab('salon');
+                      localStorage.setItem('reviewsSubTab', 'salon');
+                    }}
+                        className={`py-4 px-1 border-b-2 font-medium text-sm ${reviewsSubTab === 'salon'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    }`}
+                  >
+                    Salon Reviews
+                  </button>
+                  <button
+                        id="reviews-subtab-staff"
+                    onClick={() => {
+                      setReviewsSubTab('staff');
+                      localStorage.setItem('reviewsSubTab', 'staff');
+                    }}
+                        className={`py-4 px-1 border-b-2 font-medium text-sm ${reviewsSubTab === 'staff'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    }`}
+                  >
+                    Staff Reviews
+                  </button>
                 </div>
               </div>
-            )}
 
-            {activeTab === 'products' && salonStatus === 'APPROVED' && salonInfo && (
-              <div className="bg-background border rounded-lg p-6">
-                <ProductManagement
+              {reviewsSubTab === 'salon' && (
+                <SalonReviews 
                   salonId={salonInfo.salon_id}
-                  onSuccess={(message) => {
-                    setModalConfig({
-                      title: 'Success',
-                      message: message,
-                      type: 'success',
-                      onConfirm: () => setShowModal(false)
-                    });
-                    setShowModal(true);
-                  }}
+                  canReply={true}
                   onError={(error) => {
                     setModalConfig({
                       title: 'Error',
@@ -1596,654 +1784,76 @@ export default function SalonOwnerDashboard() {
                     setShowModal(true);
                   }}
                 />
-              </div>
-            )}
+              )}
 
-            {activeTab === 'customers' && salonStatus === 'APPROVED' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-2xl font-bold text-foreground">Customer Visits</h2>
-                    <p className="text-muted-foreground">View your customers' visit history</p>
-                  </div>
-                  <Button
-                    onClick={toggleSortOrder}
-                    variant="outline"
-                    className="flex items-center space-x-2"
-                  >
-                    <ArrowUpDown className="w-4 h-4" />
-                    <span>Sort: {sortOrder === 'desc' ? 'Most Frequent' : 'Least Frequent'}</span>
-                  </Button>
-                </div>
+              {reviewsSubTab === 'staff' && (
+                <StaffReviews
+                  forOwner={true}
+                  canReply={false}
+                  onError={(error) => {
+                    setModalConfig({
+                      title: 'Error',
+                      message: error,
+                      type: 'error',
+                      onConfirm: () => setShowModal(false)
+                    });
+                    setShowModal(true);
+                  }}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Unable to load salon information</p>
+            </div>
+          )
+        )}
 
-                {customersLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Loading customers...</p>
-                  </div>
-                ) : customers.length === 0 ? (
-                  <div className="text-center py-12 bg-white rounded-lg border">
-                    <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No customers yet</h3>
-                    <p className="text-sm text-muted-foreground">
-                      You haven't had any completed appointments yet.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 gap-4">
-                      {customers.map((customer) => (
-                        <Card key={customer.user_id} id={`owner-customer-card-${customer.user_id}`} className="hover:shadow-lg transition-shadow">
-                          <CardContent className="p-6 pt-6">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <h3 className="text-lg font-semibold text-foreground mb-1">
-                                  {customer.full_name}
-                                </h3>
-                                <div className="space-y-1">
-                                  <p id={`owner-customer-email-${customer.user_id}`} className="text-sm text-muted-foreground">
-                                    <span className="font-medium">Email:</span> {customer.email}
-                                  </p>
-                                  {customer.phone && (
-                                    <p className="text-sm text-muted-foreground">
-                                      <span className="font-medium">Phone:</span> {customer.phone}
-                                    </p>
-                                  )}
-                                  <div className="flex items-center space-x-2 mt-2">
-                                    <div className="flex items-center space-x-1">
-                                      <Clock className="w-4 h-4 text-blue-600" />
-                                      <span className="text-sm font-medium text-blue-600">
-                                        {customer.total_visits} visit{customer.total_visits !== 1 ? 's' : ''}
-                                      </span>
-                                    </div>
-                                    {customer.last_visit && (
-                                      <span className="text-xs text-muted-foreground">
-                                        Last visit: {new Date(customer.last_visit).toLocaleDateString('en-US', {
-                                          month: 'short',
-                                          day: 'numeric',
-                                          year: 'numeric'
-                                        })}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <Button
-                                id={`owner-view-history-button-${customer.user_id}`}
-                                onClick={() => openCustomerVisitModal(customer)}
-                                variant="outline"
-                                className="flex items-center space-x-2"
-                              >
-                                <Eye className="w-4 h-4" />
-                                <span>View History</span>
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-
-                    {customerPagination.total_records > customerPagination.limit && (
-                      <div className="flex justify-between items-center pt-4">
-                        <div className="text-sm text-muted-foreground">
-                          Showing {Math.min(customerPagination.offset + 1, customerPagination.total_records)} -{' '}
-                          {Math.min(customerPagination.offset + customerPagination.limit, customerPagination.total_records)} of{' '}
-                          {customerPagination.total_records} customers
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => handleCustomersPagination('prev')}
-                            disabled={customersLoading || customerPagination.offset === 0}
-                          >
-                            <ChevronLeft className="w-4 h-4 mr-1" />
-                            Previous
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => handleCustomersPagination('next')}
-                            disabled={customersLoading || !customerPagination.has_more}
-                          >
-                            Next
-                            <ChevronRight className="w-4 h-4 ml-1" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'reviews' && salonStatus === 'APPROVED' && (
-              salonInfoLoading ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                </div>
-              ) : salonInfo?.salon_id ? (
-                <div className="space-y-6">
-                  <div className="border-b border-muted">
-                    <div className="flex space-x-8">
-                      <button
-                        id="reviews-subtab-salon"
-                        onClick={() => {
-                          setReviewsSubTab('salon');
-                          localStorage.setItem('reviewsSubTab', 'salon');
-                        }}
-                        className={`py-4 px-1 border-b-2 font-medium text-sm ${reviewsSubTab === 'salon'
-                            ? 'border-primary text-primary'
-                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                          }`}
-                      >
-                        Salon Reviews
-                      </button>
-                      <button
-                        id="reviews-subtab-staff"
-                        onClick={() => {
-                          setReviewsSubTab('staff');
-                          localStorage.setItem('reviewsSubTab', 'staff');
-                        }}
-                        className={`py-4 px-1 border-b-2 font-medium text-sm ${reviewsSubTab === 'staff'
-                            ? 'border-primary text-primary'
-                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                          }`}
-                      >
-                        Staff Reviews
-                      </button>
-                    </div>
-                  </div>
-
-                  {reviewsSubTab === 'salon' && (
-                    <SalonReviews
-                      salonId={salonInfo.salon_id}
-                      canReply={true}
-                      onError={(error) => {
-                        setModalConfig({
-                          title: 'Error',
-                          message: error,
-                          type: 'error',
-                          onConfirm: () => setShowModal(false)
-                        });
-                        setShowModal(true);
-                      }}
-                    />
-                  )}
-
-                  {reviewsSubTab === 'staff' && (
-                    <StaffReviews
-                      forOwner={true}
-                      canReply={false}
-                      onError={(error) => {
-                        setModalConfig({
-                          title: 'Error',
-                          message: error,
-                          type: 'error',
-                          onConfirm: () => setShowModal(false)
-                        });
-                        setShowModal(true);
-                      }}
-                    />
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>Unable to load salon information</p>
-                </div>
-              )
-            )}
-
-            {activeTab === 'loyalty' && salonStatus === 'APPROVED' && (
-              <div className="space-y-6">
-                <div className="border-b border-muted">
-                  <div className="flex space-x-8">
-                    <button
+        {activeTab === 'loyalty' && salonStatus === 'APPROVED' && (
+          <div className="space-y-6">
+            <div className="border-b border-muted">
+              <div className="flex space-x-8">
+                <button
                       id="loyalty-subtab-loyalty-program-button"
-                      onClick={() => {
-                        setLoyaltySubTab('loyalty-config');
-                        localStorage.setItem('loyaltySubTab', 'loyalty-config');
-                      }}
+                  onClick={() => {
+                    setLoyaltySubTab('loyalty-config');
+                    localStorage.setItem('loyaltySubTab', 'loyalty-config');
+                  }}
                       className={`py-4 px-1 border-b-2 font-medium text-sm ${loyaltySubTab === 'loyalty-config'
-                          ? 'border-primary text-primary'
-                          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                        }`}
-                    >
-                      Loyalty Program
-                    </button>
-                    <button
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
+                  Loyalty Program
+                </button>
+                <button
                       id="loyalty-subtab-promotions-button"
-                      onClick={() => {
-                        setLoyaltySubTab('promotions');
-                        localStorage.setItem('loyaltySubTab', 'promotions');
-                      }}
+                  onClick={() => {
+                    setLoyaltySubTab('promotions');
+                    localStorage.setItem('loyaltySubTab', 'promotions');
+                  }}
                       className={`py-4 px-1 border-b-2 font-medium text-sm ${loyaltySubTab === 'promotions'
-                          ? 'border-primary text-primary'
-                          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                        }`}
-                    >
-                      Promotions
-                    </button>
-                  </div>
-                </div>
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
+                  Promotions
+                </button>
+              </div>
+            </div>
 
-                {loyaltySubTab === 'loyalty-config' && (
-                  <LoyaltyConfiguration
+            {loyaltySubTab === 'loyalty-config' && (
+              <LoyaltyConfiguration 
                     onSuccess={(message, context) => {
                       const confirmButtonId = context === 'loyalty'
                         ? 'loyalty-settings-success-ok-button'
                         : undefined;
-                      setModalConfig({
-                        title: 'Success',
-                        message: message,
-                        type: 'success',
-                        confirmButtonId,
-                        onConfirm: () => setShowModal(false)
-                      });
-                      setShowModal(true);
-                    }}
-                    onError={(error) => {
-                      setModalConfig({
-                        title: 'Error',
-                        message: error,
-                        type: 'error',
-                        onConfirm: () => setShowModal(false)
-                      });
-                      setShowModal(true);
-                    }}
-                  />
-                )}
-
-                {loyaltySubTab === 'promotions' && salonInfo && (
-                  <PromotionsManagement
-                    salonId={salonInfo.salon_id}
-                    salonName={salonInfo.name}
-                    salonTimezone={salonInfo.timezone}
-                    onSuccess={(message, context) => {
-                      const confirmButtonId = context === 'promotion-send'
-                        ? 'promotion-success-ok-button'
-                        : context === 'promotion-reminder'
-                          ? 'promotion-reminder-success-ok-button'
-                          : undefined;
-                      setModalConfig({
-                        title: 'Success',
-                        message: message,
-                        type: 'success',
-                        confirmButtonId,
-                        onConfirm: () => setShowModal(false)
-                      });
-                      setShowModal(true);
-                    }}
-                    onError={(error) => {
-                      setModalConfig({
-                        title: 'Error',
-                        message: error,
-                        type: 'error',
-                        onConfirm: () => setShowModal(false)
-                      });
-                      setShowModal(true);
-                    }}
-                  />
-                )}
-              </div>
-            )}
-
-            {activeTab === 'revenue' && salonStatus === 'APPROVED' && (
-              <div className="space-y-6">
-                <div className="mb-8">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-3xl font-bold text-foreground mb-2">
-                        Revenue Insights
-                      </h2>
-                      <p className="text-muted-foreground">
-                        Track top-performing stylists, services, and product sales for your salon.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {revenueLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Loading revenue data...</p>
-                  </div>
-                ) : revenueData ? (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center space-x-2">
-                            <DollarSign className="w-5 h-5" />
-                            <span>Total Service Revenue</span>
-                          </CardTitle>
-                          <CardDescription>
-                            Revenue from service bookings
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-4xl font-bold text-green-800 mb-4">
-                            ${parseFloat(revenueData.totalSalonRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                          {revenueData.services && revenueData.services.length > 0 && (
-                            <div className="p-3 bg-green-50 rounded-lg">
-                              <p className="text-sm font-semibold mb-1">Top Service</p>
-                              <p className="font-semibold">{revenueData.services[0].service_name}</p>
-                              <p className="text-sm text-muted-foreground mb-2">{revenueData.services[0].times_booked || 0} bookings</p>
-                              <p className="text-lg font-bold text-green-800">
-                                ${parseFloat(revenueData.services[0].total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center space-x-2">
-                            <DollarSign className="w-5 h-5" />
-                            <span>Total Product Revenue</span>
-                          </CardTitle>
-                          <CardDescription>
-                            Revenue from product sales
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-4xl font-bold text-green-800 mb-4">
-                            ${parseFloat(revenueData.totalProductRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                          {revenueData.productsRevenue && revenueData.productsRevenue.length > 0 && (
-                            <div className="p-3 bg-green-50 rounded-lg">
-                              <p className="text-sm font-semibold mb-1">Top Product</p>
-                              <p className="font-semibold">{revenueData.productsRevenue[0].product_name}</p>
-                              <p className="text-sm text-muted-foreground mb-2">{revenueData.productsRevenue[0].units_sold || 0} units</p>
-                              <p className="text-lg font-bold text-green-800">
-                                ${parseFloat(revenueData.productsRevenue[0].total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center space-x-2">
-                            <TrendingUp className="w-5 h-5" />
-                            <span>Total Revenue</span>
-                          </CardTitle>
-                          <CardDescription>
-                            Combined total revenue
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-4xl font-bold text-green-800 mb-4">
-                            ${(parseFloat(revenueData.totalSalonRevenue || 0) + parseFloat(revenueData.totalProductRevenue || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                          {revenueData.stylists && revenueData.stylists.length > 0 && (() => {
-                            const topStylist = revenueData.stylists.reduce((top, current) => {
-                              const currentRevenue = parseFloat(current.total_revenue || 0);
-                              const topRevenue = parseFloat(top.total_revenue || 0);
-                              return currentRevenue > topRevenue ? current : top;
-                            }, revenueData.stylists[0]);
-
-                            const topStylistRevenue = parseFloat(topStylist.total_revenue || 0);
-
-                            return (
-                              <div className="p-3 bg-green-50 rounded-lg">
-                                <p className="text-sm font-semibold mb-1">Top Stylist</p>
-                                <p className="font-semibold">{topStylist.stylist_name}</p>
-                                <p className="text-sm text-muted-foreground mb-2">{topStylist.total_bookings || 0} bookings</p>
-                                <p className="text-lg font-bold text-green-800">
-                                  ${topStylistRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
-                              </div>
-                            );
-                          })()}
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    {revenueData.stylists && revenueData.stylists.length > 0 && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center space-x-2">
-                            <Scissors className="w-5 h-5" />
-                            <span>Top Performing Stylists</span>
-                          </CardTitle>
-                          <CardDescription>
-                            Total revenue
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            {revenueData.stylists.map((stylist, index) => {
-                              const totalRevenue = parseFloat(stylist.total_revenue || 0);
-
-                              const stylistsWithRevenue = revenueData.stylists.map(s => parseFloat(s.total_revenue || 0));
-                              const topStylistRevenue = Math.max(...stylistsWithRevenue);
-                              const isTopStylist = totalRevenue === topStylistRevenue && totalRevenue > 0 && index === revenueData.stylists.findIndex(s => parseFloat(s.total_revenue || 0) === topStylistRevenue);
-
-                              return (
-                                <div
-                                  key={index}
-                                  onClick={() => {
-                                    setSelectedStylist(stylist);
-                                    setShowStylistBreakdownModal(true);
-                                  }}
-                                  className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-semibold text-lg">{stylist.stylist_name}</p>
-                                      <p className="text-sm text-muted-foreground">
-                                        {stylist.total_bookings} booking{stylist.total_bookings !== 1 ? 's' : ''}
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-xl font-bold text-green-800">
-                                        ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                      </p>
-                                      {isTopStylist && (
-                                        <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
-                                          Top Performer
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {revenueData.services && revenueData.services.length > 0 && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center space-x-2">
-                            <Award className="w-5 h-5" />
-                            <span>Top Performing Services</span>
-                          </CardTitle>
-                          <CardDescription>
-                            Revenue breakdown by service
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {revenueData.services.map((service, index) => {
-                              const serviceRevenue = parseFloat(service.total_revenue || 0);
-
-                              const servicesWithRevenue = revenueData.services.map(s => parseFloat(s.total_revenue || 0));
-                              const topServiceRevenue = Math.max(...servicesWithRevenue);
-                              const isTopService = serviceRevenue === topServiceRevenue && serviceRevenue > 0 && index === revenueData.services.findIndex(s => parseFloat(s.total_revenue || 0) === topServiceRevenue);
-
-                              return (
-                                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                                  <div>
-                                    <p className="font-semibold">{service.service_name}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {service.times_booked || 0} booking{service.times_booked !== 1 ? 's' : ''}
-                                    </p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-lg font-bold text-green-800">
-                                      ${serviceRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </p>
-                                    {isTopService && (
-                                      <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
-                                        Top Service
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {revenueData.productsRevenue && revenueData.productsRevenue.length > 0 && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Product Sales Performance</CardTitle>
-                          <CardDescription>
-                            Track product revenue and units sold.
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            {revenueData.productsRevenue.map((product, index) => {
-                              const productRevenue = parseFloat(product.total_revenue || 0);
-
-                              const productsWithRevenue = revenueData.productsRevenue.map(p => parseFloat(p.total_revenue || 0));
-                              const topProductRevenue = Math.max(...productsWithRevenue);
-                              const isTopProduct = productRevenue === topProductRevenue && productRevenue > 0 && index === revenueData.productsRevenue.findIndex(p => parseFloat(p.total_revenue || 0) === topProductRevenue);
-
-                              return (
-                                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                                  <div>
-                                    <p className="font-semibold">{product.product_name}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      Listed at: ${parseFloat(product.listing_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {product.units_sold || 0} units sold
-                                    </p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-lg font-bold text-green-800">
-                                      ${productRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </p>
-                                    {isTopProduct && (
-                                      <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
-                                        Top Product
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-white rounded-lg border">
-                    <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No revenue data available</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Revenue data will appear here once you have completed appointments and product sales.
-                    </p>
-                  </div>
-                )}
-
-                {showStylistBreakdownModal && selectedStylist && (
-                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <Card className="w-full max-w-2xl mx-auto shadow-2xl">
-                      <CardContent className="p-6 pt-6">
-                        <div className="flex items-center justify-between mb-6">
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{selectedStylist.stylist_name}'s Daily Revenue</h3>
-                            <p className="text-sm text-gray-600">Last 7 days breakdown</p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setShowStylistBreakdownModal(false);
-                              setSelectedStylist(null);
-                            }}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <X className="w-5 h-5" />
-                          </Button>
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div className="p-3 bg-green-50 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Total Revenue (All-Time)</p>
-                              <p className="text-2xl font-bold text-green-800">
-                                ${parseFloat(selectedStylist.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                            <div className="p-3 bg-blue-50 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Revenue (Last 7 Days)</p>
-                              <p className="text-2xl font-bold text-green-800">
-                                ${(parseFloat(selectedStylist.monday_revenue || 0) +
-                                  parseFloat(selectedStylist.tuesday_revenue || 0) +
-                                  parseFloat(selectedStylist.wednesday_revenue || 0) +
-                                  parseFloat(selectedStylist.thursday_revenue || 0) +
-                                  parseFloat(selectedStylist.friday_revenue || 0) +
-                                  parseFloat(selectedStylist.saturday_revenue || 0) +
-                                  parseFloat(selectedStylist.sunday_revenue || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div className="p-3 bg-purple-50 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Total Bookings</p>
-                              <p className="text-2xl font-bold text-purple-700">
-                                {selectedStylist.total_bookings || 0}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <h4 className="font-semibold text-sm text-muted-foreground mb-3">Daily Breakdown</h4>
-                            {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
-                              const dayKey = `${day}_revenue`;
-                              const revenue = parseFloat(selectedStylist[dayKey] || 0);
-                              const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
-
-                              return (
-                                <div key={day} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                                  <span className="font-medium">{dayLabel}</span>
-                                  <span className="text-lg font-bold text-green-800">
-                                    ${revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'settings' && salonStatus === 'APPROVED' && (
-              <OperatingHours
-                onSuccess={(message) => {
                   setModalConfig({
                     title: 'Success',
                     message: message,
                     type: 'success',
-                    onConfirm: () => setShowModal(false),
-                    confirmButtonId: 'operating-hours-success-ok-button'
+                        confirmButtonId,
+                    onConfirm: () => setShowModal(false)
                   });
                   setShowModal(true);
                 }}
@@ -2259,146 +1869,327 @@ export default function SalonOwnerDashboard() {
               />
             )}
 
-            {showAddEmployeeModal && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-background rounded-lg p-6 w-full max-w-md mx-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Add Employee</h3>
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      setShowAddEmployeeModal(false);
-                      setNewEmployee({ email: '', title: '' });
-                    }}>
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
+            {loyaltySubTab === 'promotions' && salonInfo && (
+              <PromotionsManagement 
+                salonId={salonInfo.salon_id}
+                salonName={salonInfo.name}
+                salonTimezone={salonInfo.timezone}
+                    onSuccess={(message, context) => {
+                      const confirmButtonId = context === 'promotion-send'
+                        ? 'promotion-success-ok-button'
+                        : context === 'promotion-reminder'
+                          ? 'promotion-reminder-success-ok-button'
+                          : undefined;
+                  setModalConfig({
+                    title: 'Success',
+                    message: message,
+                    type: 'success',
+                        confirmButtonId,
+                    onConfirm: () => setShowModal(false)
+                  });
+                  setShowModal(true);
+                }}
+                onError={(error) => {
+                  setModalConfig({
+                    title: 'Error',
+                    message: error,
+                    type: 'error',
+                    onConfirm: () => setShowModal(false)
+                  });
+                  setShowModal(true);
+                }}
+              />
+            )}
+          </div>
+        )}
 
-                  <form onSubmit={handleAddEmployee} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Employee Email</label>
-                      <input
-                        id="add-employee-email-input"
-                        type="email"
-                        value={newEmployee.email}
-                        onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-md"
-                        placeholder="stylist@example.com"
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        The employee must already have an account in the system
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Job Title</label>
-                      <input
-                        id="add-employee-job-title-input"
-                        type="text"
-                        value={newEmployee.title}
-                        onChange={(e) => setNewEmployee({ ...newEmployee, title: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-md"
-                        placeholder="Senior Stylist, Junior Stylist, etc."
-                        required
-                      />
-                    </div>
-
-                    <div className="flex justify-end space-x-2 pt-4">
-                      <Button type="button" variant="outline" onClick={() => {
-                        setShowAddEmployeeModal(false);
-                        setNewEmployee({ email: '', title: '' });
-                      }}>
-                        Cancel
-                      </Button>
-                      <Button id="add-employee-modal-submit-button" type="submit" disabled={isAddingEmployee}>
-                        {isAddingEmployee ? 'Adding...' : 'Add Employee'}
-                      </Button>
-                    </div>
-                  </form>
+        {activeTab === 'revenue' && salonStatus === 'APPROVED' && (
+          <div className="space-y-6">
+            <div className="mb-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold text-foreground mb-2">
+                    Revenue Insights
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Track top-performing stylists, services, and product sales for your salon.
+                  </p>
                 </div>
+              </div>
+            </div>
+
+            {revenueLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading revenue data...</p>
+              </div>
+            ) : revenueData ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <DollarSign className="w-5 h-5" />
+                        <span>Total Service Revenue</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Revenue from service bookings
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold text-green-800 mb-4">
+                        ${parseFloat(revenueData.totalSalonRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      {revenueData.services && revenueData.services.length > 0 && (
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm font-semibold mb-1">Top Service</p>
+                          <p className="font-semibold">{revenueData.services[0].service_name}</p>
+                          <p className="text-sm text-muted-foreground mb-2">{revenueData.services[0].times_booked || 0} bookings</p>
+                          <p className="text-lg font-bold text-green-800">
+                            ${parseFloat(revenueData.services[0].total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <DollarSign className="w-5 h-5" />
+                        <span>Total Product Revenue</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Revenue from product sales
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold text-green-800 mb-4">
+                        ${parseFloat(revenueData.totalProductRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      {revenueData.productsRevenue && revenueData.productsRevenue.length > 0 && (
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm font-semibold mb-1">Top Product</p>
+                          <p className="font-semibold">{revenueData.productsRevenue[0].product_name}</p>
+                          <p className="text-sm text-muted-foreground mb-2">{revenueData.productsRevenue[0].units_sold || 0} units</p>
+                          <p className="text-lg font-bold text-green-800">
+                            ${parseFloat(revenueData.productsRevenue[0].total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <TrendingUp className="w-5 h-5" />
+                        <span>Total Revenue</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Combined total revenue
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold text-green-800 mb-4">
+                        ${(parseFloat(revenueData.totalSalonRevenue || 0) + parseFloat(revenueData.totalProductRevenue || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      {revenueData.stylists && revenueData.stylists.length > 0 && (() => {
+                        const topStylist = revenueData.stylists.reduce((top, current) => {
+                          const currentRevenue = parseFloat(current.total_revenue || 0);
+                          const topRevenue = parseFloat(top.total_revenue || 0);
+                          return currentRevenue > topRevenue ? current : top;
+                        }, revenueData.stylists[0]);
+                        
+                        const topStylistRevenue = parseFloat(topStylist.total_revenue || 0);
+                        
+                        return (
+                          <div className="p-3 bg-green-50 rounded-lg">
+                            <p className="text-sm font-semibold mb-1">Top Stylist</p>
+                            <p className="font-semibold">{topStylist.stylist_name}</p>
+                            <p className="text-sm text-muted-foreground mb-2">{topStylist.total_bookings || 0} bookings</p>
+                            <p className="text-lg font-bold text-green-800">
+                              ${topStylistRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {revenueData.stylists && revenueData.stylists.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Scissors className="w-5 h-5" />
+                        <span>Top Performing Stylists</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Total revenue
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {revenueData.stylists.map((stylist, index) => {
+                          const totalRevenue = parseFloat(stylist.total_revenue || 0);
+                          
+                          const stylistsWithRevenue = revenueData.stylists.map(s => parseFloat(s.total_revenue || 0));
+                          const topStylistRevenue = Math.max(...stylistsWithRevenue);
+                          const isTopStylist = totalRevenue === topStylistRevenue && totalRevenue > 0 && index === revenueData.stylists.findIndex(s => parseFloat(s.total_revenue || 0) === topStylistRevenue);
+                          
+                          return (
+                            <div 
+                              key={index} 
+                              onClick={() => {
+                                setSelectedStylist(stylist);
+                                setShowStylistBreakdownModal(true);
+                              }}
+                              className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-semibold text-lg">{stylist.stylist_name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {stylist.total_bookings} booking{stylist.total_bookings !== 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xl font-bold text-green-800">
+                                    ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </p>
+                                  {isTopStylist && (
+                                    <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                      Top Performer
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {revenueData.services && revenueData.services.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Award className="w-5 h-5" />
+                        <span>Top Performing Services</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Revenue breakdown by service
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {revenueData.services.map((service, index) => {
+                          const serviceRevenue = parseFloat(service.total_revenue || 0);
+                          
+                          const servicesWithRevenue = revenueData.services.map(s => parseFloat(s.total_revenue || 0));
+                          const topServiceRevenue = Math.max(...servicesWithRevenue);
+                          const isTopService = serviceRevenue === topServiceRevenue && serviceRevenue > 0 && index === revenueData.services.findIndex(s => parseFloat(s.total_revenue || 0) === topServiceRevenue);
+                          
+                          return (
+                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div>
+                                <p className="font-semibold">{service.service_name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {service.times_booked || 0} booking{service.times_booked !== 1 ? 's' : ''}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-green-800">
+                                  ${serviceRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                {isTopService && (
+                                  <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                    Top Service
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {revenueData.productsRevenue && revenueData.productsRevenue.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Product Sales Performance</CardTitle>
+                      <CardDescription>
+                        Track product revenue and units sold.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {revenueData.productsRevenue.map((product, index) => {
+                          const productRevenue = parseFloat(product.total_revenue || 0);
+                          
+                          const productsWithRevenue = revenueData.productsRevenue.map(p => parseFloat(p.total_revenue || 0));
+                          const topProductRevenue = Math.max(...productsWithRevenue);
+                          const isTopProduct = productRevenue === topProductRevenue && productRevenue > 0 && index === revenueData.productsRevenue.findIndex(p => parseFloat(p.total_revenue || 0) === topProductRevenue);
+                          
+                          return (
+                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div>
+                                <p className="font-semibold">{product.product_name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Listed at: ${parseFloat(product.listing_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {product.units_sold || 0} units sold
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold text-green-800">
+                                  ${productRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                {isTopProduct && (
+                                  <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                    Top Product
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-white rounded-lg border">
+                <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No revenue data available</h3>
+                <p className="text-sm text-muted-foreground">
+                  Revenue data will appear here once you have completed appointments and product sales.
+                </p>
               </div>
             )}
 
-            <StrandsModal
-              isOpen={showModal}
-              onClose={() => setShowModal(false)}
-              title={modalConfig.title}
-              message={modalConfig.message}
-              type={modalConfig.type}
-              onConfirm={modalConfig.onConfirm}
-              confirmText={modalConfig.confirmText || 'OK'}
-              showCancel={modalConfig.showCancel || false}
-              cancelText={modalConfig.cancelText || 'Cancel'}
-              confirmButtonId={modalConfig.confirmButtonId || null}
-            />
-
-            <StrandsModal
-              isOpen={showFireModal}
-              onClose={() => {
-                setShowFireModal(false);
-                setEmployeeToFire(null);
-              }}
-              title="Remove Employee"
-              message={`Are you sure you want to remove ${employeeToFire?.full_name} from the salon? This action cannot be undone.`}
-              type="warning"
-              onConfirm={confirmFireEmployee}
-              confirmText="Remove"
-              showCancel={true}
-              cancelText="Cancel"
-            />
-
-            <EmployeeHoursModal
-              isOpen={showEmployeeHoursModal}
-              onClose={() => {
-                setShowEmployeeHoursModal(false);
-                setSelectedEmployee(null);
-              }}
-              employee={selectedEmployee}
-              onSuccess={(message) => {
-                setModalConfig({
-                  title: 'Success',
-                  message: message,
-                  type: 'success',
-                  onConfirm: () => setShowModal(false),
-                  confirmButtonId: 'employee-hours-success-ok-button'
-                });
-                setShowModal(true);
-              }}
-              onError={(error) => {
-                // Error is already formatted by EmployeeHoursModal, use it directly
-                const errorMessage = typeof error === 'string' ? error : (Array.isArray(error) ? error.join('\n') : String(error));
-
-                setModalConfig({
-                  title: 'Error',
-                  message: errorMessage,
-                  type: 'error',
-                  onConfirm: () => setShowModal(false)
-                });
-                setShowModal(true);
-              }}
-            />
-
-            {/* UPH-1.2: Customer Visit History Modal */}
-            {showCustomerVisitModal && selectedCustomer && (
+            {showStylistBreakdownModal && selectedStylist && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="flex items-center justify-between p-6 border-b">
-                      <div className="flex items-center space-x-3">
-                        <Users className="w-6 h-6 text-blue-500" />
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{selectedCustomer.full_name}'s Visit History</h3>
-                          <p className="text-sm text-gray-600">
-                            {visitsPagination.total_records} visit{visitsPagination.total_records !== 1 ? 's' : ''}
-                          </p>
-                        </div>
+                <Card className="w-full max-w-2xl mx-auto shadow-2xl">
+                  <CardContent className="p-6 pt-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{selectedStylist.stylist_name}'s Daily Revenue</h3>
+                        <p className="text-sm text-gray-600">Last 7 days breakdown</p>
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setShowCustomerVisitModal(false);
-                          setSelectedCustomer(null);
-                          setCustomerVisits([]);
+                          setShowStylistBreakdownModal(false);
+                          setSelectedStylist(null);
                         }}
                         className="text-gray-400 hover:text-gray-600"
                       >
@@ -2406,233 +2197,459 @@ export default function SalonOwnerDashboard() {
                       </Button>
                     </div>
 
-                    <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-                      {visitsLoading ? (
-                        <div className="text-center py-12">
-                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                          <p className="text-muted-foreground">Loading visits...</p>
-                        </div>
-                      ) : customerVisits.length === 0 ? (
-                        <div className="text-center py-12">
-                          <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                          <h3 className="text-lg font-medium text-foreground mb-2">No visits found</h3>
-                          <p className="text-sm text-muted-foreground">
-                            This customer has no completed visits yet.
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total Revenue (All-Time)</p>
+                          <p className="text-2xl font-bold text-green-800">
+                            ${parseFloat(selectedStylist.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {customerVisits.map((visit) => {
-                            const originalTotal = typeof visit.total_price === 'number' ? visit.total_price : parseFloat(visit.total_price || 0);
-                            const actualPaid = visit.actual_amount_paid !== undefined && visit.actual_amount_paid !== null
-                              ? (typeof visit.actual_amount_paid === 'number' ? visit.actual_amount_paid : parseFloat(visit.actual_amount_paid))
-                              : originalTotal;
-                            const rewardInfo = visit.reward || null;
-                            const promoInfo = visit.promo || null;
-                            const hasDiscount = (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
-                            const discountLabel = rewardInfo?.discount_percentage
-                              ? `${rewardInfo.discount_percentage}% off`
-                              : promoInfo?.discount_pct
-                                ? `${promoInfo.discount_pct}% off`
-                                : 'Discount applied';
-
-                            return (
-                              <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
-                                <CardContent className="p-4 pt-4">
-                                  <div className="flex justify-between items-start mb-3">
-                                    <div className="flex items-center space-x-3">
-                                      <Clock className="w-4 h-4 text-muted-foreground" />
-                                      <span className="font-medium text-foreground">
-                                        {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
-                                          month: 'short',
-                                          day: 'numeric',
-                                          year: 'numeric'
-                                        })}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      {hasDiscount && (
-                                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                                          {promoInfo ? 'Promo Applied' : 'Discounted'}
-                                        </Badge>
-                                      )}
-                                      <Badge className={getStatusBadgeClass(visit.status || 'completed')}>
-                                        {formatStatusLabel(visit.status || 'completed')}
-                                      </Badge>
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-2 mb-3">
-                                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                      <Clock className="w-4 h-4" />
-                                      <span>
-                                        {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
-                                          hour: 'numeric',
-                                          minute: '2-digit',
-                                          hour12: true
-                                        })} - {new Date(visit.scheduled_end).toLocaleTimeString('en-US', {
-                                          hour: 'numeric',
-                                          minute: '2-digit',
-                                          hour12: true
-                                        })}
-                                      </span>
-                                    </div>
-                                    {visit.notes && (
-                                      <p className="text-sm text-muted-foreground">
-                                        <span className="font-medium">Notes:</span> {visit.notes}
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  {visit.services && visit.services.length > 0 && (
-                                    <div className="mt-3 pt-3 border-t">
-                                      <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
-                                      <div className="space-y-2">
-                                        {visit.services.map((service, idx) => (
-                                          <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                                            <div>
-                                              <span className="font-medium text-foreground">{service.service_name}</span>
-                                              {service.employee && (
-                                                <p className="text-xs text-muted-foreground">
-                                                  By: {service.employee.name}
-                                                  {service.employee.title && ` (${service.employee.title})`}
-                                                </p>
-                                              )}
-                                            </div>
-                                            <div className="text-right">
-                                              <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
-                                              <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                      {/* View Photos Button */}
-                                      {visit.booking_id && (
-                                        <div className="mt-3 flex justify-start">
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleViewPhotos(visit.booking_id)}
-                                          >
-                                            <Image className="w-4 h-4 mr-1" />
-                                            View Photos
-                                          </Button>
-                                        </div>
-                                      )}
-                                      <div className="flex justify-end mt-3 pt-3 border-t">
-                                        {hasDiscount ? (
-                                          <div className="text-right">
-                                            <div className="flex items-baseline gap-2 justify-end">
-                                              <span className="text-sm text-muted-foreground line-through">
-                                                Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
-                                              </span>
-                                              <span className="text-lg font-semibold text-green-800">
-                                                ${!Number.isNaN(actualPaid) ? actualPaid.toFixed(2) : '0.00'}
-                                              </span>
-                                            </div>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                              {discountLabel}
-                                              {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
-                                              {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
-                                            </p>
-                                          </div>
-                                        ) : (
-                                          <div className="text-lg font-semibold text-green-800">
-                                            Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </CardContent>
-                              </Card>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {visitsPagination.total_records > visitsPagination.limit && (
-                      <div className="flex justify-between items-center p-6 border-t">
-                        <div className="text-sm text-muted-foreground">
-                          Showing {Math.min(visitsPagination.offset + 1, visitsPagination.total_records)} -{' '}
-                          {Math.min(visitsPagination.offset + visitsPagination.limit, visitsPagination.total_records)} of{' '}
-                          {visitsPagination.total_records} visits
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => handleVisitsPagination('prev')}
-                            disabled={visitsLoading || visitsPagination.offset === 0}
-                          >
-                            <ChevronLeft className="w-4 h-4 mr-1" />
-                            Previous
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => handleVisitsPagination('next')}
-                            disabled={visitsLoading || !visitsPagination.has_more}
-                          >
-                            Next
-                            <ChevronRight className="w-4 h-4 ml-1" />
-                          </Button>
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Revenue (Last 7 Days)</p>
+                          <p className="text-2xl font-bold text-green-800">
+                            ${(parseFloat(selectedStylist.monday_revenue || 0) + 
+                                parseFloat(selectedStylist.tuesday_revenue || 0) + 
+                                parseFloat(selectedStylist.wednesday_revenue || 0) + 
+                                parseFloat(selectedStylist.thursday_revenue || 0) + 
+                                parseFloat(selectedStylist.friday_revenue || 0) + 
+                                parseFloat(selectedStylist.saturday_revenue || 0) + 
+                                parseFloat(selectedStylist.sunday_revenue || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
                         </div>
                       </div>
-                    )}
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total Bookings</p>
+                          <p className="text-2xl font-bold text-purple-700">
+                            {selectedStylist.total_bookings || 0}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm text-muted-foreground mb-3">Daily Breakdown</h4>
+                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                          const dayKey = `${day}_revenue`;
+                          const revenue = parseFloat(selectedStylist[dayKey] || 0);
+                          const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
+                          
+                          return (
+                            <div key={day} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                              <span className="font-medium">{dayLabel}</span>
+                              <span className="text-lg font-bold text-green-800">
+                                ${revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
             )}
+          </div>
+        )}
 
-            {/* Photo View Modal */}
-            {showPhotoModal && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="flex items-center justify-between p-6 border-b">
-                      <h3 className="text-lg font-semibold">Before/After Photos</h3>
-                      <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)}>
-                        <X className="w-5 h-5" />
+        {activeTab === 'settings' && salonStatus === 'APPROVED' && (
+          <OperatingHours 
+            onSuccess={(message) => {
+              setModalConfig({
+                title: 'Success',
+                message: message,
+                type: 'success',
+                    onConfirm: () => setShowModal(false),
+                    confirmButtonId: 'operating-hours-success-ok-button'
+              });
+              setShowModal(true);
+            }}
+            onError={(error) => {
+              setModalConfig({
+                title: 'Error',
+                message: error,
+                type: 'error',
+                onConfirm: () => setShowModal(false)
+              });
+              setShowModal(true);
+            }}
+          />
+        )}
+
+        {showAddEmployeeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-background rounded-lg p-6 w-full max-w-md mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Add Employee</h3>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setShowAddEmployeeModal(false);
+                  setNewEmployee({ email: '', title: '' });
+                }}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <form onSubmit={handleAddEmployee} className="space-y-4">
+                  <div>
+                  <label className="block text-sm font-medium mb-2">Employee Email</label>
+                  <input
+                        id="add-employee-email-input"
+                    type="email"
+                    value={newEmployee.email}
+                        onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="stylist@example.com"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    The employee must already have an account in the system
+                  </p>
+                  </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Job Title</label>
+                  <input
+                        id="add-employee-job-title-input"
+                    type="text"
+                    value={newEmployee.title}
+                        onChange={(e) => setNewEmployee({ ...newEmployee, title: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="Senior Stylist, Junior Stylist, etc."
+                    required
+                  />
+                </div>
+                
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => {
+                    setShowAddEmployeeModal(false);
+                    setNewEmployee({ email: '', title: '' });
+                  }}>
+                    Cancel
+                  </Button>
+                      <Button id="add-employee-modal-submit-button" type="submit" disabled={isAddingEmployee}>
+                    {isAddingEmployee ? 'Adding...' : 'Add Employee'}
+                  </Button>
+                </div>
+              </form>
+                      </div>
+                  </div>
+        )}
+
+        <StrandsModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          type={modalConfig.type}
+          onConfirm={modalConfig.onConfirm}
+          confirmText={modalConfig.confirmText || 'OK'}
+          showCancel={modalConfig.showCancel || false}
+          cancelText={modalConfig.cancelText || 'Cancel'}
+              confirmButtonId={modalConfig.confirmButtonId || null}
+        />
+
+        <StrandsModal
+          isOpen={showFireModal}
+          onClose={() => {
+            setShowFireModal(false);
+            setEmployeeToFire(null);
+          }}
+          title="Remove Employee"
+          message={`Are you sure you want to remove ${employeeToFire?.full_name} from the salon? This action cannot be undone.`}
+          type="warning"
+          onConfirm={confirmFireEmployee}
+          confirmText="Remove"
+          showCancel={true}
+          cancelText="Cancel"
+        />
+
+        <EmployeeHoursModal
+          isOpen={showEmployeeHoursModal}
+          onClose={() => {
+            setShowEmployeeHoursModal(false);
+            setSelectedEmployee(null);
+          }}
+          employee={selectedEmployee}
+          onSuccess={(message) => {
+            setModalConfig({
+              title: 'Success',
+              message: message,
+              type: 'success',
+                  onConfirm: () => setShowModal(false),
+                  confirmButtonId: 'employee-hours-success-ok-button'
+            });
+            setShowModal(true);
+          }}
+          onError={(error) => {
+            // Error is already formatted by EmployeeHoursModal, use it directly
+            const errorMessage = typeof error === 'string' ? error : (Array.isArray(error) ? error.join('\n') : String(error));
+            
+            setModalConfig({
+              title: 'Error',
+              message: errorMessage,
+              type: 'error',
+              onConfirm: () => setShowModal(false)
+            });
+            setShowModal(true);
+          }}
+        />
+
+        {/* UPH-1.2: Customer Visit History Modal */}
+        {showCustomerVisitModal && selectedCustomer && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between p-6 border-b">
+                  <div className="flex items-center space-x-3">
+                    <Users className="w-6 h-6 text-blue-500" />
+                      <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{selectedCustomer.full_name}'s Visit History</h3>
+                      <p className="text-sm text-gray-600">
+                        {visitsPagination.total_records} visit{visitsPagination.total_records !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowCustomerVisitModal(false);
+                      setSelectedCustomer(null);
+                      setCustomerVisits([]);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+
+                <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                  {visitsLoading ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">Loading visits...</p>
+                    </div>
+                  ) : customerVisits.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-foreground mb-2">No visits found</h3>
+                      <p className="text-sm text-muted-foreground">
+                        This customer has no completed visits yet.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {customerVisits.map((visit) => {
+                        const originalTotal = typeof visit.total_price === 'number' ? visit.total_price : parseFloat(visit.total_price || 0);
+                        const actualPaid = visit.actual_amount_paid !== undefined && visit.actual_amount_paid !== null
+                          ? (typeof visit.actual_amount_paid === 'number' ? visit.actual_amount_paid : parseFloat(visit.actual_amount_paid))
+                          : originalTotal;
+                        const rewardInfo = visit.reward || null;
+                        const promoInfo = visit.promo || null;
+                        const hasDiscount = (rewardInfo || promoInfo) && !Number.isNaN(actualPaid) && actualPaid < originalTotal;
+                        const discountLabel = rewardInfo?.discount_percentage 
+                          ? `${rewardInfo.discount_percentage}% off`
+                          : promoInfo?.discount_pct
+                          ? `${promoInfo.discount_pct}% off`
+                          : 'Discount applied';
+
+                        return (
+                          <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
+                            <CardContent className="p-4 pt-4">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center space-x-3">
+                                  <Clock className="w-4 h-4 text-muted-foreground" />
+                                  <span className="font-medium text-foreground">
+                                    {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                          </span>
+                                </div>
+                                  <div className="flex items-center gap-2">
+                                    {hasDiscount && (
+                                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                                        {promoInfo ? 'Promo Applied' : 'Discounted'}
+                                      </Badge>
+                                  )}
+                                  <Badge className={getStatusBadgeClass(visit.status || 'completed')}>
+                                    {formatStatusLabel(visit.status || 'completed')}
+                                  </Badge>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2 mb-3">
+                                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                  <Clock className="w-4 h-4" />
+                                  <span>
+                                    {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })} - {new Date(visit.scheduled_end).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
+                          </span>
+                        </div>
+                                {visit.notes && (
+                                  <p className="text-sm text-muted-foreground">
+                                    <span className="font-medium">Notes:</span> {visit.notes}
+                                  </p>
+                                )}
+                      </div>
+
+                              {visit.services && visit.services.length > 0 && (
+                                <div className="mt-3 pt-3 border-t">
+                                  <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
+                                  <div className="space-y-2">
+                                    {visit.services.map((service, idx) => (
+                                      <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                                        <div>
+                                          <span className="font-medium text-foreground">{service.service_name}</span>
+                                          {service.employee && (
+                                            <p className="text-xs text-muted-foreground">
+                                              By: {service.employee.name}
+                                              {service.employee.title && ` (${service.employee.title})`}
+                                            </p>
+                                          )}
+                    </div>
+                                        <div className="text-right">
+                                          <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
+                                          <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {/* View Photos Button */}
+                                  {visit.booking_id && (
+                                    <div className="mt-3 flex justify-start">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleViewPhotos(visit.booking_id)}
+                                      >
+                                        <Image className="w-4 h-4 mr-1" />
+                                        View Photos
+                                      </Button>
+                                    </div>
+                                  )}
+                                  <div className="flex justify-end mt-3 pt-3 border-t">
+                                    {hasDiscount ? (
+                                      <div className="text-right">
+                                        <div className="flex items-baseline gap-2 justify-end">
+                                          <span className="text-sm text-muted-foreground line-through">
+                                            Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                                          </span>
+                                          <span className="text-lg font-semibold text-green-800">
+                                            ${!Number.isNaN(actualPaid) ? actualPaid.toFixed(2) : '0.00'}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {discountLabel}
+                                          {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
+                                          {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <div className="text-lg font-semibold text-green-800">
+                                        Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {visitsPagination.total_records > visitsPagination.limit && (
+                  <div className="flex justify-between items-center p-6 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {Math.min(visitsPagination.offset + 1, visitsPagination.total_records)} -{' '}
+                      {Math.min(visitsPagination.offset + visitsPagination.limit, visitsPagination.total_records)} of{' '}
+                      {visitsPagination.total_records} visits
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleVisitsPagination('prev')}
+                        disabled={visitsLoading || visitsPagination.offset === 0}
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        Previous
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => handleVisitsPagination('next')}
+                        disabled={visitsLoading || !visitsPagination.has_more}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4 ml-1" />
                       </Button>
                     </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-                    <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <h4 className="font-medium mb-2">Before</h4>
-                          {photoModalState.beforePhotoUrl ? (
-                            <img src={photoModalState.beforePhotoUrl} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
-                          ) : (
-                            <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
-                              <p className="text-sm text-muted-foreground text-center px-4">
-                                {photoModalState.afterPhotoUrl ? 'Only after photo uploaded' : 'No before photo uploaded'}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-medium mb-2">After</h4>
-                          {photoModalState.afterPhotoUrl ? (
-                            <img src={photoModalState.afterPhotoUrl} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
-                          ) : (
-                            <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
-                              <p className="text-sm text-muted-foreground text-center px-4">
-                                {photoModalState.beforePhotoUrl ? 'Only before photo uploaded' : 'No after photo uploaded'}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+        {/* Photo View Modal */}
+        {showPhotoModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between p-6 border-b">
+                  <h3 className="text-lg font-semibold">Before/After Photos</h3>
+                  <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
 
-                      <div className="flex justify-end">
-                        <Button variant="outline" onClick={() => setShowPhotoModal(false)}>
-                          Close
-                        </Button>
-                      </div>
+                <div className="p-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-medium mb-2">Before</h4>
+                      {photoModalState.beforePhotoUrl ? (
+                        <img src={photoModalState.beforePhotoUrl} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                      ) : (
+                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                          <p className="text-sm text-muted-foreground text-center px-4">
+                            {photoModalState.afterPhotoUrl ? 'Only after photo uploaded' : 'No before photo uploaded'}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    <div>
+                      <h4 className="font-medium mb-2">After</h4>
+                      {photoModalState.afterPhotoUrl ? (
+                        <img src={photoModalState.afterPhotoUrl} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                      ) : (
+                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                          <p className="text-sm text-muted-foreground text-center px-4">
+                            {photoModalState.beforePhotoUrl ? 'Only before photo uploaded' : 'No after photo uploaded'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button variant="outline" onClick={() => setShowPhotoModal(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
             )}
           </>
         )}

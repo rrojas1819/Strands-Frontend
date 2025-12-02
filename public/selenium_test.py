@@ -2568,8 +2568,8 @@ class StrandsTestSuite:
                         # Define operating hours for each day (12-hour format with AM/PM)
                         operating_hours = {
                             'sunday': ('09:00 AM', '11:59 PM'),
-                            'monday': ('08:00 AM', '08:00 PM'),
-                            'tuesday': ('07:00 AM', '07:00 PM'),
+                            'monday': ('08:00 AM', '10:00 PM'),
+                            'tuesday': ('07:00 AM', '10:00 PM'),
                             'wednesday': ('09:00 AM', '06:00 PM'),
                             'thursday': ('10:00 AM', '09:00 PM'),
                             'friday': ('08:00 AM', '10:00 PM'),
@@ -3174,8 +3174,8 @@ class StrandsTestSuite:
                     # Employee hours will be 1 hour after salon opens and 1 hour before salon closes
                     employee_hours = {
                         'sunday': ('10:00 AM', '11:59 PM'),      # Salon: 09:00 AM - 11:59 PM
-                        'monday': ('09:00 AM', '07:00 PM'),       # Salon: 08:00 AM - 08:00 PM
-                        'tuesday': ('08:00 AM', '06:00 PM'),     # Salon: 07:00 AM - 07:00 PM
+                        'monday': ('09:00 AM', '10:00 PM'),       # Salon: 08:00 AM - 10:00 PM
+                        'tuesday': ('08:00 AM', '10:00 PM'),     # Salon: 07:00 AM - 10:00 PM
                         'wednesday': ('10:00 AM', '05:00 PM'),   # Salon: 09:00 AM - 06:00 PM
                         'thursday': ('11:00 AM', '08:00 PM'),    # Salon: 10:00 AM - 09:00 PM
                         'friday': ('09:00 AM', '09:00 PM'),      # Salon: 08:00 AM - 10:00 PM
@@ -6877,7 +6877,22 @@ class StrandsTestSuite:
                                                                                         self.scroll_to_element(my_reviews_tab)
                                                                                         time.sleep(0.2)
                                                                                         my_reviews_tab.click()
-                                                                                        time.sleep(1.5)  # Wait for My Reviews to load
+                                                                                        # Wait for My Reviews to load - wait for review elements to be present
+                                                                                        print("  Waiting for reviews to load...")
+                                                                                        try:
+                                                                                            # Wait for either reply buttons (reviews without replies) or edit buttons (reviews with replies) to appear
+                                                                                            self.wait.until(
+                                                                                                EC.any_of(
+                                                                                                    EC.presence_of_element_located((By.XPATH, "//button[starts-with(@id, 'staff-reply-button-')]")),
+                                                                                                    EC.presence_of_element_located((By.XPATH, "//button[starts-with(@id, 'staff-edit-reply-button-')]")),
+                                                                                                    EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'review')] | //div[contains(@class, 'Review')]"))
+                                                                                                )
+                                                                                            )
+                                                                                            time.sleep(0.5)  # Additional small wait for any animations
+                                                                                            print("  ✓ Reviews loaded")
+                                                                                        except Exception as e:
+                                                                                            print(f"  ⚠ Timeout waiting for reviews to load: {e}")
+                                                                                            time.sleep(2.0)  # Fallback wait
                                                                                         print("  ✓ Clicked 'My Reviews' sub-tab")
                                                                                     except Exception as e:
                                                                                         print(f"  ⚠ Error clicking 'My Reviews' sub-tab: {e}")
@@ -7523,11 +7538,36 @@ class StrandsTestSuite:
                                                                                                     f"{tab_name} tab"
                                                                                                 )
                                                                                             
+                                                                                            # Wait a moment after clicking the tab
+                                                                                            if tab_clicked:
+                                                                                                time.sleep(0.5)  # Small wait for tab click to register
+                                                                                            
                                                                                             if not tab_clicked:
                                                                                                 # Fallback to direct navigation
                                                                                                 self.navigate_and_scroll(f"{BASE_URL}{tab_path}")
+                                                                                                time.sleep(0.5)  # Small wait after navigation
                                                                                             
-                                                                                            time.sleep(2.0)  # Wait for page to load
+                                                                                            # Wait for page to load - wait for content elements to be present
+                                                                                            print(f"    Waiting for {tab_name} page to load...")
+                                                                                            try:
+                                                                                                # Wait for common data elements or page structure to appear
+                                                                                                # More specific waits for admin pages
+                                                                                                self.wait.until(
+                                                                                                    EC.any_of(
+                                                                                                        EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'card')] | //div[contains(@class, 'Card')]")),
+                                                                                                        EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'chart')] | //div[contains(@class, 'Chart')] | //canvas")),
+                                                                                                        EC.presence_of_element_located((By.XPATH, "//table | //tbody | //tr")),
+                                                                                                        EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'text-4xl')] | //div[contains(@class, 'text-3xl')] | //div[contains(@class, 'text-2xl')]")),
+                                                                                                        EC.presence_of_element_located((By.XPATH, "//h1 | //h2 | //h3 | //h4")),
+                                                                                                        EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'grid')] | //div[contains(@class, 'flex')]")),
+                                                                                                        EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'Total')] | //div[contains(text(), 'Users')] | //div[contains(text(), 'Revenue')]"))
+                                                                                                    )
+                                                                                                )
+                                                                                                time.sleep(0.5)  # Additional small wait for any animations
+                                                                                                print(f"    ✓ {tab_name} page loaded")
+                                                                                            except Exception as e:
+                                                                                                print(f"    ⚠ Timeout waiting for {tab_name} to load: {e}")
+                                                                                                time.sleep(2.0)  # Fallback wait
                                                                                             
                                                                                             # Slowly scroll through the page to check updated data
                                                                                             print(f"    Slowly scrolling through {tab_name}...")
