@@ -727,7 +727,7 @@ export default function SalonBrowser() {
                   </div>
                   
                   <div className="pt-3 mt-2">
-                    <p className="text-sm text-muted-foreground line-clamp-2">{salon.description}</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">{salon.description}</p>
                 </div>
                 </div>
 

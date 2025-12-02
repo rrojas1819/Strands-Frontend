@@ -344,19 +344,19 @@ export default function AdminDashboard() {
         {activeTab === 'user-analytics' ? (
           <>
             {/* Welcome Section */}
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold text-foreground mb-2">
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                 User Analytics
               </h2>
-              <p className="text-muted-foreground">
+              <p className="text-sm sm:text-base text-muted-foreground">
                 View user demographics and engagement metrics to understand your platform's user base.
                       </p>
               
               {/* Sub-tabs for User Analytics */}
-              <div className="mt-4 flex space-x-1 border-b">
+              <div className="mt-4 flex space-x-1 border-b overflow-x-auto">
                 <button
                   onClick={() => setUserAnalyticsSubTab('overview')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                     userAnalyticsSubTab === 'overview'
                       ? 'border-b-2 border-primary text-primary'
                       : 'text-muted-foreground hover:text-foreground'
@@ -366,7 +366,7 @@ export default function AdminDashboard() {
                 </button>
                 <button
                   onClick={() => setUserAnalyticsSubTab('activity-retention')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                     userAnalyticsSubTab === 'activity-retention'
                       ? 'border-b-2 border-primary text-primary'
                       : 'text-muted-foreground hover:text-foreground'
