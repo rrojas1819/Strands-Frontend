@@ -464,7 +464,7 @@ export default function SalonVerification() {
         </div>
 
         {/* Filter Buttons and Sort */}
-        <div className="mb-6 flex flex-col gap-4">
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="flex flex-wrap gap-2">
             <Button 
               variant={filter === 'all' ? 'default' : 'outline'}
@@ -495,7 +495,7 @@ export default function SalonVerification() {
               Rejected ({salonCounts.rejected})
             </Button>
           </div>
-          <div className="w-full sm:w-auto sm:min-w-[160px]">
+          <div className="min-w-[160px]">
             <StrandsSelect
               value={sortBy}
               onValueChange={setSortBy}
