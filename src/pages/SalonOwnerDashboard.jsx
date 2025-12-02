@@ -1100,7 +1100,7 @@ export default function SalonOwnerDashboard() {
         handleLogout={handleLogout}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
         {/* Show loading state while checking salon status - prevents flash of registration form */}
         {isCheckingSalon ? (
           <div className="flex items-center justify-center py-12">
@@ -1110,11 +1110,11 @@ export default function SalonOwnerDashboard() {
           <>
             {/* Welcome message only on overview tab - only show after loading completes */}
             {activeTab === 'overview' && (
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
             Welcome, {authContext?.user?.full_name}!
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             {hasSalon 
               ? 'Manage your salon business and grow your customer base.' 
               : 'Register your salon to start accepting bookings and managing your business.'
@@ -1128,14 +1128,14 @@ export default function SalonOwnerDashboard() {
         
         {hasSalon && salonStatus !== 'APPROVED' && (
           <div className="max-w-2xl mx-auto">
-            <div className="bg-background border rounded-lg p-8 text-center">
-              <div className="flex justify-center mb-6">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+            <div className="bg-background border rounded-lg p-4 sm:p-6 lg:p-8 text-center">
+              <div className="flex justify-center mb-4 sm:mb-6">
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center ${
                   salonStatus === 'APPROVED' ? 'bg-green-100' :
                   salonStatus === 'PENDING' ? 'bg-yellow-100' :
                   'bg-red-100'
                 }`}>
-                  <Building2 className={`w-8 h-8 ${
+                  <Building2 className={`w-6 h-6 sm:w-8 sm:h-8 ${
                     salonStatus === 'APPROVED' ? 'text-green-600' :
                     salonStatus === 'PENDING' ? 'text-yellow-600' :
                     'text-red-600'
@@ -1143,13 +1143,13 @@ export default function SalonOwnerDashboard() {
             </div>
           </div>
               
-              <h3 className="text-2xl font-bold mb-2">
+              <h3 className="text-xl sm:text-2xl font-bold mb-2">
                 {salonStatus === 'APPROVED' ? 'Salon Approved' :
                  salonStatus === 'PENDING' ? 'Pending Review' :
                  'Registration Rejected'}
               </h3>
               
-              <p className="text-muted-foreground mb-6">
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 px-2">
                 {salonStatus === 'APPROVED' ? 'Your salon is live and accepting bookings! You can now manage your business through the dashboard.' :
                  salonStatus === 'PENDING' ? 'Your salon registration is under review. Please wait for approval before you can start accepting bookings.' :
                  'Your salon registration was rejected. Please contact support for further inquiries.'}
@@ -1159,27 +1159,27 @@ export default function SalonOwnerDashboard() {
         )}
 
         {activeTab === 'overview' && hasSalon && salonStatus === 'APPROVED' && (
-          <div className="bg-background border rounded-lg p-6">
+          <div className="bg-background border rounded-lg p-4 sm:p-6">
             {salonInfo && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div>
-                    <h3 className="text-xl font-semibold mb-4">Salon Information</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Salon Information</h3>
                     <div className="space-y-3">
                     <div>
-                        <p className="text-sm text-muted-foreground">Name</p>
-                        <p className="font-medium">{salonInfo.name}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Name</p>
+                        <p className="font-medium text-sm sm:text-base break-words">{salonInfo.name}</p>
                     </div>
                     <div>
-                        <p className="text-sm text-muted-foreground">Category</p>
-                        <p className="font-medium">{salonInfo.category}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Category</p>
+                        <p className="font-medium text-sm sm:text-base break-words">{salonInfo.category}</p>
                     </div>
                     <div>
-                        <p className="text-sm text-muted-foreground">Description</p>
-                        <p className="font-medium">{salonInfo.description || 'No description'}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Description</p>
+                        <p className="font-medium text-sm sm:text-base break-words">{salonInfo.description || 'No description'}</p>
                     </div>
                     <div>
-                        <p className="text-sm text-muted-foreground">Status</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Status</p>
                         <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${salonInfo.status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-200' : salonInfo.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
                           {formatStatusLabel(salonInfo.status)}
                         </span>
@@ -1188,23 +1188,23 @@ export default function SalonOwnerDashboard() {
                   </div>
 
                     <div>
-                    <h3 className="text-xl font-semibold mb-4">Contact Information</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Contact Information</h3>
                     <div className="space-y-3">
                       {salonInfo.phone && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Phone</p>
-                          <p className="font-medium">{salonInfo.phone}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">Phone</p>
+                          <p className="font-medium text-sm sm:text-base break-words">{salonInfo.phone}</p>
                     </div>
                       )}
                       {salonInfo.email && (
                     <div>
-                          <p className="text-sm text-muted-foreground">Email</p>
-                          <p className="font-medium">{salonInfo.email}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">Email</p>
+                          <p className="font-medium text-sm sm:text-base break-words">{salonInfo.email}</p>
                     </div>
                       )}
                     <div>
-                        <p className="text-sm text-muted-foreground">Address</p>
-                        <p className="font-medium">
+                        <p className="text-xs sm:text-sm text-muted-foreground">Address</p>
+                        <p className="font-medium text-sm sm:text-base break-words">
                           {salonInfo.address || 'No address'}
                         </p>
                     </div>
@@ -1212,13 +1212,13 @@ export default function SalonOwnerDashboard() {
                 </div>
                 </div>
 
-                <div className="border-t pt-6">
-                  <h3 className="text-xl font-semibold mb-4">Operating Hours</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="border-t pt-4 sm:pt-6">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Operating Hours</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
                     {Object.entries(salonInfo.weekly_hours || {}).map(([day, hours]) => (
                       <div key={day} className="flex flex-col">
-                        <p className="text-sm font-medium mb-2">{getShortDayName(day)}</p>
-                        <p className={`text-sm ${hours.is_open ? 'text-muted-foreground' : 'text-red-500'}`}>
+                        <p className="text-xs sm:text-sm font-medium mb-1 sm:mb-2">{getShortDayName(day)}</p>
+                        <p className={`text-xs sm:text-sm ${hours.is_open ? 'text-muted-foreground' : 'text-red-500'}`}>
                           {hours.is_open 
                             ? `${formatTimeTo12Hour(hours.start_time)} - ${formatTimeTo12Hour(hours.end_time)}`
                             : 'Closed'
@@ -1230,31 +1230,32 @@ export default function SalonOwnerDashboard() {
                           </div>
 
                 {/* Salon Photo Section */}
-                <div className="border-t pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold">Salon Photo</h3>
+                <div className="border-t pt-4 sm:pt-6">
+                  <div className="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-2">
+                    <h3 className="text-lg sm:text-xl font-semibold">Salon Photo</h3>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={fetchSalonPhoto}
                       disabled={salonPhotoLoading}
+                      className="text-xs sm:text-sm"
                     >
-                      <Image className="w-4 h-4 mr-2" />
-                      Refresh
+                      <Image className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Refresh</span>
                     </Button>
                   </div>
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {salonPhotoLoading ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                       </div>
                     ) : salonPhotoUrl ? (
                       <div className="space-y-3">
-                        <div className="relative w-full max-w-md">
+                        <div className="relative w-full max-w-md mx-auto sm:mx-0">
                           <img 
                             src={salonPhotoUrl} 
                             alt="Salon photo" 
-                            className="w-full h-64 object-contain rounded-lg border bg-gray-50"
+                            className="w-full h-48 sm:h-64 object-contain rounded-lg border bg-gray-50"
                             onError={(e) => {
                               console.error('Failed to load salon photo:', salonPhotoUrl);
                               toast.error('Failed to load photo. The URL may be invalid.');
@@ -1265,7 +1266,7 @@ export default function SalonOwnerDashboard() {
                             }}
                           />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -1278,8 +1279,9 @@ export default function SalonOwnerDashboard() {
                       setShowSalonPhotoModal(true);
                     }}
                             disabled={salonPhotoLoading}
+                            className="text-xs sm:text-sm w-full sm:w-auto"
                           >
-                            <Upload className="w-4 h-4 mr-2" />
+                            <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                             Change Photo
                           </Button>
                           <Button
@@ -1287,17 +1289,18 @@ export default function SalonOwnerDashboard() {
                             size="sm"
                             onClick={handleSalonPhotoDelete}
                             disabled={salonPhotoLoading}
+                            className="text-xs sm:text-sm w-full sm:w-auto"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" />
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                             Delete Photo
                           </Button>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                          <Image className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                          <p className="text-sm text-muted-foreground mb-4">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-8 text-center">
+                          <Image className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3" />
+                          <p className="text-xs sm:text-sm text-muted-foreground mb-4">
                             No photo uploaded. Upload a storefront or logo photo.
                           </p>
                           <Button
@@ -1311,8 +1314,9 @@ export default function SalonOwnerDashboard() {
                       setSalonPhotoPreview(null);
                       setShowSalonPhotoModal(true);
                     }}
+                            className="text-xs sm:text-sm"
                           >
-                            <Upload className="w-4 h-4 mr-2" />
+                            <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                             Upload Photo
                           </Button>
                           </div>
@@ -1327,11 +1331,11 @@ export default function SalonOwnerDashboard() {
 
         {/* Salon Photo Upload Modal */}
         {showSalonPhotoModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl mx-auto shadow-2xl">
-              <CardHeader>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+            <Card className="w-full max-w-2xl mx-auto shadow-2xl my-4 max-h-[95vh] sm:max-h-[90vh] flex flex-col">
+              <CardHeader className="flex-shrink-0">
                 <div className="flex items-center justify-between">
-                  <CardTitle>{salonPhotoUrl ? 'Change Salon Photo' : 'Upload Salon Photo'}</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">{salonPhotoUrl ? 'Change Salon Photo' : 'Upload Salon Photo'}</CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1346,25 +1350,26 @@ export default function SalonOwnerDashboard() {
                         salonPhotoInputRef.current.value = '';
                       }
                     }}
+                    className="h-8 w-8 sm:h-9 sm:w-9"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4 sm:w-5 sm:h-5" />
                   </Button>
                 </div>
-                <CardDescription>
+                <CardDescription className="text-xs sm:text-sm">
                   Upload a storefront or logo photo for your salon. The photo will be displayed at full size.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4 overflow-y-auto flex-1">
                 {salonPhotoPreview ? (
-                  <div className="space-y-4">
-                    <div className="relative w-full flex justify-center items-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 p-8 min-h-[300px]">
+                  <div className="space-y-3 sm:space-y-4">
+                    <div className="relative w-full flex justify-center items-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 p-4 sm:p-8 min-h-[200px] sm:min-h-[300px]">
                       <img 
                         src={salonPhotoPreview} 
                         alt="Preview" 
-                        className="max-w-full max-h-[400px] object-contain"
+                        className="max-w-full max-h-[300px] sm:max-h-[400px] object-contain"
                       />
                     </div>
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
                       <Button
                         variant="outline"
                         onClick={() => {
@@ -1377,21 +1382,23 @@ export default function SalonOwnerDashboard() {
                             salonPhotoInputRef.current.value = '';
                           }
                         }}
+                        className="w-full sm:w-auto text-xs sm:text-sm"
                       >
                         Cancel
                       </Button>
                       <Button
                         onClick={handleSalonPhotoUpload}
                         disabled={salonPhotoUploading}
+                        className="w-full sm:w-auto text-xs sm:text-sm"
                       >
                         {salonPhotoUploading ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2"></div>
                             Uploading...
                           </>
                         ) : (
                           <>
-                            <Upload className="w-4 h-4 mr-2" />
+                            <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                             {salonPhotoUrl ? 'Update Photo' : 'Upload Photo'}
                           </>
                         )}
@@ -1399,7 +1406,7 @@ export default function SalonOwnerDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     <input
                       ref={salonPhotoInputRef}
                       type="file"
@@ -1425,21 +1432,21 @@ export default function SalonOwnerDashboard() {
                     />
                     <div
                       onClick={() => salonPhotoInputRef.current?.click()}
-                      className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-12 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
                     >
-                      <div className="flex flex-col items-center justify-center space-y-4">
-                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Upload className="w-8 h-8 text-primary" />
+                      <div className="flex flex-col items-center justify-center space-y-3 sm:space-y-4">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                         </div>
                         <div>
-                          <p className="text-lg font-medium text-foreground mb-1">
+                          <p className="text-sm sm:text-base lg:text-lg font-medium text-foreground mb-1">
                             Click to upload or drag and drop
                           </p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs sm:text-sm text-muted-foreground">
                             PNG, JPG, or WEBP (max 10MB)
                           </p>
                         </div>
-                        <Button variant="outline" className="mt-2">
+                        <Button variant="outline" className="mt-2 text-xs sm:text-sm">
                           Select Photo
                         </Button>
                       </div>
@@ -1448,21 +1455,21 @@ export default function SalonOwnerDashboard() {
                 )}
               </CardContent>
             </Card>
-                      </div>
+          </div>
         )}
 
         {activeTab === 'staff-services' && salonStatus === 'APPROVED' && (
-          <div className="space-y-8">
-            <div className="bg-background border rounded-lg p-6">
-              <div className="flex items-center justify-between mb-6">
+          <div className="space-y-4 sm:space-y-8">
+            <div className="bg-background border rounded-lg p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
                   <div>
-                  <h3 className="text-xl font-semibold">Staff Management</h3>
-                  <p className="text-muted-foreground">
+                  <h3 className="text-lg sm:text-xl font-semibold">Staff Management</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Manage your salon employees ({pagination.total_employees} total)
                   </p>
                   </div>
-                <Button onClick={() => setShowAddEmployeeModal(true)}>
-                  <Users className="w-4 h-4 mr-2" />
+                <Button onClick={() => setShowAddEmployeeModal(true)} className="w-full sm:w-auto text-xs sm:text-sm">
+                  <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                     Add Employee
                   </Button>
                 </div>
@@ -1482,31 +1489,31 @@ export default function SalonOwnerDashboard() {
                       </div>
                     ) : (
                       employees.map((employee) => (
-                  <div key={employee.employee_id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <Avatar>
+                  <div key={employee.employee_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border rounded-lg">
+                    <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                      <Avatar className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
                               <AvatarImage src={employee.profile_picture_url} />
-                        <AvatarFallback>
+                        <AvatarFallback className="text-xs sm:text-sm">
                                 {employee.full_name.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                              <h4 className="font-medium">{employee.full_name}</h4>
-                              <p className="text-sm text-muted-foreground">{employee.email}</p>
-                              <div className="flex items-center space-x-2 mt-1">
-                                <Badge variant="outline">{employee.title}</Badge>
-                                <Badge variant="outline" className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${employee.active ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
+                      <div className="min-w-0 flex-1">
+                              <h4 className="font-medium text-sm sm:text-base truncate">{employee.full_name}</h4>
+                              <p className="text-xs sm:text-sm text-muted-foreground truncate">{employee.email}</p>
+                              <div className="flex items-center space-x-2 mt-1 flex-wrap">
+                                <Badge variant="outline" className="text-xs">{employee.title}</Badge>
+                                <Badge variant="outline" className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${employee.active ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
                           {employee.active ? 'Active' : 'Inactive'}
                         </Badge>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-shrink-0">
                       <Button 
                         variant="outline" 
                         size="sm"
                               onClick={() => handleSetEmployeeHours(employee)}
-                              className="hover:bg-blue-50 hover:border-blue-300"
+                              className="hover:bg-blue-50 hover:border-blue-300 text-xs sm:text-sm flex-1 sm:flex-initial"
                       >
                               Set Hours
                       </Button>
@@ -1514,7 +1521,7 @@ export default function SalonOwnerDashboard() {
                         variant="destructive" 
                         size="sm"
                               onClick={() => handleFireEmployee(employee)}
-                              className="bg-red-600 hover:bg-red-700 text-white"
+                              className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm flex-1 sm:flex-initial"
                       >
                               Fire
                       </Button>
@@ -1525,16 +1532,17 @@ export default function SalonOwnerDashboard() {
                   </div>
                   
                   {pagination.total_pages > 1 && (
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t">
-                      <div className="text-sm text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mt-4 sm:mt-6 pt-4 border-t">
+                      <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                         Showing {employees.length} of {pagination.total_employees} employees
                   </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center justify-center space-x-1 sm:space-x-2">
                       <Button 
                         variant="outline" 
                         size="sm"
                           onClick={() => fetchEmployees(pagination.current_page - 1)}
                           disabled={!pagination.has_prev_page}
+                          className="text-xs sm:text-sm"
                         >
                           Previous
                   </Button>
@@ -1548,7 +1556,7 @@ export default function SalonOwnerDashboard() {
                                 variant={pagination.current_page === pageNum ? "default" : "outline"}
                                 size="sm"
                                 onClick={() => fetchEmployees(pageNum)}
-                                className="w-8 h-8 p-0"
+                                className="w-7 h-7 sm:w-8 sm:h-8 p-0 text-xs sm:text-sm"
                               >
                                 {pageNum}
                       </Button>
@@ -1561,6 +1569,7 @@ export default function SalonOwnerDashboard() {
                         size="sm"
                           onClick={() => fetchEmployees(pagination.current_page + 1)}
                           disabled={!pagination.has_next_page}
+                          className="text-xs sm:text-sm"
                       >
                           Next
                       </Button>
@@ -1574,7 +1583,7 @@ export default function SalonOwnerDashboard() {
         )}
 
         {activeTab === 'products' && salonStatus === 'APPROVED' && salonInfo && (
-          <div className="bg-background border rounded-lg p-6">
+          <div className="bg-background border rounded-lg p-4 sm:p-6">
             <ProductManagement
               salonId={salonInfo.salon_id}
               onSuccess={(message) => {
@@ -1600,18 +1609,18 @@ export default function SalonOwnerDashboard() {
         )}
 
         {activeTab === 'customers' && salonStatus === 'APPROVED' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0">
                       <div>
-                <h2 className="text-2xl font-bold text-foreground">Customer Visits</h2>
-                <p className="text-muted-foreground">View your customers' visit history</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">Customer Visits</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground">View your customers' visit history</p>
               </div>
               <Button 
                 onClick={toggleSortOrder}
                 variant="outline"
-                className="flex items-center space-x-2"
+                className="flex items-center space-x-2 w-full sm:w-auto text-xs sm:text-sm"
               >
-                <ArrowUpDown className="w-4 h-4" />
+                <ArrowUpDown className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Sort: {sortOrder === 'desc' ? 'Most Frequent' : 'Least Frequent'}</span>
               </Button>
             </div>
@@ -1631,28 +1640,28 @@ export default function SalonOwnerDashboard() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
                   {customers.map((customer) => (
                     <Card key={customer.user_id} className="hover:shadow-lg transition-shadow">
-                      <CardContent className="p-6 pt-6">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                      <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1 break-words">
                               {customer.full_name}
                             </h3>
                             <div className="space-y-1">
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-xs sm:text-sm text-muted-foreground break-words">
                                 <span className="font-medium">Email:</span> {customer.email}
                               </p>
                               {customer.phone && (
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-xs sm:text-sm text-muted-foreground break-words">
                                   <span className="font-medium">Phone:</span> {customer.phone}
                                 </p>
                               )}
-                              <div className="flex items-center space-x-2 mt-2">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-1 sm:gap-0 mt-2">
                                 <div className="flex items-center space-x-1">
-                                  <Clock className="w-4 h-4 text-blue-600" />
-                                  <span className="text-sm font-medium text-blue-600">
+                                  <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+                                  <span className="text-xs sm:text-sm font-medium text-blue-600">
                                     {customer.total_visits} visit{customer.total_visits !== 1 ? 's' : ''}
                           </span>
                                 </div>
@@ -1671,9 +1680,9 @@ export default function SalonOwnerDashboard() {
                       <Button 
                             onClick={() => openCustomerVisitModal(customer)}
                         variant="outline" 
-                            className="flex items-center space-x-2"
+                            className="flex items-center space-x-2 w-full sm:w-auto text-xs sm:text-sm"
                       >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                             <span>View History</span>
                       </Button>
                         </div>
@@ -1683,28 +1692,30 @@ export default function SalonOwnerDashboard() {
                 </div>
 
                 {customerPagination.total_records > customerPagination.limit && (
-                  <div className="flex justify-between items-center pt-4">
-                    <div className="text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 pt-4">
+                    <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                       Showing {Math.min(customerPagination.offset + 1, customerPagination.total_records)} -{' '}
                       {Math.min(customerPagination.offset + customerPagination.limit, customerPagination.total_records)} of{' '}
                       {customerPagination.total_records} customers
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex justify-center space-x-2">
                       <Button 
                         variant="outline"
                         onClick={() => handleCustomersPagination('prev')}
                         disabled={customersLoading || customerPagination.offset === 0}
+                        className="text-xs sm:text-sm"
                       >
-                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                         Previous
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => handleCustomersPagination('next')}
                         disabled={customersLoading || !customerPagination.has_more}
+                        className="text-xs sm:text-sm"
                       >
                         Next
-                        <ChevronRight className="w-4 h-4 ml-1" />
+                        <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
                       </Button>
                     </div>
                   </div>
@@ -1720,15 +1731,15 @@ export default function SalonOwnerDashboard() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
           ) : salonInfo?.salon_id ? (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div className="border-b border-muted">
-                <div className="flex space-x-8">
+                <div className="flex space-x-4 sm:space-x-8 overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                   <button
                     onClick={() => {
                       setReviewsSubTab('salon');
                       localStorage.setItem('reviewsSubTab', 'salon');
                     }}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
                       reviewsSubTab === 'salon'
                         ? 'border-primary text-primary'
                         : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
@@ -1741,7 +1752,7 @@ export default function SalonOwnerDashboard() {
                       setReviewsSubTab('staff');
                       localStorage.setItem('reviewsSubTab', 'staff');
                     }}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
                       reviewsSubTab === 'staff'
                         ? 'border-primary text-primary'
                         : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
@@ -1792,15 +1803,15 @@ export default function SalonOwnerDashboard() {
         )}
 
         {activeTab === 'loyalty' && salonStatus === 'APPROVED' && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="border-b border-muted">
-              <div className="flex space-x-8">
+              <div className="flex space-x-4 sm:space-x-8 overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                 <button
                   onClick={() => {
                     setLoyaltySubTab('loyalty-config');
                     localStorage.setItem('loyaltySubTab', 'loyalty-config');
                   }}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
                     loyaltySubTab === 'loyalty-config'
                       ? 'border-primary text-primary'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
@@ -1813,7 +1824,7 @@ export default function SalonOwnerDashboard() {
                     setLoyaltySubTab('promotions');
                     localStorage.setItem('loyaltySubTab', 'promotions');
                   }}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 ${
                     loyaltySubTab === 'promotions'
                       ? 'border-primary text-primary'
                       : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
@@ -1876,14 +1887,14 @@ export default function SalonOwnerDashboard() {
         )}
 
         {activeTab === 'revenue' && salonStatus === 'APPROVED' && (
-          <div className="space-y-6">
-            <div className="mb-8">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="mb-4 sm:mb-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold text-foreground mb-2">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                     Revenue Insights
                   </h2>
-                  <p className="text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Track top-performing stylists, services, and product sales for your salon.
                   </p>
                 </div>
@@ -1896,28 +1907,28 @@ export default function SalonOwnerDashboard() {
                 <p className="text-muted-foreground">Loading revenue data...</p>
               </div>
             ) : revenueData ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <DollarSign className="w-5 h-5" />
+                      <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
+                        <DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />
                         <span>Total Service Revenue</span>
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-xs sm:text-sm">
                         Revenue from service bookings
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-4xl font-bold text-green-800 mb-4">
+                      <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-800 mb-3 sm:mb-4 break-words">
                         ${parseFloat(revenueData.totalSalonRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                       {revenueData.services && revenueData.services.length > 0 && (
-                        <div className="p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm font-semibold mb-1">Top Service</p>
-                          <p className="font-semibold">{revenueData.services[0].service_name}</p>
-                          <p className="text-sm text-muted-foreground mb-2">{revenueData.services[0].times_booked || 0} bookings</p>
-                          <p className="text-lg font-bold text-green-800">
+                        <div className="p-2 sm:p-3 bg-green-50 rounded-lg">
+                          <p className="text-xs sm:text-sm font-semibold mb-1">Top Service</p>
+                          <p className="font-semibold text-sm sm:text-base break-words">{revenueData.services[0].service_name}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground mb-2">{revenueData.services[0].times_booked || 0} bookings</p>
+                          <p className="text-base sm:text-lg font-bold text-green-800">
                             ${parseFloat(revenueData.services[0].total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
@@ -1927,24 +1938,24 @@ export default function SalonOwnerDashboard() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <DollarSign className="w-5 h-5" />
+                      <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
+                        <DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />
                         <span>Total Product Revenue</span>
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-xs sm:text-sm">
                         Revenue from product sales
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-4xl font-bold text-green-800 mb-4">
+                      <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-800 mb-3 sm:mb-4 break-words">
                         ${parseFloat(revenueData.totalProductRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                       {revenueData.productsRevenue && revenueData.productsRevenue.length > 0 && (
-                        <div className="p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm font-semibold mb-1">Top Product</p>
-                          <p className="font-semibold">{revenueData.productsRevenue[0].product_name}</p>
-                          <p className="text-sm text-muted-foreground mb-2">{revenueData.productsRevenue[0].units_sold || 0} units</p>
-                          <p className="text-lg font-bold text-green-800">
+                        <div className="p-2 sm:p-3 bg-green-50 rounded-lg">
+                          <p className="text-xs sm:text-sm font-semibold mb-1">Top Product</p>
+                          <p className="font-semibold text-sm sm:text-base break-words">{revenueData.productsRevenue[0].product_name}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground mb-2">{revenueData.productsRevenue[0].units_sold || 0} units</p>
+                          <p className="text-base sm:text-lg font-bold text-green-800">
                             ${parseFloat(revenueData.productsRevenue[0].total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
@@ -1954,16 +1965,16 @@ export default function SalonOwnerDashboard() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <TrendingUp className="w-5 h-5" />
+                      <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
+                        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
                         <span>Total Revenue</span>
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-xs sm:text-sm">
                         Combined total revenue
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-4xl font-bold text-green-800 mb-4">
+                      <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-800 mb-3 sm:mb-4 break-words">
                         ${(parseFloat(revenueData.totalSalonRevenue || 0) + parseFloat(revenueData.totalProductRevenue || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                       {revenueData.stylists && revenueData.stylists.length > 0 && (() => {
@@ -1976,11 +1987,11 @@ export default function SalonOwnerDashboard() {
                         const topStylistRevenue = parseFloat(topStylist.total_revenue || 0);
                         
                         return (
-                          <div className="p-3 bg-green-50 rounded-lg">
-                            <p className="text-sm font-semibold mb-1">Top Stylist</p>
-                            <p className="font-semibold">{topStylist.stylist_name}</p>
-                            <p className="text-sm text-muted-foreground mb-2">{topStylist.total_bookings || 0} bookings</p>
-                            <p className="text-lg font-bold text-green-800">
+                          <div className="p-2 sm:p-3 bg-green-50 rounded-lg">
+                            <p className="text-xs sm:text-sm font-semibold mb-1">Top Stylist</p>
+                            <p className="font-semibold text-sm sm:text-base break-words">{topStylist.stylist_name}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground mb-2">{topStylist.total_bookings || 0} bookings</p>
+                            <p className="text-base sm:text-lg font-bold text-green-800">
                               ${topStylistRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                           </div>
@@ -1993,16 +2004,16 @@ export default function SalonOwnerDashboard() {
                 {revenueData.stylists && revenueData.stylists.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <Scissors className="w-5 h-5" />
+                      <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
+                        <Scissors className="w-4 h-4 sm:w-5 sm:h-5" />
                         <span>Top Performing Stylists</span>
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-xs sm:text-sm">
                         Total revenue
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         {revenueData.stylists.map((stylist, index) => {
                           const totalRevenue = parseFloat(stylist.total_revenue || 0);
                           
@@ -2017,21 +2028,21 @@ export default function SalonOwnerDashboard() {
                                 setSelectedStylist(stylist);
                                 setShowStylistBreakdownModal(true);
                               }}
-                              className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                              className="p-3 sm:p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
                             >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-semibold text-lg">{stylist.stylist_name}</p>
-                                  <p className="text-sm text-muted-foreground">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-semibold text-sm sm:text-base lg:text-lg break-words">{stylist.stylist_name}</p>
+                                  <p className="text-xs sm:text-sm text-muted-foreground">
                                     {stylist.total_bookings} booking{stylist.total_bookings !== 1 ? 's' : ''}
                                   </p>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-xl font-bold text-green-800">
+                                <div className="text-left sm:text-right flex-shrink-0">
+                                  <p className="text-lg sm:text-xl font-bold text-green-800">
                                     ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </p>
                                   {isTopStylist && (
-                                    <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                    <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200 text-xs">
                                       Top Performer
                                     </Badge>
                                   )}
@@ -2048,16 +2059,16 @@ export default function SalonOwnerDashboard() {
                 {revenueData.services && revenueData.services.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <Award className="w-5 h-5" />
+                      <CardTitle className="flex items-center space-x-2 text-base sm:text-lg">
+                        <Award className="w-4 h-4 sm:w-5 sm:h-5" />
                         <span>Top Performing Services</span>
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-xs sm:text-sm">
                         Revenue breakdown by service
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-3">
+                      <div className="space-y-2 sm:space-y-3">
                         {revenueData.services.map((service, index) => {
                           const serviceRevenue = parseFloat(service.total_revenue || 0);
                           
@@ -2066,19 +2077,19 @@ export default function SalonOwnerDashboard() {
                           const isTopService = serviceRevenue === topServiceRevenue && serviceRevenue > 0 && index === revenueData.services.findIndex(s => parseFloat(s.total_revenue || 0) === topServiceRevenue);
                           
                           return (
-                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                              <div>
-                                <p className="font-semibold">{service.service_name}</p>
-                                <p className="text-sm text-muted-foreground">
+                            <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 p-2 sm:p-3 border rounded-lg">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-sm sm:text-base break-words">{service.service_name}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground">
                                   {service.times_booked || 0} booking{service.times_booked !== 1 ? 's' : ''}
                                 </p>
                               </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold text-green-800">
+                              <div className="text-left sm:text-right flex-shrink-0">
+                                <p className="text-base sm:text-lg font-bold text-green-800">
                                   ${serviceRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                                 {isTopService && (
-                                  <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                  <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200 text-xs">
                                     Top Service
                                   </Badge>
                                 )}
@@ -2094,13 +2105,13 @@ export default function SalonOwnerDashboard() {
                 {revenueData.productsRevenue && revenueData.productsRevenue.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>Product Sales Performance</CardTitle>
-                      <CardDescription>
+                      <CardTitle className="text-base sm:text-lg">Product Sales Performance</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">
                         Track product revenue and units sold.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-3">
+                      <div className="space-y-2 sm:space-y-3">
                         {revenueData.productsRevenue.map((product, index) => {
                           const productRevenue = parseFloat(product.total_revenue || 0);
                           
@@ -2109,22 +2120,22 @@ export default function SalonOwnerDashboard() {
                           const isTopProduct = productRevenue === topProductRevenue && productRevenue > 0 && index === revenueData.productsRevenue.findIndex(p => parseFloat(p.total_revenue || 0) === topProductRevenue);
                           
                           return (
-                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                              <div>
-                                <p className="font-semibold">{product.product_name}</p>
-                                <p className="text-sm text-muted-foreground">
+                            <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 p-2 sm:p-3 border rounded-lg">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-sm sm:text-base break-words">{product.product_name}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground">
                                   Listed at: ${parseFloat(product.listing_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-xs sm:text-sm text-muted-foreground">
                                   {product.units_sold || 0} units sold
                                 </p>
                               </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold text-green-800">
+                              <div className="text-left sm:text-right flex-shrink-0">
+                                <p className="text-base sm:text-lg font-bold text-green-800">
                                   ${productRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                                 {isTopProduct && (
-                                  <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200">
+                                  <Badge className="mt-1 bg-yellow-200 text-yellow-800 border-yellow-300 hover:bg-yellow-200 text-xs">
                                     Top Product
                                   </Badge>
                                 )}
@@ -2148,13 +2159,13 @@ export default function SalonOwnerDashboard() {
             )}
 
             {showStylistBreakdownModal && selectedStylist && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <Card className="w-full max-w-2xl mx-auto shadow-2xl">
-                  <CardContent className="p-6 pt-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{selectedStylist.stylist_name}'s Daily Revenue</h3>
-                        <p className="text-sm text-gray-600">Last 7 days breakdown</p>
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+                <Card className="w-full max-w-2xl mx-auto shadow-2xl my-4">
+                  <CardContent className="p-4 sm:p-6 pt-4 sm:pt-6">
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{selectedStylist.stylist_name}'s Daily Revenue</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">Last 7 days breakdown</p>
                       </div>
                       <Button
                         variant="ghost"
@@ -2163,23 +2174,23 @@ export default function SalonOwnerDashboard() {
                           setShowStylistBreakdownModal(false);
                           setSelectedStylist(null);
                         }}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-gray-400 hover:text-gray-600 flex-shrink-0"
                       >
-                        <X className="w-5 h-5" />
+                        <X className="w-4 h-4 sm:w-5 sm:h-5" />
                       </Button>
                     </div>
 
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm text-muted-foreground">Total Revenue (All-Time)</p>
-                          <p className="text-2xl font-bold text-green-800">
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                        <div className="p-2 sm:p-3 bg-green-50 rounded-lg">
+                          <p className="text-xs sm:text-sm text-muted-foreground">Total Revenue (All-Time)</p>
+                          <p className="text-xl sm:text-2xl font-bold text-green-800 break-words">
                             ${parseFloat(selectedStylist.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         </div>
-                        <div className="p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm text-muted-foreground">Revenue (Last 7 Days)</p>
-                          <p className="text-2xl font-bold text-green-800">
+                        <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
+                          <p className="text-xs sm:text-sm text-muted-foreground">Revenue (Last 7 Days)</p>
+                          <p className="text-xl sm:text-2xl font-bold text-green-800 break-words">
                             ${(parseFloat(selectedStylist.monday_revenue || 0) + 
                                 parseFloat(selectedStylist.tuesday_revenue || 0) + 
                                 parseFloat(selectedStylist.wednesday_revenue || 0) + 
@@ -2190,26 +2201,26 @@ export default function SalonOwnerDashboard() {
                           </p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="p-3 bg-purple-50 rounded-lg">
-                          <p className="text-sm text-muted-foreground">Total Bookings</p>
-                          <p className="text-2xl font-bold text-purple-700">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                        <div className="p-2 sm:p-3 bg-purple-50 rounded-lg">
+                          <p className="text-xs sm:text-sm text-muted-foreground">Total Bookings</p>
+                          <p className="text-xl sm:text-2xl font-bold text-purple-700">
                             {selectedStylist.total_bookings || 0}
                           </p>
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <h4 className="font-semibold text-sm text-muted-foreground mb-3">Daily Breakdown</h4>
+                        <h4 className="font-semibold text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-3">Daily Breakdown</h4>
                         {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
                           const dayKey = `${day}_revenue`;
                           const revenue = parseFloat(selectedStylist[dayKey] || 0);
                           const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
                           
                           return (
-                            <div key={day} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                              <span className="font-medium">{dayLabel}</span>
-                              <span className="text-lg font-bold text-green-800">
+                            <div key={day} className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-lg">
+                              <span className="font-medium text-xs sm:text-sm">{dayLabel}</span>
+                              <span className="text-base sm:text-lg font-bold text-green-800">
                                 ${revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
@@ -2248,26 +2259,26 @@ export default function SalonOwnerDashboard() {
         )}
 
         {showAddEmployeeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-background rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-background rounded-lg p-4 sm:p-6 w-full max-w-md mx-4 my-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Add Employee</h3>
+                <h3 className="text-base sm:text-lg font-semibold">Add Employee</h3>
                 <Button variant="ghost" size="sm" onClick={() => {
                   setShowAddEmployeeModal(false);
                   setNewEmployee({ email: '', title: '' });
-                }}>
+                }} className="h-8 w-8 sm:h-9 sm:w-9">
                   <X className="w-4 h-4" />
                 </Button>
               </div>
               
-              <form onSubmit={handleAddEmployee} className="space-y-4">
+              <form onSubmit={handleAddEmployee} className="space-y-3 sm:space-y-4">
                   <div>
-                  <label className="block text-sm font-medium mb-2">Employee Email</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Employee Email</label>
                   <input
                     type="email"
                     value={newEmployee.email}
                     onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-md"
+                    className="w-full px-3 py-2 text-sm sm:text-base border rounded-md"
                     placeholder="stylist@example.com"
                     required
                   />
@@ -2277,25 +2288,35 @@ export default function SalonOwnerDashboard() {
                   </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-2">Job Title</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Job Title</label>
                   <input
                     type="text"
                     value={newEmployee.title}
                     onChange={(e) => setNewEmployee({...newEmployee, title: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-md"
+                    className="w-full px-3 py-2 text-sm sm:text-base border rounded-md"
                     placeholder="Senior Stylist, Junior Stylist, etc."
                     required
                   />
                 </div>
                 
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => {
-                    setShowAddEmployeeModal(false);
-                    setNewEmployee({ email: '', title: '' });
-                  }}>
+                <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:space-x-2 pt-3 sm:pt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowAddEmployeeModal(false);
+                      setNewEmployee({ email: '', title: '' });
+                    }}
+                    disabled={isAddingEmployee}
+                    className="w-full sm:w-auto text-xs sm:text-sm"
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isAddingEmployee}>
+                  <Button 
+                    type="submit" 
+                    disabled={isAddingEmployee}
+                    className="w-full sm:w-auto text-xs sm:text-sm"
+                  >
                     {isAddingEmployee ? 'Adding...' : 'Add Employee'}
                   </Button>
                 </div>
@@ -2363,15 +2384,15 @@ export default function SalonOwnerDashboard() {
 
         {/* UPH-1.2: Customer Visit History Modal */}
         {showCustomerVisitModal && selectedCustomer && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-hidden">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+            <Card className="w-full max-w-4xl mx-auto shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden my-4">
               <CardContent className="p-0">
-                <div className="flex items-center justify-between p-6 border-b">
-                  <div className="flex items-center space-x-3">
-                    <Users className="w-6 h-6 text-blue-500" />
-                      <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{selectedCustomer.full_name}'s Visit History</h3>
-                      <p className="text-sm text-gray-600">
+                <div className="flex items-center justify-between p-4 sm:p-6 border-b">
+                  <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1 pr-2">
+                    <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{selectedCustomer.full_name}'s Visit History</h3>
+                      <p className="text-xs sm:text-sm text-gray-600">
                         {visitsPagination.total_records} visit{visitsPagination.total_records !== 1 ? 's' : ''}
                       </p>
                     </div>
@@ -2384,13 +2405,13 @@ export default function SalonOwnerDashboard() {
                       setSelectedCustomer(null);
                       setCustomerVisits([]);
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4 sm:w-5 sm:h-5" />
                   </Button>
                 </div>
 
-                <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(95vh-180px)] sm:max-h-[calc(90vh-200px)]">
                   {visitsLoading ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -2422,11 +2443,11 @@ export default function SalonOwnerDashboard() {
 
                         return (
                           <Card key={visit.booking_id} className="hover:shadow-md transition-shadow">
-                            <CardContent className="p-4 pt-4">
-                              <div className="flex justify-between items-start mb-3">
-                                <div className="flex items-center space-x-3">
-                                  <Clock className="w-4 h-4 text-muted-foreground" />
-                                  <span className="font-medium text-foreground">
+                            <CardContent className="p-3 sm:p-4 pt-3 sm:pt-4">
+                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-0 mb-3">
+                                <div className="flex items-center space-x-2 sm:space-x-3">
+                                  <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                                  <span className="font-medium text-xs sm:text-sm text-foreground">
                                     {new Date(visit.scheduled_start).toLocaleDateString('en-US', {
                                       month: 'short',
                                       day: 'numeric',
@@ -2434,21 +2455,21 @@ export default function SalonOwnerDashboard() {
                                     })}
                           </span>
                                 </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     {hasDiscount && (
-                                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                                      <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
                                         {promoInfo ? 'Promo Applied' : 'Discounted'}
                                       </Badge>
                                   )}
-                                  <Badge className={getStatusBadgeClass(visit.status || 'completed')}>
+                                  <Badge className={`${getStatusBadgeClass(visit.status || 'completed')} text-xs`}>
                                     {formatStatusLabel(visit.status || 'completed')}
                                   </Badge>
                                 </div>
                               </div>
                               
                               <div className="space-y-2 mb-3">
-                                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                  <Clock className="w-4 h-4" />
+                                <div className="flex items-center space-x-2 text-xs sm:text-sm text-muted-foreground">
+                                  <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                                   <span>
                                     {new Date(visit.scheduled_start).toLocaleTimeString('en-US', {
                                       hour: 'numeric',
@@ -2462,7 +2483,7 @@ export default function SalonOwnerDashboard() {
                           </span>
                         </div>
                                 {visit.notes && (
-                                  <p className="text-sm text-muted-foreground">
+                                  <p className="text-xs sm:text-sm text-muted-foreground break-words">
                                     <span className="font-medium">Notes:</span> {visit.notes}
                                   </p>
                                 )}
@@ -2470,20 +2491,20 @@ export default function SalonOwnerDashboard() {
 
                               {visit.services && visit.services.length > 0 && (
                                 <div className="mt-3 pt-3 border-t">
-                                  <h4 className="font-semibold text-sm text-foreground mb-2">Services:</h4>
+                                  <h4 className="font-semibold text-xs sm:text-sm text-foreground mb-2">Services:</h4>
                                   <div className="space-y-2">
                                     {visit.services.map((service, idx) => (
-                                      <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                                        <div>
-                                          <span className="font-medium text-foreground">{service.service_name}</span>
+                                      <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 text-xs sm:text-sm bg-gray-50 p-2 rounded">
+                                        <div className="min-w-0 flex-1">
+                                          <span className="font-medium text-foreground break-words">{service.service_name}</span>
                                           {service.employee && (
-                                            <p className="text-xs text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground break-words">
                                               By: {service.employee.name}
                                               {service.employee.title && ` (${service.employee.title})`}
                                             </p>
                                           )}
                     </div>
-                                        <div className="text-right">
+                                        <div className="text-left sm:text-right flex-shrink-0">
                                           <div className="font-medium text-green-800">${typeof service.price === 'number' ? service.price.toFixed(2) : parseFloat(service.price || 0).toFixed(2)}</div>
                                           <div className="text-xs text-blue-600">{service.duration_minutes} min</div>
                                         </div>
@@ -2497,8 +2518,9 @@ export default function SalonOwnerDashboard() {
                                         size="sm"
                                         variant="outline"
                                         onClick={() => handleViewPhotos(visit.booking_id)}
+                                        className="text-xs sm:text-sm"
                                       >
-                                        <Image className="w-4 h-4 mr-1" />
+                                        <Image className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                         View Photos
                                       </Button>
                                     </div>
@@ -2506,22 +2528,22 @@ export default function SalonOwnerDashboard() {
                                   <div className="flex justify-end mt-3 pt-3 border-t">
                                     {hasDiscount ? (
                                       <div className="text-right">
-                                        <div className="flex items-baseline gap-2 justify-end">
-                                          <span className="text-sm text-muted-foreground line-through">
+                                        <div className="flex items-baseline gap-2 justify-end flex-wrap">
+                                          <span className="text-xs sm:text-sm text-muted-foreground line-through">
                                             Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
                                           </span>
-                                          <span className="text-lg font-semibold text-green-800">
+                                          <span className="text-base sm:text-lg font-semibold text-green-800">
                                             ${!Number.isNaN(actualPaid) ? actualPaid.toFixed(2) : '0.00'}
                                           </span>
                                         </div>
-                                        <p className="text-xs text-muted-foreground mt-1">
+                                        <p className="text-xs text-muted-foreground mt-1 break-words">
                                           {discountLabel}
                                           {rewardInfo?.note ? ` ${rewardInfo.note}` : ''}
                                           {promoInfo?.promo_code ? ` Promo Code: ${promoInfo.promo_code}` : ''}
                                         </p>
                                       </div>
                                     ) : (
-                                      <div className="text-lg font-semibold text-green-800">
+                                      <div className="text-base sm:text-lg font-semibold text-green-800">
                                         Total: ${!Number.isNaN(originalTotal) ? originalTotal.toFixed(2) : '0.00'}
                                       </div>
                                     )}
@@ -2537,28 +2559,30 @@ export default function SalonOwnerDashboard() {
                 </div>
 
                 {visitsPagination.total_records > visitsPagination.limit && (
-                  <div className="flex justify-between items-center p-6 border-t">
-                    <div className="text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 p-4 sm:p-6 border-t">
+                    <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                       Showing {Math.min(visitsPagination.offset + 1, visitsPagination.total_records)} -{' '}
                       {Math.min(visitsPagination.offset + visitsPagination.limit, visitsPagination.total_records)} of{' '}
                       {visitsPagination.total_records} visits
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex justify-center space-x-2">
                       <Button 
                         variant="outline" 
                         onClick={() => handleVisitsPagination('prev')}
                         disabled={visitsLoading || visitsPagination.offset === 0}
+                        className="text-xs sm:text-sm"
                       >
-                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                         Previous
                       </Button>
                       <Button 
                         variant="outline"
                         onClick={() => handleVisitsPagination('next')}
                         disabled={visitsLoading || !visitsPagination.has_more}
+                        className="text-xs sm:text-sm"
                       >
                         Next
-                        <ChevronRight className="w-4 h-4 ml-1" />
+                        <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
                       </Button>
                     </div>
                   </div>
@@ -2570,37 +2594,37 @@ export default function SalonOwnerDashboard() {
 
         {/* Photo View Modal */}
         {showPhotoModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden">
-              <CardContent className="p-0">
-                <div className="flex items-center justify-between p-6 border-b">
-                  <h3 className="text-lg font-semibold">Before/After Photos</h3>
-                  <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)}>
-                    <X className="w-5 h-5" />
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+            <Card className="w-full max-w-2xl mx-auto shadow-2xl overflow-hidden my-4 max-h-[95vh] sm:max-h-[90vh] flex flex-col">
+              <CardContent className="p-0 flex flex-col h-full">
+                <div className="flex items-center justify-between p-4 sm:p-6 border-b flex-shrink-0">
+                  <h3 className="text-base sm:text-lg font-semibold">Before/After Photos</h3>
+                  <Button variant="ghost" size="sm" onClick={() => setShowPhotoModal(false)} className="h-8 w-8 sm:h-9 sm:w-9">
+                    <X className="w-4 h-4 sm:w-5 sm:h-5" />
                   </Button>
                 </div>
 
-                <div className="p-6 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div>
-                      <h4 className="font-medium mb-2">Before</h4>
+                      <h4 className="font-medium text-sm sm:text-base mb-2">Before</h4>
                       {photoModalState.beforePhotoUrl ? (
-                        <img src={photoModalState.beforePhotoUrl} alt="before" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                        <img src={photoModalState.beforePhotoUrl} alt="before" className="w-full max-w-sm h-48 sm:h-64 md:h-72 rounded-md object-cover border border-gray-200 mx-auto" />
                       ) : (
-                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
-                          <p className="text-sm text-muted-foreground text-center px-4">
+                        <div className="w-full max-w-sm h-48 sm:h-64 md:h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center mx-auto">
+                          <p className="text-xs sm:text-sm text-muted-foreground text-center px-4">
                             {photoModalState.afterPhotoUrl ? 'Only after photo uploaded' : 'No before photo uploaded'}
                           </p>
                         </div>
                       )}
                     </div>
                     <div>
-                      <h4 className="font-medium mb-2">After</h4>
+                      <h4 className="font-medium text-sm sm:text-base mb-2">After</h4>
                       {photoModalState.afterPhotoUrl ? (
-                        <img src={photoModalState.afterPhotoUrl} alt="after" className="w-full max-w-sm h-72 rounded-md object-cover border border-gray-200" />
+                        <img src={photoModalState.afterPhotoUrl} alt="after" className="w-full max-w-sm h-48 sm:h-64 md:h-72 rounded-md object-cover border border-gray-200 mx-auto" />
                       ) : (
-                        <div className="w-full max-w-sm h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
-                          <p className="text-sm text-muted-foreground text-center px-4">
+                        <div className="w-full max-w-sm h-48 sm:h-64 md:h-72 rounded-md border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center mx-auto">
+                          <p className="text-xs sm:text-sm text-muted-foreground text-center px-4">
                             {photoModalState.beforePhotoUrl ? 'Only before photo uploaded' : 'No after photo uploaded'}
                           </p>
                         </div>
@@ -2608,8 +2632,8 @@ export default function SalonOwnerDashboard() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end">
-                    <Button variant="outline" onClick={() => setShowPhotoModal(false)}>
+                  <div className="flex justify-end pt-2">
+                    <Button variant="outline" onClick={() => setShowPhotoModal(false)} className="text-xs sm:text-sm w-full sm:w-auto">
                       Close
                     </Button>
                   </div>

@@ -189,68 +189,68 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
   if (!isOpen || !employee) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-background rounded-lg w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5" />
-              <div>
-                <h2 className="text-xl font-semibold">Set Hours - {employee.full_name}</h2>
-                <p className="text-sm text-muted-foreground">{employee.title}</p>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-background rounded-lg w-full max-w-3xl mx-4 my-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col">
+        <div className="p-4 sm:p-6 flex-shrink-0">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 pr-2">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-xl font-semibold break-words">Set Hours - {employee.full_name}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground break-words">{employee.title}</p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0">
               <X className="w-4 h-4" />
             </Button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {isLoadingData ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {WEEKDAYS.map(day => {
                   const dayAvail = weeklyAvailability[day.value] || { is_available: false, start_time: '', end_time: '' };
                   const salonHours = dayAvail.salon_hours;
                   
                   return (
-                    <div key={day.value} className="p-4 border rounded-lg bg-card">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-3 w-32">
-                          <span className="font-medium">{day.label}</span>
+                    <div key={day.value} className="p-3 sm:p-4 border rounded-lg bg-card">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-32 flex-shrink-0">
+                          <span className="font-medium text-sm sm:text-base">{day.label}</span>
                         </div>
 
                         {dayAvail.is_available && (
                           <>
-                            <div className="flex items-center gap-2 flex-1">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
                               <input
                                 type="time"
                                 value={dayAvail.start_time || ''}
                                 onChange={(e) => handleDayChange(day.value, 'start_time', e.target.value)}
-                                className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="px-2 sm:px-3 py-1.5 sm:py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base flex-1 min-w-0"
                                 required={dayAvail.is_available}
                               />
-                              <span className="text-muted-foreground">to</span>
+                              <span className="text-muted-foreground text-xs sm:text-sm flex-shrink-0">to</span>
                               <input
                                 type="time"
                                 value={dayAvail.end_time || ''}
                                 onChange={(e) => handleDayChange(day.value, 'end_time', e.target.value)}
-                                className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="px-2 sm:px-3 py-1.5 sm:py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base flex-1 min-w-0"
                                 required={dayAvail.is_available}
                               />
                             </div>
                             {salonHours && (
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
                                 Salon: {formatTime12Hour(salonHours.start_time.substring(0, 5))} - {formatTime12Hour(salonHours.end_time.substring(0, 5))}
                               </p>
                             )}
                             <button
                               type="button"
                               onClick={() => toggleDay(day.value)}
-                              className="px-4 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors font-medium whitespace-nowrap"
+                              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors font-medium text-xs sm:text-sm whitespace-nowrap w-full sm:w-auto"
                             >
                               Available
                             </button>
@@ -259,22 +259,24 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
 
                         {!dayAvail.is_available && (
                           <>
-                            <div className="flex-1"></div>
-                            {salonHours ? (
-                              <p className="text-xs text-muted-foreground">
-                                Salon open: {formatTime12Hour(salonHours.start_time.substring(0, 5))} - {formatTime12Hour(salonHours.end_time.substring(0, 5))}
-                              </p>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">Salon closed</p>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => toggleDay(day.value)}
-                              className="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors font-medium whitespace-nowrap"
-                              disabled={!salonHours}
-                            >
-                              Not Available
-                            </button>
+                            <div className="flex-1 hidden sm:block"></div>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 sm:flex-1">
+                              {salonHours ? (
+                                <p className="text-xs text-muted-foreground sm:flex-1">
+                                  Salon open: {formatTime12Hour(salonHours.start_time.substring(0, 5))} - {formatTime12Hour(salonHours.end_time.substring(0, 5))}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground sm:flex-1">Salon closed</p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => toggleDay(day.value)}
+                                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors font-medium text-xs sm:text-sm whitespace-nowrap w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!salonHours}
+                              >
+                                Not Available
+                              </button>
+                            </div>
                           </>
                         )}
                       </div>
@@ -285,26 +287,27 @@ const EmployeeHoursModal = ({ isOpen, onClose, employee, onSuccess, onError }) =
             )}
 
             {errors.length > 0 && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md space-y-1">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-md space-y-1">
                 {errors.map((error, idx) => (
-                  <p key={idx} className="text-sm">{formatErrorMessage(error)}</p>
+                  <p key={idx} className="text-xs sm:text-sm">{formatErrorMessage(error)}</p>
                 ))}
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
               <Button 
                 type="button"
                 variant="outline"
                 onClick={onClose}
                 disabled={isLoading}
+                className="w-full sm:w-auto text-xs sm:text-sm"
               >
                 Cancel
               </Button>
               <Button 
                 type="submit" 
                 disabled={isLoading || isLoadingData}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto text-xs sm:text-sm"
               >
                 {isLoading ? 'Saving...' : 'Save Hours'}
               </Button>

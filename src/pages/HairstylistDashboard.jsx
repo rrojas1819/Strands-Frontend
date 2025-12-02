@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import ImageCropper from '../components/ImageCropper';
-import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye, DollarSign, TrendingUp, Mail, Bell } from 'lucide-react';
+import { Scissors, LogOut, Calendar, Users, Star, User, AlertCircle, Clock, MapPin, Phone, Settings, CheckCircle, ChevronLeft, ChevronRight, X, Ban, Plus, Edit, Trash2, Scissors as ScissorsIcon, ArrowUpDown, Eye, DollarSign, TrendingUp, Mail, Bell, Menu } from 'lucide-react';
 const strandsLogo = '/strands-logo-new.png';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -102,6 +102,7 @@ const [cancelAppointmentLoading, setCancelAppointmentLoading] = useState(false);
   const [visitPhotosByBookingId, setVisitPhotosByBookingId] = useState({});
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [alertLoading, setAlertLoading] = useState(false);
   const { unreadCount, onCountChange } = useNotifications();
   
@@ -1701,9 +1702,22 @@ const handleCancelSelectedAppointment = async () => {
     return totalMinutes;
   };
 
-  const minutesToPixels = (minutes) => {
-    return (minutes / 60) * 48; // 48px per hour
+  // Calculate pixels based on viewport - mobile uses 40px/hour (h-10), larger screens use 48px/hour (h-12)
+  const minutesToPixels = (minutes, isMobile = false) => {
+    const pixelsPerHour = isMobile ? 40 : 48;
+    return (minutes / 60) * pixelsPerHour;
   };
+  
+  // Helper to detect mobile for week view
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 640);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const getWeekDays = () => {
     // Use weekStartDate for week view, independent of selectedDate (day view)
@@ -1832,7 +1846,7 @@ const handleCancelSelectedAppointment = async () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowNotifications(true)}
-                className="relative h-9 w-9 sm:h-10 sm:w-10"
+                className="relative h-9 w-9 sm:h-10 sm:w-10 hidden sm:flex"
               >
                 <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
                 {unreadCount > 0 && (
@@ -1841,22 +1855,62 @@ const handleCancelSelectedAppointment = async () => {
                   </Badge>
                 )}
               </Button>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs sm:text-sm px-2 sm:px-3 py-1">
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs sm:text-sm px-2 sm:px-3 py-1 hidden sm:inline-flex">
                 Hairstylist
               </Badge>
-              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">
+              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 hidden sm:flex">
                 <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Logout</span>
+                <span className="hidden lg:inline">Logout</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="sm:hidden"
+              >
+                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </Button>
             </div>
           </div>
         </div>
       </header>
 
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="bg-background border-b sm:hidden">
+          <div className="max-w-7xl mx-auto px-4 py-4 space-y-2">
+            <Button
+              variant="outline"
+              onClick={() => { setShowNotifications(true); setIsMobileMenuOpen(false); }}
+              className="w-full flex items-center justify-between px-3 py-2"
+            >
+              <div className="flex items-center space-x-2">
+                <Mail className="w-4 h-4" />
+                <span>Notifications</span>
+              </div>
+              {unreadCount > 0 && (
+                <Badge className="bg-red-500 text-white text-xs">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Badge>
+              )}
+            </Button>
+            <div className="flex items-center justify-between px-3 py-2">
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                Hairstylist
+              </Badge>
+              <Button variant="outline" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="flex items-center space-x-2">
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Bar - Hairstylist Sections */}
       <nav className="bg-muted/50 border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-4 sm:space-x-8 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+          <div className="hidden sm:flex space-x-4 sm:space-x-8 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -1871,11 +1925,30 @@ const handleCancelSelectedAppointment = async () => {
               </button>
             ))}
           </div>
+          
+          {/* Mobile Navigation */}
+          {isMobileMenuOpen && (
+            <div className="sm:hidden py-2 space-y-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); setIsMobileMenuOpen(false); }}
+                  className={`w-full text-left py-3 px-4 border-b-2 font-medium text-sm ${
+                    activeTab === tab.id
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
         {/* Welcome Section - Only on Schedule Page */}
         {activeTab === 'schedule' && (
         <div className="mb-6 sm:mb-8">
@@ -1954,8 +2027,7 @@ const handleCancelSelectedAppointment = async () => {
               </div>
               
               {/* View Settings */}
-              <div className="bg-white rounded-lg border p-1.5 sm:p-2 flex items-center space-x-1 sm:space-x-2 flex-shrink-0 self-start sm:self-auto">
-                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
+              <div className="bg-white rounded-lg border p-1.5 sm:p-2 flex items-center space-x-1 flex-shrink-0 self-start sm:self-auto">
                 <div className="flex space-x-1">
                   <Button
                     variant={viewType === 'day' ? 'default' : 'outline'}
@@ -2088,60 +2160,72 @@ const handleCancelSelectedAppointment = async () => {
               )}
             </div>
 
-            {viewType === 'day' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {revenueLoading ? (
-                  <div className="col-span-full text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p className="text-xs text-muted-foreground">Loading revenue data...</p>
-                  </div>
-                ) : revenueData ? (
-                  <>
-                    <div className="bg-white rounded-lg border p-3 sm:p-4">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs sm:text-sm font-medium text-foreground">Total Revenue</p>
-                          <p className="text-xl sm:text-2xl font-bold text-green-800 truncate">
-                            ${parseFloat(revenueData.revenue_all_time || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
+            {viewType === 'day' && (() => {
+              // Check if selectedDate is today
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const selected = new Date(selectedDate);
+              selected.setHours(0, 0, 0, 0);
+              const isToday = selected.getTime() === today.getTime();
+              
+              // Only show revenue cards if we're on today
+              if (!isToday) return null;
+              
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {revenueLoading ? (
+                    <div className="col-span-full text-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                      <p className="text-xs text-muted-foreground">Loading revenue data...</p>
+                    </div>
+                  ) : revenueData ? (
+                    <>
+                      <div className="bg-white rounded-lg border p-3 sm:p-4">
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm font-medium text-foreground">Total Revenue</p>
+                            <p className="text-xl sm:text-2xl font-bold text-green-800 truncate">
+                              ${parseFloat(revenueData.revenue_all_time || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="bg-white rounded-lg border p-3 sm:p-4">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs sm:text-sm font-medium text-foreground">Last 7 Days</p>
-                          <p className="text-xl sm:text-2xl font-bold text-green-800 truncate">
-                            ${parseFloat(revenueData.revenue_past_week || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
+                      <div className="bg-white rounded-lg border p-3 sm:p-4">
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm font-medium text-foreground">Last 7 Days</p>
+                            <p className="text-xl sm:text-2xl font-bold text-green-800 truncate">
+                              ${parseFloat(revenueData.revenue_past_week || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="bg-white rounded-lg border p-3 sm:p-4">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs sm:text-sm font-medium text-foreground">Today</p>
-                          <p className="text-xl sm:text-2xl font-bold text-green-800 truncate">
-                            ${parseFloat(revenueData.revenue_today || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
+                      <div className="bg-white rounded-lg border p-3 sm:p-4">
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm font-medium text-foreground">Today</p>
+                            <p className="text-xl sm:text-2xl font-bold text-green-800 truncate">
+                              ${parseFloat(revenueData.revenue_today || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            )}
+                    </>
+                  ) : null}
+                </div>
+              );
+            })()}
 
             {/* Schedule Content */}
             {scheduleLoading ? (
@@ -2150,21 +2234,21 @@ const handleCancelSelectedAppointment = async () => {
                 <p className="text-muted-foreground">Loading your schedule...</p>
               </div>
             ) : viewType === 'week' ? (
-              <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <div className="bg-white rounded-lg border p-2 sm:p-3 lg:p-4">
                 {/* Legend */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 mb-4 pb-4 border-b">
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                <div className="flex flex-col gap-2 sm:gap-3 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:gap-4">
                     <span className="text-xs sm:text-sm font-medium text-foreground w-full sm:w-auto">Availability:</span>
                     <div className="flex items-center space-x-1.5 sm:space-x-2">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-green-300 opacity-40 rounded flex-shrink-0"></div>
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-green-300 opacity-40 rounded flex-shrink-0"></div>
                       <span className="text-xs sm:text-sm text-foreground">Available</span>
                     </div>
                     <div className="flex items-center space-x-1.5 sm:space-x-2">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-500 opacity-60 rounded flex-shrink-0"></div>
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-gray-500 opacity-60 rounded flex-shrink-0"></div>
                       <span className="text-xs sm:text-sm text-foreground">Unavailable</span>
                     </div>
                     <div className="flex items-center space-x-1.5 sm:space-x-2">
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-red-400 opacity-40 rounded flex-shrink-0"></div>
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-red-400 opacity-40 rounded flex-shrink-0"></div>
                       <span className="text-xs sm:text-sm text-foreground">Booked</span>
                     </div>
                   </div>
@@ -2172,42 +2256,42 @@ const handleCancelSelectedAppointment = async () => {
                   {/* Separator */}
                   <div className="hidden sm:block h-6 w-px bg-gray-300"></div>
                   
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:gap-4">
                       <span className="text-xs sm:text-sm font-medium text-foreground w-full sm:w-auto">Bookings:</span>
                       <div className="flex items-center space-x-1.5 sm:space-x-2">
-                        <div className="w-5 h-5 sm:w-6 sm:h-6 bg-purple-200 border-l-4 border-purple-500 rounded flex-shrink-0"></div>
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-purple-200 border-l-4 border-purple-500 rounded flex-shrink-0"></div>
                         <span className="text-xs sm:text-sm text-foreground">Completed</span>
                       </div>
                       <div className="flex items-center space-x-1.5 sm:space-x-2">
-                        <div className="w-5 h-5 sm:w-6 sm:h-6 bg-yellow-200 border-l-4 border-yellow-500 rounded flex-shrink-0"></div>
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-yellow-200 border-l-4 border-yellow-500 rounded flex-shrink-0"></div>
                         <span className="text-xs sm:text-sm text-foreground">Scheduled</span>
                       </div>
                     </div>
                 </div>
 
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                  <div className="inline-block min-w-full px-4 sm:px-0">
-                    <div className="grid grid-cols-[80px_repeat(7,minmax(120px,1fr))] min-w-[920px]">
+                <div className="overflow-x-auto -mx-2 sm:-mx-4 lg:mx-0">
+                  <div className="inline-block min-w-full px-2 sm:px-4 lg:px-0">
+                    <div className="grid grid-cols-[60px_repeat(7,minmax(90px,1fr))] sm:grid-cols-[70px_repeat(7,minmax(110px,1fr))] lg:grid-cols-[80px_repeat(7,minmax(120px,1fr))] min-w-[720px] sm:min-w-[850px] lg:min-w-[920px]">
                       {/* Time column header */}
-                      <div className="text-center text-sm font-medium text-muted-foreground py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                      <div className="text-center text-xs sm:text-sm font-medium text-muted-foreground py-1.5 sm:py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
                         Time
                       </div>
                       
                       {/* Day headers */}
                       {getWeekDays().map((day, index) => (
-                        <div key={index} className="text-center text-sm font-medium text-muted-foreground py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
-                          <div className="font-semibold">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                          <div className="text-lg">{day.getDate()}</div>
+                        <div key={index} className="text-center text-xs sm:text-sm font-medium text-muted-foreground py-1.5 sm:py-2" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                          <div className="font-semibold text-xs sm:text-sm">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                          <div className="text-sm sm:text-base lg:text-lg">{day.getDate()}</div>
                         </div>
                       ))}
                     </div>
                  
                     {/* Time grid */}
-                    <div className="grid grid-cols-[80px_repeat(7,minmax(120px,1fr))] relative min-w-[920px]" style={{ borderTop: '2px solid rgba(0, 0, 0, 0.3)' }}>
+                    <div className="grid grid-cols-[60px_repeat(7,minmax(90px,1fr))] sm:grid-cols-[70px_repeat(7,minmax(110px,1fr))] lg:grid-cols-[80px_repeat(7,minmax(120px,1fr))] relative min-w-[720px] sm:min-w-[850px] lg:min-w-[920px]" style={{ borderTop: '2px solid rgba(0, 0, 0, 0.3)' }}>
                    {/* Time labels */}
                    <div className="col-span-1" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
                      {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => (
-                       <div key={hour} className="h-12 flex items-start justify-end pr-2 text-xs text-muted-foreground" style={{ borderBottom: '1px dashed rgba(0, 0, 0, 0.2)' }}>
+                       <div key={hour} className="h-10 sm:h-12 flex items-start justify-end pr-1 sm:pr-2 text-[10px] sm:text-xs text-muted-foreground" style={{ borderBottom: '1px dashed rgba(0, 0, 0, 0.2)' }}>
                          {hour > 12 ? `${hour - 12}:00 PM` : hour === 12 ? '12:00 PM' : `${hour}:00 AM`}
                        </div>
                      ))}
@@ -2226,7 +2310,7 @@ const handleCancelSelectedAppointment = async () => {
                      return (
                        <div key={dayIndex} className="col-span-1 relative" style={{ borderRight: '2px solid rgba(0, 0, 0, 0.3)' }}>
                          {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => (
-                           <div key={hour} className="h-12" style={{ borderBottom: '1px dashed rgba(0, 0, 0, 0.2)' }}></div>
+                           <div key={hour} className="h-10 sm:h-12" style={{ borderBottom: '1px dashed rgba(0, 0, 0, 0.2)' }}></div>
                          ))}
                         
                         {/* Availability highlight */}
@@ -2234,8 +2318,8 @@ const handleCancelSelectedAppointment = async () => {
                           <div
                             className="absolute left-0 right-0 bg-green-300 opacity-40 rounded-sm"
                             style={{
-                              top: `${minutesToPixels(convertTimeToMinutes(availability.start_time) - 8 * 60)}px`,
-                              height: `${minutesToPixels(convertTimeToMinutes(availability.end_time) - convertTimeToMinutes(availability.start_time))}px`
+                              top: `${minutesToPixels(convertTimeToMinutes(availability.start_time) - 8 * 60, isMobileView)}px`,
+                              height: `${minutesToPixels(convertTimeToMinutes(availability.end_time) - convertTimeToMinutes(availability.start_time), isMobileView)}px`
                             }}
                           />
                         )}
@@ -2247,8 +2331,8 @@ const handleCancelSelectedAppointment = async () => {
                               key={unavailIndex}
                               className="absolute left-0 right-0 bg-gray-500 opacity-60 rounded-sm"
                               style={{
-                                top: `${minutesToPixels(convertTimeToMinutes(unavail.start_time) - 8 * 60)}px`,
-                                height: `${minutesToPixels(convertTimeToMinutes(unavail.end_time) - convertTimeToMinutes(unavail.start_time))}px`
+                                top: `${minutesToPixels(convertTimeToMinutes(unavail.start_time) - 8 * 60, isMobileView)}px`,
+                                height: `${minutesToPixels(convertTimeToMinutes(unavail.end_time) - convertTimeToMinutes(unavail.start_time), isMobileView)}px`
                               }}
                             />
                           )
@@ -2259,8 +2343,8 @@ const handleCancelSelectedAppointment = async () => {
                           .map((appointment) => {
                             const startMinutes = timeToMinutes(appointment.startTime);
                             const endMinutes = timeToMinutes(appointment.endTime);
-                            const top = minutesToPixels(startMinutes - 8 * 60);
-                            const height = minutesToPixels(endMinutes - startMinutes);
+                            const top = minutesToPixels(startMinutes - 8 * 60, isMobileView);
+                            const height = minutesToPixels(endMinutes - startMinutes, isMobileView);
                             
                             return (
                               <div
@@ -2280,13 +2364,13 @@ const handleCancelSelectedAppointment = async () => {
                           .map((appointment) => {
                             const startMinutes = timeToMinutes(appointment.startTime);
                             const endMinutes = timeToMinutes(appointment.endTime);
-                            const top = minutesToPixels(startMinutes - 8 * 60); // 8 AM start
-                            const height = minutesToPixels(endMinutes - startMinutes);
+                            const top = minutesToPixels(startMinutes - 8 * 60, isMobileView); // 8 AM start
+                            const height = minutesToPixels(endMinutes - startMinutes, isMobileView);
                             
                             return (
                               <div
                                 key={appointment.id}
-                                className={`absolute left-1 right-1 p-2 rounded-lg text-xs border-2 shadow-lg cursor-pointer ${getStatusColor(appointment.status)}`}
+                                className={`absolute left-0.5 sm:left-1 right-0.5 sm:right-1 p-1 sm:p-2 rounded text-[10px] sm:text-xs border-2 shadow-lg cursor-pointer ${getStatusColor(appointment.status)}`}
                                 style={{ 
                                   top: `${top}px`, 
                                   height: `${height}px`,
@@ -2303,12 +2387,12 @@ const handleCancelSelectedAppointment = async () => {
                               >
                                 <div className="flex flex-col justify-center h-full">
                                   <div className="text-center">
-                                    <span className="font-bold text-xs leading-tight block">{appointment.startTime} - {appointment.endTime}</span>
-                                    {height > 40 && (
-                                      <div className="mt-1">
-                                        <div className="text-xs font-medium truncate">{appointment.customer}</div>
-                                        {height > 60 && (
-                                          <div className="text-xs opacity-75 truncate">{appointment.service}</div>
+                                    <span className="font-bold text-[10px] sm:text-xs leading-tight block break-words">{appointment.startTime} - {appointment.endTime}</span>
+                                    {height > (isMobileView ? 28 : 40) && (
+                                      <div className="mt-0.5 sm:mt-1">
+                                        <div className="text-[10px] sm:text-xs font-medium truncate">{appointment.customer}</div>
+                                        {height > (isMobileView ? 44 : 60) && (
+                                          <div className="text-[10px] sm:text-xs opacity-75 truncate">{appointment.service}</div>
                                         )}
                                       </div>
                                     )}
