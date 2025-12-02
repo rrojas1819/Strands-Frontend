@@ -224,7 +224,7 @@ export default function SalonDetail() {
 
   const handleRedeemConfirm = () => {
     // Navigate to booking page - reward will be selected during payment
-    navigate(`/salon/${salonId}/book`);
+    navigate(`/salon/${salonId}/book`, { state: { salonName: salon?.name } });
     setShowRedeemModal(false);
   };
 
@@ -659,7 +659,7 @@ export default function SalonDetail() {
                       return;
                     }
                     // If status is null/undefined, allow booking (status not loaded yet)
-                    navigate(`/salon/${salonId}/book`);
+                    navigate(`/salon/${salonId}/book`, { state: { salonName: salon?.name } });
                   }}
                 >
                   Book Appointment
