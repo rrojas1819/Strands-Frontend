@@ -64,7 +64,7 @@ export default function SalonDetail() {
           fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=1000&offset=0`, {
             headers: { 'Authorization': `Bearer ${token}` },
           }),
-          fetch(`${apiUrl}/user/loyalty/view?salon_id=${salonIdNum}`, {
+          fetch(`${apiUrl}/user/loyalty/salon-view?salon_id=${salonIdNum}`, {
             headers: { 'Authorization': `Bearer ${token}` },
           }),
           fetch(`${apiUrl}/reviews/salon/${salonIdNum}/all?limit=1&offset=0`, {
@@ -682,7 +682,7 @@ export default function SalonDetail() {
               </CardContent>
             </Card>
 
-            {/* Loyalty Program */}
+            {/* Loyalty Program - Always show */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -691,17 +691,17 @@ export default function SalonDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {loyaltyData ? (
-                  <div className="space-y-4">
+                {loyaltyData && (loyaltyData.total_visits_count || 0) > 0 ? (
+                <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Your Progress</span>
                       <Badge 
-                        className={loyaltyData.visits_count >= loyaltyData.target_visits 
+                        className={(loyaltyData.total_visits_count || 0) >= 5
                           ? "bg-yellow-100 text-yellow-800 border-yellow-200" 
                           : "bg-orange-100 text-orange-800 border-orange-200"
                         }
                       >
-                        {loyaltyData.visits_count >= loyaltyData.target_visits ? 'Gold' : 'Bronze'}
+                        {(loyaltyData.total_visits_count || 0) >= 5 ? 'Gold' : 'Bronze'}
                       </Badge>
                     </div>
                     
@@ -720,46 +720,78 @@ export default function SalonDetail() {
                       </div>
                     </div>
 
-                    {loyaltyData.userRewards && loyaltyData.userRewards.length > 0 ? (
-                      <div className="space-y-3">
-                        {loyaltyData.userRewards
-                          .filter(reward => reward.active === 1)
-                          .map((reward) => (
-                            <div key={reward.reward_id} className="bg-green-50 border border-green-200 rounded-lg p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                  <Award className="w-4 h-4 text-green-600 mr-2" />
-                                  <span className="text-sm font-medium text-green-800">
-                                    {reward.discount_percentage}% off next visit available!
-                                  </span>
-                                </div>
-                                <Button 
-                                  size="sm" 
-                                  className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-                                  onClick={() => setShowRedeemModal(true)}
-                                >
-                                  Redeem
-                                </Button>
-                              </div>
+                    {(() => {
+                      // Filter rewards for this salon only
+                      const salonRewards = (loyaltyData.userRewards || [])
+                        .filter(reward => {
+                          // Only show active rewards
+                          const isActive = reward.active === 1 || reward.active === true;
+                          // Filter by salon_id if available, or by salon_name matching
+                          const matchesSalon = !salonId || 
+                            (reward.salon_id && parseInt(reward.salon_id) === parseInt(salonId)) ||
+                            (reward.salon_name && reward.salon_name === salon?.name);
+                          return isActive && matchesSalon;
+                        });
+                      
+                      if (salonRewards.length > 0) {
+                        return (
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium text-green-800 mb-2">
+                              {salonRewards.length} reward{salonRewards.length > 1 ? 's' : ''} available
                             </div>
-                          ))}
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {loyaltyData.target_visits - (loyaltyData.visits_count || 0)} more visits for {loyaltyData.discount_percentage || 10}% off
-                        </p>
-                        <Button variant="outline" size="sm" onClick={() => navigate('/loyalty-points')}>
-                          View All Rewards
-                        </Button>
-                      </div>
-                    )}
+                            {salonRewards.map((reward) => (
+                              <div key={reward.reward_id} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center">
+                                    <Award className="w-4 h-4 text-green-600 mr-2" />
+                                    <span className="text-sm font-medium text-green-800">
+                                      {reward.discount_percentage}% off next visit available!
+                                    </span>
+                                  </div>
+                                  <Button 
+                                    size="sm" 
+                                    className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+                                    onClick={() => setShowRedeemModal(true)}
+                                  >
+                                    Redeem
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground mb-3">
+                            {(loyaltyData.target_visits || 5) - (loyaltyData.visits_count || 0)} more visits for {loyaltyData.discount_percentage || 10}% off
+                          </p>
+                          <Button variant="outline" size="sm" onClick={() => navigate('/loyalty-points')}>
+                            View All Rewards
+                          </Button>
+                        </div>
+                      );
+                    })()}
+                </div>
+                ) : loyaltyData ? (
+                  <div className="text-center py-4">
+                    <Award className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Book now to start earning rewards
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Earn {loyaltyData.discount_percentage || 10}% off after {loyaltyData.target_visits || 5} visits
+                    </p>
                   </div>
                 ) : (
                   <div className="text-center py-4">
                     <Award className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground mb-2">
                       Book now to start earning rewards
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Earn rewards with every visit
                     </p>
                   </div>
                 )}

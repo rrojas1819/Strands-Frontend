@@ -283,16 +283,11 @@ export default function LoyaltyPoints() {
           }
         });
         
-        // Only fetch salons that have rewards (much faster - only fetch what we need!)
+        // Fetch ALL approved salons to show tracking for all visited salons
         let salons = [];
         if (salonsResponse.status === 'fulfilled' && salonsResponse.value.ok) {
           const salonsData = await salonsResponse.value.json();
-          const allSalons = salonsData.data || [];
-          
-          // Filter to only salons with rewards (dramatically reduces data)
-          salons = allSalons.filter(salon => 
-            uniqueSalonIds.has(salon.salon_id) || uniqueSalonNames.has(salon.name)
-          );
+          salons = salonsData.data || [];
         } else {
           // Failed to fetch salons - continue without them
           // Don't throw error - continue without salon data
@@ -305,161 +300,196 @@ export default function LoyaltyPoints() {
           salonNameToId[salon.name] = salon.salon_id;
         });
         
-        // Only fetch loyalty data for salons that have rewards (much faster!)
-        // Get unique salon IDs from rewards
-        const salonsWithRewards = new Set();
-        allAvailableRewards.forEach(reward => {
-          const salonId = reward.salon_id || salonNameToId[reward.salon_name];
-          if (salonId) {
-            salonsWithRewards.add(salonId);
-          }
-        });
-        
-        // Convert to array and filter to only salons we have in our list
-        const salonsToCheck = salons.filter(salon => salonsWithRewards.has(salon.salon_id));
-        
-        // Cache 404s to avoid refetching salons without loyalty data
-        const loyalty404Cache = new Set(JSON.parse(sessionStorage.getItem('loyalty_404_cache') || '[]'));
-        
-        // Only fetch loyalty data for salons with rewards (dramatically reduces API calls)
-        const loyaltyPromises = salonsToCheck
-          .filter(salon => !loyalty404Cache.has(salon.salon_id)) // Skip cached 404s
-          .map(salon => 
-            fetch(`${apiUrl}/user/loyalty/view?salon_id=${salon.salon_id}`, {
-              headers: { 'Authorization': `Bearer ${token}` },
-            }).then(response => ({
-              salon,
-              response,
-              ok: response.ok,
-              status: response.status
-            })).catch(err => ({
-              salon,
-              response: null,
-              ok: false,
-              status: 0,
-              error: err
-            }))
-          );
-
-        // Process results as they come in (progressive loading)
+        // Fetch loyalty data - try to get all salons at once
+        // Backend logs show arrays, but API might return object format
         const salonProgress = [];
         let totalVisits = 0;
         let totalVisitsForUser = 0;
         let goldenSalons = 0;
         const recentActivity = [];
         
-        // Use Promise.allSettled but process incrementally
-        const loyaltyResults = await Promise.allSettled(loyaltyPromises);
-        const new404s = [];
+        // Track processed salons to prevent duplicates
+        const processedSalonIds = new Set();
+        const processedSalonNames = new Set();
         
-        for (const result of loyaltyResults) {
-          if (result.status === 'fulfilled') {
-            const { salon, response, ok, status } = result.value;
+        // Call endpoint ONCE without salon_id - backend returns bulk data
+        // Backend returns: { userData: [array of all salons], goldenSalons: X, totalVisits: Y, userRewards: [] }
+        let loyaltyData = null;
+        let salonDataArray = [];
+        let allUserRewards = [];
+        
+        try {
+          const loyaltyResponse = await fetch(`${apiUrl}/user/loyalty/view`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          
+          if (loyaltyResponse.ok) {
+            loyaltyData = await loyaltyResponse.json();
             
-            // Cache 404s to avoid refetching
-            if (status === 404) {
-              new404s.push(salon.salon_id);
-              continue; // Skip processing 404s
+            // Backend sends: { userData: [array], goldenSalons: X, totalVisits: Y, userRewards: [] }
+            // userData is actually an ARRAY of all salon loyalty data
+            salonDataArray = Array.isArray(loyaltyData.userData) 
+              ? loyaltyData.userData 
+              : (loyaltyData.userData ? [loyaltyData.userData] : []);
+            
+            allUserRewards = Array.isArray(loyaltyData.userRewards) 
+              ? loyaltyData.userRewards 
+              : [];
+            
+            // Use summary data from backend response if available
+            if (loyaltyData.totalVisits !== undefined) {
+              totalVisitsForUser = parseInt(loyaltyData.totalVisits) || 0;
+            }
+            if (loyaltyData.goldenSalons !== undefined) {
+              goldenSalons = parseInt(loyaltyData.goldenSalons) || 0;
             }
             
-            if (ok && response) {
-              try {
-                const loyaltyData = await response.json();
-              const userData = loyaltyData.userData;
-              const userRewards = loyaltyData.userRewards || [];
-                // Get available rewards count for this salon from the allAvailableRewards array
-                const availableCount = allAvailableRewards.filter(r => {
-                  const salonId = r.salon_id || salonNameToId[r.salon_name];
-                  return salonId === salon.salon_id;
-                }).length;
-              
-              if (userData) {
-                const visits = userData.visits_count || 0;  
-                const visitsNeeded = userData.target_visits || 5;
-                const discountPercentage = userData.discount_percentage || 10;
-                const salonName = userData.salon_name || salon.name;
-                
-                totalVisitsForUser += userData.total_visits_count || 0;
-
-                if (visits >= 5) goldenSalons++;
-                
-                const salonProgressItem = {
-                  salonId: salon.salon_id,
-                  salonName: salonName,
-                  visits: visits,
-                  visitsNeeded: visitsNeeded,
-                  nextReward: `${discountPercentage}% off next visit`,
-                  tier: userData.total_visits_count >= 5 ? 'Gold' : 'Bronze',
-                  rewardEarned: availableCount > 0,
-                  availableRewards: availableCount
-                };
-                
-                salonProgress.push(salonProgressItem);
-                
-                // Track reward history for activity feed
-                (userRewards || []).forEach((reward) => {
-                  const rewardLabel = `${reward.discount_percentage}% off next visit`;
-
-                  if (isRewardRedeemed(reward.redeemed_at)) {
-                    recentActivity.push({
-                      id: `redeemed-${salon.salon_id}-${reward.reward_id}`,
-                      type: 'redeemed',
-                      description: `Redeemed ${rewardLabel}`,
-                      salon: salonName,
-                      discount: rewardLabel,
-                      timestamp: reward.redeemed_at && reward.redeemed_at !== 'null' ? reward.redeemed_at : null,
-                      redeemedAt: reward.redeemed_at && reward.redeemed_at !== 'null' ? reward.redeemed_at : null
-                    });
-                  } else if (!isRewardRedeemed(reward.redeemed_at) && reward.earned_at) {
-                    recentActivity.push({
-                      id: `earned-${salon.salon_id}-${reward.reward_id}`,
-                      type: 'earned',
-                      description: `Earned ${rewardLabel}`,
-                      salon: salonName,
-                      discount: rewardLabel,
-                      timestamp: reward.earned_at,
-                      earnedAt: reward.earned_at
-                    });
-                  }
-                });
-
-                // Add to activity if visited
-                if (visits > 0) {
-                  const visitTimestamp = userData.last_visit_at || userData.updated_at || userData.created_at || new Date().toISOString();
-                  recentActivity.push({
-                    id: `visit-${salon.salon_id}`,
-                    type: 'visit',
-                    description: `Visit at ${salonName}`,
-                    salon: salonName,
-                    visitNumber: visits,
-                    progress: `${visits}/${visitsNeeded} visits`,
-                    rewardEarned: availableCount > 0,
-                    timestamp: visitTimestamp
-                  });
-              }
-            }
-          } catch (err) {
-                // Error processing loyalty data for salon - skip this salon
-              }
-            }
           }
+        } catch (err) {
+          // Error fetching loyalty data - log and continue without it
+          console.error('Error fetching loyalty data:', err);
         }
         
-        // Save 404 cache to sessionStorage
-        if (new404s.length > 0) {
-          const updatedCache = Array.from(new Set([...Array.from(loyalty404Cache), ...new404s]));
-          sessionStorage.setItem('loyalty_404_cache', JSON.stringify(updatedCache.slice(0, 100))); // Limit cache size
-        }
+        // Process each salon in the array ONCE
+        for (const userData of salonDataArray) {
+              if (!userData || !userData.salon_name) continue;
+              
+              const salonName = userData.salon_name;
+              // Try to find salon_id by matching salon name
+              const matchingSalon = salons.find(s => s.name === salonName);
+              const salonId = matchingSalon?.salon_id || null;
+              
+              // Check if we've already processed this salon (prevent duplicates)
+              if (salonId && processedSalonIds.has(salonId)) {
+                continue; // Skip duplicate salon
+              }
+              if (processedSalonNames.has(salonName)) {
+                continue; // Skip duplicate salon by name
+              }
+              
+              // Mark as processed
+              if (salonId) {
+                processedSalonIds.add(salonId);
+              }
+              processedSalonNames.add(salonName);
+              
+              // Use visits_count for display (progress tracking)
+              const visits = userData.visits_count || 0;
+              // Use total_visits_count ONLY for the "Total Visits" summary
+              const salonTotalVisits = userData.total_visits_count || 0;
+              const visitsNeeded = userData.target_visits || 5;
+              const discountPercentage = userData.discount_percentage || 10;
+              
+              // Only calculate totals if backend didn't provide them
+              // Otherwise use the backend values (more accurate)
+              if (!loyaltyData || loyaltyData.totalVisits === undefined) {
+                totalVisitsForUser += salonTotalVisits;
+              }
+              
+              if (!loyaltyData || loyaltyData.goldenSalons === undefined) {
+                // Count as gold salon if total_visits_count >= 5 - only count once
+                if (salonTotalVisits >= 5) {
+                  goldenSalons++;
+                }
+              }
+              
+              // Get available rewards count for this salon from the allAvailableRewards array
+              const availableCount = allAvailableRewards.filter(r => {
+                const rewardSalonId = r.salon_id || salonNameToId[r.salon_name];
+                return rewardSalonId === salonId || r.salon_name === salonName;
+              }).length;
+              
+              // Always show salon progress if userData exists (user has loyalty membership)
+              // This ensures tracking is shown even without rewards
+              // Cap visits at visitsNeeded to prevent ratio > 1
+              const displayVisits = Math.min(visits, visitsNeeded);
+              
+              // Show progress for ALL salons with loyalty data
+              // This includes salons with visits_count = 0 but total_visits_count > 0 (e.g., Radiant Beauty Lounge)
+              // We have userData, so we should always show it
+              const salonProgressItem = {
+                salonId: salonId,
+                salonName: salonName,
+                visits: displayVisits,
+                visitsNeeded: visitsNeeded,
+                nextReward: `${discountPercentage}% off next visit`,
+                tier: salonTotalVisits >= 5 ? 'Gold' : 'Bronze',
+                rewardEarned: availableCount > 0,
+                availableRewards: availableCount
+              };
+              
+              salonProgress.push(salonProgressItem);
+              
+              // Track reward history for activity feed (from all salons)
+              // Find rewards for this specific salon
+              const salonRewards = allUserRewards.filter(r => {
+                // Match by salon name or salon_id if available in reward
+                return r.salon_name === salonName || (salonId && r.salon_id === salonId);
+              });
+              
+              salonRewards.forEach((reward) => {
+                const rewardLabel = `${reward.discount_percentage}% off next visit`;
+
+                const rewardId = reward.reward_id || reward.id || `reward-${salonName}-${reward.discount_percentage}`;
+                const timestamp = isRewardRedeemed(reward.redeemed_at) 
+                  ? (reward.redeemed_at && reward.redeemed_at !== 'null' ? reward.redeemed_at : null)
+                  : (reward.earned_at || null);
+                
+                if (isRewardRedeemed(reward.redeemed_at)) {
+                  recentActivity.push({
+                    id: `redeemed-${salonId || salonName}-${rewardId}-${timestamp || Date.now()}`,
+                    type: 'redeemed',
+                    description: `Redeemed ${rewardLabel}`,
+                    salon: salonName,
+                    discount: rewardLabel,
+                    timestamp: timestamp,
+                    redeemedAt: timestamp
+                  });
+                } else if (!isRewardRedeemed(reward.redeemed_at) && reward.earned_at) {
+                  recentActivity.push({
+                    id: `earned-${salonId || salonName}-${rewardId}-${timestamp || Date.now()}`,
+                    type: 'earned',
+                    description: `Earned ${rewardLabel}`,
+                    salon: salonName,
+                    discount: rewardLabel,
+                    timestamp: timestamp,
+                    earnedAt: timestamp
+                  });
+                }
+              });
+
+              // Add to activity if visited (show tracking even without rewards)
+              // Use visits_count for activity display (capped at visitsNeeded)
+              // Also show if total_visits_count > 0 even if visits_count is 0
+              const activityVisits = Math.min(visits, visitsNeeded);
+              if (activityVisits > 0 || salonTotalVisits > 0) {
+                const visitTimestamp = userData.last_visit_at || userData.updated_at || userData.created_at || new Date().toISOString();
+                recentActivity.push({
+                  id: `visit-${salonId || salonName}`,
+                  type: 'visit',
+                  description: `Visit at ${salonName}`,
+                  salon: salonName,
+                  visitNumber: activityVisits,
+                  progress: `${activityVisits}/${visitsNeeded} visits`,
+                  rewardEarned: availableCount > 0,
+                  timestamp: visitTimestamp
+                });
+              }
+            }
+        
 
         // Process all rewards from the endpoint - convert to display format (optimized with Map for faster lookups)
         const salonMap = new Map(salons.map(s => [s.salon_id, s]));
         const salonNameMap = new Map(salons.map(s => [s.name, s]));
         
         const allRewards = allAvailableRewards.map((reward) => {
-          // Match salon by name (endpoint returns salon_name) - use Map for O(1) lookup
+          // Use salon_name directly from reward data (most reliable)
+          // Try to match by salon_id first, then by salon_name
           const salonId = reward.salon_id || salonNameToId[reward.salon_name];
           const salon = salonId ? salonMap.get(salonId) : (salonNameMap.get(reward.salon_name) || null);
-          const salonName = salon ? salon.name : (reward.salon_name || 'Unknown Salon');
+          
+          // Prefer salon_name from reward data, fallback to matched salon name, then reward.salon_name
+          const salonName = reward.salon_name || (salon ? salon.name : 'Unknown Salon');
           
           // The endpoint returns creationDate, not earned_at
           const earnedAt = reward.creationDate || reward.created_at || reward.earned_at || reward.creation_date;
@@ -492,10 +522,36 @@ export default function LoyaltyPoints() {
           .slice(0, 4)
           .map(({ activity }) => activity);
 
+        // Deduplicate salon progress by salon_id or salon_name to prevent duplicates
+        const uniqueSalonProgress = [];
+        const seenSalonIds = new Set();
+        const seenSalonNames = new Set();
+        
+        for (const salon of salonProgress) {
+          const key = salon.salonId || salon.salonName;
+          if (salon.salonId && !seenSalonIds.has(salon.salonId)) {
+            seenSalonIds.add(salon.salonId);
+            uniqueSalonProgress.push(salon);
+          } else if (salon.salonName && !seenSalonNames.has(salon.salonName)) {
+            seenSalonNames.add(salon.salonName);
+            uniqueSalonProgress.push(salon);
+          }
+        }
+
+        // Use aggregated total visits from all salons
         totalVisits = totalVisitsForUser;
 
+        // Sort salon progress: Gold salons first, then Bronze, then by visits (descending)
+        const sortedSalonProgress = uniqueSalonProgress.sort((a, b) => {
+          // Gold salons first
+          if (a.tier === 'Gold' && b.tier !== 'Gold') return -1;
+          if (a.tier !== 'Gold' && b.tier === 'Gold') return 1;
+          // Then sort by visits (descending)
+          return b.visits - a.visits;
+        });
+
         const finalData = {
-          salonProgress: salonProgress,
+          salonProgress: sortedSalonProgress,
           totalVisits: totalVisits,
           overallTier: goldenSalons > 0 ? 'Gold' : 'Bronze',
           recentActivity: sortedActivity,
@@ -506,7 +562,7 @@ export default function LoyaltyPoints() {
         
         // Update partial data first for immediate display
         setPartialData({
-          salonProgress: salonProgress,
+          salonProgress: sortedSalonProgress,
           totalVisits: totalVisits,
           goldenSalons: goldenSalons,
           recentActivity: sortedActivity,

@@ -458,40 +458,44 @@ export default function SalonVerification() {
         ) : (
           <>
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">Salon Management</h2>
-          <p className="text-muted-foreground">Review and verify salon registrations to ensure only legitimate businesses are listed on the platform.</p>
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Salon Management</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">Review and verify salon registrations to ensure only legitimate businesses are listed on the platform.</p>
         </div>
 
         {/* Filter Buttons and Sort */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="mb-6 flex flex-col gap-4">
           <div className="flex flex-wrap gap-2">
-          <Button 
-            variant={filter === 'all' ? 'default' : 'outline'}
-            onClick={() => setFilter('all')}
-          >
-            All ({salonCounts.all})
-          </Button>
-          <Button 
-            variant={filter === 'PENDING' ? 'default' : 'outline'}
-            onClick={() => setFilter('PENDING')}
-          >
-            Pending ({salonCounts.pending})
-          </Button>
-          <Button 
-            variant={filter === 'APPROVED' ? 'default' : 'outline'}
-            onClick={() => setFilter('APPROVED')}
-          >
-            Approved ({salonCounts.approved})
-          </Button>
-          <Button 
-            variant={filter === 'REJECTED' ? 'default' : 'outline'}
-            onClick={() => setFilter('REJECTED')}
-          >
-            Rejected ({salonCounts.rejected})
-          </Button>
+            <Button 
+              variant={filter === 'all' ? 'default' : 'outline'}
+              onClick={() => setFilter('all')}
+              className="text-xs sm:text-sm px-3 sm:px-4"
+            >
+              All ({salonCounts.all})
+            </Button>
+            <Button 
+              variant={filter === 'PENDING' ? 'default' : 'outline'}
+              onClick={() => setFilter('PENDING')}
+              className="text-xs sm:text-sm px-3 sm:px-4"
+            >
+              Pending ({salonCounts.pending})
+            </Button>
+            <Button 
+              variant={filter === 'APPROVED' ? 'default' : 'outline'}
+              onClick={() => setFilter('APPROVED')}
+              className="text-xs sm:text-sm px-3 sm:px-4"
+            >
+              Approved ({salonCounts.approved})
+            </Button>
+            <Button 
+              variant={filter === 'REJECTED' ? 'default' : 'outline'}
+              onClick={() => setFilter('REJECTED')}
+              className="text-xs sm:text-sm px-3 sm:px-4"
+            >
+              Rejected ({salonCounts.rejected})
+            </Button>
           </div>
-          <div className="min-w-[160px]">
+          <div className="w-full sm:w-auto sm:min-w-[160px]">
             <StrandsSelect
               value={sortBy}
               onValueChange={setSortBy}
@@ -536,10 +540,10 @@ export default function SalonVerification() {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg break-words">{salon.name}</CardTitle>
-                      <CardDescription className="mt-1 whitespace-nowrap">
-                      <Building className="w-4 h-4 inline mr-1" />
-                      {salon.category.replace('_', ' ')}
+                      <CardTitle className="text-base sm:text-lg break-words">{salon.name}</CardTitle>
+                      <CardDescription className="mt-1 text-xs sm:text-sm">
+                      <Building className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                      <span className="break-words">{salon.category.replace('_', ' ')}</span>
                     </CardDescription>
                     </div>
                   </div>
@@ -550,43 +554,51 @@ export default function SalonVerification() {
               </CardHeader>
               <CardContent className="flex flex-col flex-grow">
                 <div className="space-y-2 flex-grow">
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <span className="font-medium">Owner:</span>
-                    <span className="ml-2">{salon.owner_name || 'N/A'}</span>
+                  <div className="flex items-start text-xs sm:text-sm text-muted-foreground">
+                    <span className="font-medium flex-shrink-0">Owner:</span>
+                    <span className="ml-2 break-words min-w-0">
+                      {salon.owner_name || 
+                       salon.owner_full_name || 
+                       salon.owner?.full_name || 
+                       salon.owner?.name ||
+                       (salon.owner?.first_name && salon.owner?.last_name ? `${salon.owner.first_name} ${salon.owner.last_name}` : null) ||
+                       salon.full_name ||
+                       'N/A'}
+                    </span>
                   </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Mail className="w-4 h-4 mr-2" />
-                    <span>{salon.email}</span>
+                  <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                    <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
+                    <span className="break-all min-w-0">{salon.email}</span>
                   </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Phone className="w-4 h-4 mr-2" />
-                    <span>{salon.phone}</span>
+                  <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                    <Phone className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
+                    <span className="break-all">{salon.phone}</span>
                   </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <MapPin className="w-4 h-4 mr-2" />
-                    <span>{salon.address || [salon.city, salon.state, salon.postal_code].filter(Boolean).join(', ')}</span>
+                  <div className="flex items-start text-xs sm:text-sm text-muted-foreground">
+                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-2 mt-0.5 flex-shrink-0" />
+                    <span className="break-words min-w-0">{salon.address || [salon.city, salon.state, salon.postal_code].filter(Boolean).join(', ')}</span>
                   </div>
                   
                   <div className="pt-3 mt-2">
-                    <p className="text-sm text-muted-foreground line-clamp-2">{salon.description}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap break-words">{salon.description}</p>
                   </div>
                 </div>
 
                 {salon.status === 'PENDING' && (
-                  <div className="flex space-x-2 pt-4 mt-auto">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-auto">
                     <Button 
                       onClick={() => handleApprove(salon.salon_id)}
-                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
                     >
-                      <CheckCircle className="w-4 h-4 mr-2" />
+                      <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Approve
                     </Button>
                     <Button 
                       onClick={() => handleReject(salon.salon_id)}
                       variant="destructive"
-                      className="flex-1"
+                      className="flex-1 text-xs sm:text-sm"
                     >
-                      <XCircle className="w-4 h-4 mr-2" />
+                      <XCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Reject
                     </Button>
                   </div>
