@@ -305,8 +305,9 @@ export default function LoyaltyPoints() {
           salonNameToId[salon.name] = salon.salon_id;
         });
         
-        // Only fetch loyalty data for salons that have rewards (much faster!)
-        // Get unique salon IDs from rewards
+        // Fetch loyalty data for ALL salons (not just those with rewards)
+        // This ensures we count all visits, including at salons without rewards
+        // Get unique salon IDs from rewards for display purposes
         const salonsWithRewards = new Set();
         allAvailableRewards.forEach(reward => {
           const salonId = reward.salon_id || salonNameToId[reward.salon_name];
@@ -315,14 +316,13 @@ export default function LoyaltyPoints() {
           }
         });
         
-        // Convert to array and filter to only salons we have in our list
-        const salonsToCheck = salons.filter(salon => salonsWithRewards.has(salon.salon_id));
-        
+        // Fetch loyalty data for ALL approved salons to get accurate total visits
         // Cache 404s to avoid refetching salons without loyalty data
         const loyalty404Cache = new Set(JSON.parse(sessionStorage.getItem('loyalty_404_cache') || '[]'));
         
-        // Only fetch loyalty data for salons with rewards (dramatically reduces API calls)
-        const loyaltyPromises = salonsToCheck
+        // Fetch loyalty data for all salons (not just those with rewards)
+        // This ensures total_visits_count is calculated correctly across all salons
+        const loyaltyPromises = salons
           .filter(salon => !loyalty404Cache.has(salon.salon_id)) // Skip cached 404s
           .map(salon => 
             fetch(`${apiUrl}/user/loyalty/view?salon_id=${salon.salon_id}`, {
@@ -379,9 +379,11 @@ export default function LoyaltyPoints() {
                 const discountPercentage = userData.discount_percentage || 10;
                 const salonName = userData.salon_name || salon.name;
                 
+                // Sum total_visits_count from all salons to get total visits across all salons
                 totalVisitsForUser += userData.total_visits_count || 0;
 
-                if (visits >= 5) goldenSalons++;
+                // Count Gold salons based on total_visits_count >= 5 (not per-salon visits)
+                if ((userData.total_visits_count || 0) >= 5) goldenSalons++;
                 
                 const salonProgressItem = {
                   salonId: salon.salon_id,
