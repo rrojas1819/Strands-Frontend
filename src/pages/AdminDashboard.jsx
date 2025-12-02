@@ -1061,11 +1061,11 @@ export default function AdminDashboard() {
         ) : activeTab === 'business-insights' ? (
           <>
             {/* Business Insights Tab */}
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold text-foreground mb-2">
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                 Business Insights
               </h2>
-              <p className="text-muted-foreground">
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Analyze appointment trends and peak booking times to optimize business operations.
               </p>
                     </div>
@@ -1191,99 +1191,106 @@ export default function AdminDashboard() {
                 });
 
                 return (
-                  <div className="w-full -mx-6 px-6">
-                    <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
-                      {/* Grid lines and Y-axis labels - aligned with intervals */}
-                      {intervals.map((value) => {
-                        const y = chartHeight - padding.bottom - ((value / maxCount) * chartAreaHeight);
-                        return (
-                          <g key={value}>
-                            <line
-                              x1={padding.left}
-                              y1={y}
-                              x2={chartWidth - padding.right}
-                              y2={y}
-                              stroke="#e5e7eb"
-                              strokeWidth="1"
-                              strokeDasharray="2,2"
+                  <div className="w-full -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-x-auto">
+                    <div className="min-w-[600px] sm:min-w-0">
+                      <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
+                        {/* Grid lines and Y-axis labels - aligned with intervals */}
+                        {intervals.map((value) => {
+                          const y = chartHeight - padding.bottom - ((value / maxCount) * chartAreaHeight);
+                          return (
+                            <g key={value}>
+                              <line
+                                x1={padding.left}
+                                y1={y}
+                                x2={chartWidth - padding.right}
+                                y2={y}
+                                stroke="#e5e7eb"
+                                strokeWidth="1"
+                                strokeDasharray="2,2"
+                              />
+                              <text
+                                x={padding.left - 10}
+                                y={y + 4}
+                                textAnchor="end"
+                                fontSize="12"
+                                fill="#6b7280"
+                                className="font-medium"
+                              >
+                                {value}
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Bars */}
+                        {bars.map((bar, index) => (
+                          <g key={index}>
+                            <rect
+                              x={bar.x}
+                              y={bar.y}
+                              width={bar.width}
+                              height={bar.height}
+                              fill={bar.isMax ? "#6b21a8" : "#3b82f6"}
+                              rx="4"
                             />
+                            {/* Value label on top of bar */}
                             <text
-                              x={padding.left - 10}
-                              y={y + 4}
-                              textAnchor="end"
-                              fontSize="11"
-                              fill="#6b7280"
+                              x={bar.x + bar.width / 2}
+                              y={bar.y - 5}
+                              textAnchor="middle"
+                              fontSize="12"
+                              fill={bar.isMax ? "#581c87" : "#1f2937"}
+                              fontWeight={bar.isMax ? "600" : "500"}
+                              className="font-semibold"
                             >
-                              {value}
+                              {bar.count}
                             </text>
                           </g>
-                        );
-                      })}
+                        ))}
 
-                      {/* Bars */}
-                      {bars.map((bar, index) => (
-                        <g key={index}>
-                          <rect
-                            x={bar.x}
-                            y={bar.y}
-                            width={bar.width}
-                            height={bar.height}
-                            fill={bar.isMax ? "#6b21a8" : "#3b82f6"}
-                            rx="4"
-                          />
-                          {/* Value label on top of bar */}
+                        {/* X-axis labels */}
+                        {bars.map((bar, index) => (
                           <text
+                            key={index}
                             x={bar.x + bar.width / 2}
-                            y={bar.y - 5}
+                            y={chartHeight - padding.bottom + 20}
                             textAnchor="middle"
-                            fontSize="11"
-                            fill={bar.isMax ? "#581c87" : "#1f2937"}
-                            fontWeight={bar.isMax ? "600" : "500"}
+                            fontSize="12"
+                            fill={bar.isMax ? "#6b21a8" : "#6b7280"}
+                            fontWeight={bar.isMax ? "600" : "400"}
+                            className="font-medium"
                           >
-                            {bar.count}
+                            {bar.date || bar.week || bar.month}
                           </text>
-                        </g>
-                      ))}
-
-                      {/* X-axis labels */}
-                      {bars.map((bar, index) => (
+                        ))}
+                        
+                        {/* Y-axis label */}
                         <text
-                          key={index}
-                          x={bar.x + bar.width / 2}
-                          y={chartHeight - padding.bottom + 20}
+                          x={30}
+                          y={chartHeight / 2}
                           textAnchor="middle"
-                          fontSize="11"
-                          fill={bar.isMax ? "#6b21a8" : "#6b7280"}
-                          fontWeight={bar.isMax ? "600" : "400"}
+                          fontSize="13"
+                          fill="#6b7280"
+                          transform={`rotate(-90, 30, ${chartHeight / 2})`}
+                          className="font-medium"
                         >
-                          {bar.date || bar.week || bar.month}
+                          Appointments
                         </text>
-                      ))}
-                      
-                      {/* Y-axis label */}
-                      <text
-                        x={30}
-                        y={chartHeight / 2}
-                        textAnchor="middle"
-                        fontSize="12"
-                        fill="#6b7280"
-                        transform={`rotate(-90, 30, ${chartHeight / 2})`}
-                      >
-                        Appointments
-                      </text>
-                      
-                      {/* X-axis label */}
-                      <text
-                        x={chartWidth / 2}
-                        y={chartHeight - 30}
-                        textAnchor="middle"
-                        fontSize="12"
-                        fill="#6b7280"
-                      >
-                        Day
-                      </text>
-                    </svg>
-                </div>
+                        
+                        {/* X-axis label */}
+                        <text
+                          x={chartWidth / 2}
+                          y={chartHeight - 30}
+                          textAnchor="middle"
+                          fontSize="13"
+                          fill="#6b7280"
+                          className="font-medium"
+                        >
+                          Day
+                        </text>
+                      </svg>
+                    </div>
+                  </div>
                 );
               };
 
@@ -1339,97 +1346,103 @@ export default function AdminDashboard() {
                 }).join(' ');
 
                 return (
-                  <div className="w-full -mx-6 px-6">
-                    <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
-                      {/* Grid lines and Y-axis labels - aligned with intervals */}
-                      {intervals.map((value) => {
-                        const y = chartHeight - padding.bottom - ((value / maxCount) * chartAreaHeight);
-                        return (
-                          <g key={value}>
-                            <line
-                              x1={padding.left}
-                              y1={y}
-                              x2={chartWidth - padding.right}
-                              y2={y}
-                              stroke="#e5e7eb"
-                              strokeWidth="1"
-                              strokeDasharray="2,2"
-                            />
+                  <div className="w-full -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-x-auto">
+                    <div className="min-w-[600px] sm:min-w-0">
+                      <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
+                        {/* Grid lines and Y-axis labels - aligned with intervals */}
+                        {intervals.map((value) => {
+                          const y = chartHeight - padding.bottom - ((value / maxCount) * chartAreaHeight);
+                          return (
+                            <g key={value}>
+                              <line
+                                x1={padding.left}
+                                y1={y}
+                                x2={chartWidth - padding.right}
+                                y2={y}
+                                stroke="#e5e7eb"
+                                strokeWidth="1"
+                                strokeDasharray="2,2"
+                              />
+                              <text
+                                x={padding.left - 10}
+                                y={y + 4}
+                                textAnchor="end"
+                                fontSize="12"
+                                fill="#6b7280"
+                                className="font-medium"
+                              >
+                                {value}
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Line */}
+                        <path
+                          d={pathData}
+                          fill="none"
+                          stroke="#3b82f6"
+                          strokeWidth="2.5"
+                        />
+
+                        {/* Data points */}
+                        {points.map((point, index) => (
+                          <circle
+                            key={index}
+                            cx={point.x}
+                            cy={point.y}
+                            r="4"
+                            fill="#3b82f6"
+                            stroke="white"
+                            strokeWidth="2"
+                          />
+                        ))}
+
+                        {/* X-axis labels */}
+                        {points.map((point, index) => {
+                          // Only show every nth label if too many points (for 24 hours)
+                          const showLabel = data.length <= 7 || index % Math.ceil(data.length / 7) === 0 || index === data.length - 1;
+                          return showLabel ? (
                             <text
-                              x={padding.left - 10}
-                              y={y + 4}
-                              textAnchor="end"
+                              key={index}
+                              x={point.x}
+                              y={chartHeight - padding.bottom + 20}
+                              textAnchor="middle"
                               fontSize="11"
                               fill="#6b7280"
+                              className="font-medium"
                             >
-                              {value}
+                              {point.hour || point.day}
                             </text>
-                          </g>
-                        );
-                      })}
-
-                      {/* Line */}
-                      <path
-                        d={pathData}
-                        fill="none"
-                        stroke="#3b82f6"
-                        strokeWidth="2.5"
-                      />
-
-                      {/* Data points */}
-                      {points.map((point, index) => (
-                        <circle
-                          key={index}
-                          cx={point.x}
-                          cy={point.y}
-                          r="4"
-                          fill="#3b82f6"
-                          stroke="white"
-                          strokeWidth="2"
-                        />
-                      ))}
-
-                      {/* X-axis labels */}
-                      {points.map((point, index) => {
-                        // Only show every nth label if too many points (for 24 hours)
-                        const showLabel = data.length <= 7 || index % Math.ceil(data.length / 7) === 0 || index === data.length - 1;
-                        return showLabel ? (
-                          <text
-                            key={index}
-                            x={point.x}
-                            y={chartHeight - padding.bottom + 20}
-                            textAnchor="middle"
-                            fontSize="10"
-                            fill="#6b7280"
-                          >
-                            {point.hour || point.day}
-                          </text>
-                        ) : null;
-                      })}
-                      
-                      {/* Y-axis label */}
-                      <text
-                        x={30}
-                        y={chartHeight / 2}
-                        textAnchor="middle"
-                        fontSize="12"
-                        fill="#6b7280"
-                        transform={`rotate(-90, 30, ${chartHeight / 2})`}
-                      >
-                        Appointments
-                      </text>
-                      
-                      {/* X-axis label */}
-                      <text
-                        x={chartWidth / 2}
-                        y={chartHeight - 30}
-                        textAnchor="middle"
-                        fontSize="12"
-                        fill="#6b7280"
-                      >
-                        {data[0]?.hour ? 'Time' : 'Day'}
-                      </text>
-                    </svg>
+                          ) : null;
+                        })}
+                        
+                        {/* Y-axis label */}
+                        <text
+                          x={30}
+                          y={chartHeight / 2}
+                          textAnchor="middle"
+                          fontSize="13"
+                          fill="#6b7280"
+                          transform={`rotate(-90, 30, ${chartHeight / 2})`}
+                          className="font-medium"
+                        >
+                          Appointments
+                        </text>
+                        
+                        {/* X-axis label */}
+                        <text
+                          x={chartWidth / 2}
+                          y={chartHeight - 30}
+                          textAnchor="middle"
+                          fontSize="13"
+                          fill="#6b7280"
+                          className="font-medium"
+                        >
+                          {data[0]?.hour ? 'Time' : 'Day'}
+                        </text>
+                      </svg>
+                    </div>
                   </div>
                 );
               };
@@ -1453,7 +1466,7 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent className="px-0">
                       {renderBarChart(appointmentsByDay)}
-                      <div className="mt-4 mx-6 text-sm text-muted-foreground text-center">
+                      <div className="mt-4 mx-4 sm:mx-6 text-xs sm:text-sm text-muted-foreground text-center">
                         Last 7 days
                 </div>
               </CardContent>
@@ -1477,7 +1490,7 @@ export default function AdminDashboard() {
                             variant={peakView === 'hours' ? 'default' : 'ghost'}
                             size="sm"
                             onClick={() => setPeakView('hours')}
-                            className="px-3 py-1 text-xs"
+                            className="px-2 sm:px-3 py-1 text-xs sm:text-sm"
                           >
                             Hours
                           </Button>
@@ -1485,7 +1498,7 @@ export default function AdminDashboard() {
                             variant={peakView === 'days' ? 'default' : 'ghost'}
                             size="sm"
                             onClick={() => setPeakView('days')}
-                            className="px-3 py-1 text-xs"
+                            className="px-2 sm:px-3 py-1 text-xs sm:text-sm"
                           >
                             Days
                         </Button>
@@ -1495,8 +1508,8 @@ export default function AdminDashboard() {
                     <CardContent className="px-0">
                       {peakView === 'hours' && renderLineChart(peakHours)}
                       {peakView === 'days' && renderLineChart(peakDays)}
-                      <div className="mt-4 mx-6 p-3 bg-blue-50 rounded-lg">
-                        <p className="text-sm font-medium text-blue-900">
+                      <div className="mt-4 mx-4 sm:mx-6 p-3 bg-blue-50 rounded-lg">
+                        <p className="text-xs sm:text-sm font-medium text-blue-900">
                           Peak Time: {peakView === 'hours' 
                             ? peakHourData.hour
                             : peakDayData.day

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { MapPin, Phone, Mail, Star, Clock, Calendar, Users, Award, Edit, Trash2, Scissors } from 'lucide-react';
+import { MapPin, Phone, Mail, Star, Clock, Users, Award, Edit, Trash2, Scissors } from 'lucide-react';
 import { Notifications, notifyError, notifySuccess } from '../utils/notifications';
 import { trackSalonView } from '../utils/analytics';
 import StrandsModal from '../components/StrandsModal';
@@ -670,10 +670,6 @@ export default function SalonDetail() {
                   onClick={() => navigate(`/products/${salonId}`)}
                 >
                   View Products
-                </Button>
-                <Button variant="outline" className="w-full" onClick={() => navigate('/appointments')}>
-                  <Calendar className="w-4 h-4 mr-2" />
-                  View My Appointments
                 </Button>
                 <Button 
                   variant="outline" 
