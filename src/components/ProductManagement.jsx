@@ -324,7 +324,7 @@ export default function ProductManagement({ salonId, onSuccess, onError }) {
 
       {products.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
+          <CardContent className="flex flex-col items-center justify-center pt-16 pb-12">
             <Package className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
             <p className="text-muted-foreground text-lg mb-2">No products yet</p>
             <p className="text-muted-foreground text-sm mb-4">Start selling by adding your first product</p>
