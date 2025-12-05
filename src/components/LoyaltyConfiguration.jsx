@@ -12,6 +12,18 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
   const [error, setError] = useState('');
   const [isUpdateMode, setIsUpdateMode] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isNoteManuallyEdited, setIsNoteManuallyEdited] = useState(false);
+  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
+
+  // Generate default description based on target_visits and discount_percentage
+  const generateDefaultNote = (visits, discount) => {
+    const visitsNum = parseInt(visits) || 0;
+    const discountNum = parseInt(discount) || 0;
+    if (visitsNum === 0 || discountNum === 0) {
+      return '';
+    }
+    return `Take ${discountNum}% off your visit every ${visitsNum} ${visitsNum === 1 ? 'booking' : 'bookings'}!`;
+  };
 
   useEffect(() => {
     const fetchLoyaltyProgram = async () => {
@@ -31,9 +43,16 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
             note: data.programData.note,
             active: data.programData.active
           });
+          setIsNoteManuallyEdited(true); // Don't auto-update existing descriptions
           setIsUpdateMode(true);
         } else if (response.status === 404) {
           setIsUpdateMode(false);
+          // Set default note for new programs
+          const defaultNote = generateDefaultNote(6, 50);
+          setLoyaltyConfig(prev => ({
+            ...prev,
+            note: defaultNote
+          }));
         } else {
           console.error('Failed to fetch loyalty program');
           setIsUpdateMode(false);
@@ -120,7 +139,17 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
                 min="1"
                 max="100"
                 value={loyaltyConfig.target_visits}
-                onChange={(e) => setLoyaltyConfig({...loyaltyConfig, target_visits: e.target.value})}
+                onChange={(e) => {
+                  const visits = parseInt(e.target.value) || 0;
+                  const discount = parseInt(loyaltyConfig.discount_percentage) || 0;
+                  // Auto-update description unless user is currently editing it
+                  const newNote = isDescriptionFocused ? loyaltyConfig.note : generateDefaultNote(visits, discount);
+                  setLoyaltyConfig({
+                    ...loyaltyConfig,
+                    target_visits: e.target.value,
+                    note: newNote
+                  });
+                }}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="6"
               />
@@ -136,7 +165,17 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
                 min="1"
                 max="100"
                 value={loyaltyConfig.discount_percentage}
-                onChange={(e) => setLoyaltyConfig({...loyaltyConfig, discount_percentage: e.target.value})}
+                onChange={(e) => {
+                  const discount = parseInt(e.target.value) || 0;
+                  const visits = parseInt(loyaltyConfig.target_visits) || 0;
+                  // Auto-update description unless user is currently editing it
+                  const newNote = isDescriptionFocused ? loyaltyConfig.note : generateDefaultNote(visits, discount);
+                  setLoyaltyConfig({
+                    ...loyaltyConfig,
+                    discount_percentage: e.target.value,
+                    note: newNote
+                  });
+                }}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="50"
               />
@@ -150,13 +189,18 @@ const LoyaltyConfiguration = ({ onSuccess, onError }) => {
             <label className="block text-sm font-medium mb-2">Reward Description</label>
             <textarea
               value={loyaltyConfig.note}
-              onChange={(e) => setLoyaltyConfig({...loyaltyConfig, note: e.target.value})}
+              onFocus={() => setIsDescriptionFocused(true)}
+              onBlur={() => setIsDescriptionFocused(false)}
+              onChange={(e) => {
+                setIsNoteManuallyEdited(true);
+                setLoyaltyConfig({...loyaltyConfig, note: e.target.value});
+              }}
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows="3"
-              placeholder="50% off any service after 6 visits"
+              placeholder={generateDefaultNote(loyaltyConfig.target_visits, loyaltyConfig.discount_percentage)}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              This message will be shown to customers when they earn a reward
+              This message will be shown to customers when they earn a reward. Auto-generated based on your settings above.
             </p>
           </div>
 

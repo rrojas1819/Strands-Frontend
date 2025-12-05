@@ -35,7 +35,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
     total_pages: 0,
     has_more: false
   });
-  const { refresh: refreshUnreadCount, setUnreadCount } = useNotifications();
+  const { unreadCount, refresh: refreshUnreadCount, setUnreadCount } = useNotifications();
   const pollingIntervalRef = useRef(null);
   const lastNotificationIdsRef = useRef(new Set());
   const currentPageRef = useRef(1);
@@ -313,6 +313,9 @@ export default function NotificationInbox({ isOpen, onClose }) {
         return;
       }
 
+      // Use total unread count from hook (not just current page)
+      const totalUnreadCount = unreadCount || 0;
+
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       const response = await fetch(`${apiUrl}/notifications/mark-all-read`, {
         method: 'POST',
@@ -324,7 +327,9 @@ export default function NotificationInbox({ isOpen, onClose }) {
 
       if (response.ok) {
         const data = await response.json();
-        const count = data.data?.count || 0;
+        
+        // Use backend count if available, otherwise use the total unread count from hook
+        const count = data.data?.count || totalUnreadCount;
         
         // Update all notifications to read status
         setNotifications((prev) =>
@@ -355,7 +360,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
     } finally {
       setMarkingAllRead(false);
     }
-  }, [markingAllRead, refreshUnreadCount, setUnreadCount]);
+  }, [markingAllRead, refreshUnreadCount, setUnreadCount, notifications, unreadCount]);
 
   const deleteAllNotifications = useCallback(async () => {
     if (deletingAll) return;
@@ -380,7 +385,9 @@ export default function NotificationInbox({ isOpen, onClose }) {
 
       if (response.ok) {
         const data = await response.json();
-        const count = data.data?.count || 0;
+        // Use backend count if available, otherwise use total from pagination (all notifications, not just current page)
+        const totalCount = pagination.total || 0;
+        const count = data.data?.count || totalCount;
         
         // Clear all notifications
         setNotifications([]);
@@ -409,7 +416,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
     } finally {
       setDeletingAll(false);
     }
-  }, [deletingAll, refreshUnreadCount, setUnreadCount]);
+  }, [deletingAll, refreshUnreadCount, setUnreadCount, pagination]);
 
   useEffect(() => {
     if (isOpen) {
@@ -561,7 +568,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
               variant="outline" 
               size="sm"
               onClick={markAllAsRead}
-              disabled={markingAllRead || notifications.length === 0 || notifications.every(n => n.status === 'READ')}
+              disabled={markingAllRead || unreadCount === 0}
               className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3"
             >
               {markingAllRead ? (
@@ -580,7 +587,7 @@ export default function NotificationInbox({ isOpen, onClose }) {
               variant="outline" 
               size="sm"
               onClick={() => setShowDeleteAllConfirm(true)}
-              disabled={deletingAll || notifications.length === 0}
+              disabled={deletingAll || pagination.total === 0}
               className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 text-xs sm:text-sm px-2 sm:px-3"
             >
               {deletingAll ? (
