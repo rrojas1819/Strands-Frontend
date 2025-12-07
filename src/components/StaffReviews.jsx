@@ -643,7 +643,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
         </div>
       ) : reviewsMeta.total === 0 ? (
         <Card>
-          <CardContent className="text-center py-12">
+          <CardContent className="text-center pt-16 pb-12">
             <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">No Reviews Yet</h3>
             <p className="text-sm text-muted-foreground">
