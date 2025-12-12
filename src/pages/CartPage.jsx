@@ -215,7 +215,7 @@ export default function CartPage() {
 
         {cartItems.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
+            <CardContent className="pt-16 pb-12 text-center">
               <ShoppingCart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Your cart is empty</h3>
               <p className="text-muted-foreground mb-4">Add products to get started</p>
@@ -229,7 +229,7 @@ export default function CartPage() {
             <div className="lg:col-span-2 space-y-4">
               {cartItems.map((item) => (
                 <Card key={item.product_id}>
-                  <CardContent className="p-6">
+                  <CardContent className="p-6 pt-8">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold mb-1">{item.name}</h3>

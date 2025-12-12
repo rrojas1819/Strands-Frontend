@@ -804,7 +804,7 @@ export default function SalonDetail() {
                 <CardHeader>
                   <CardTitle>{myReview ? 'Edit Your Review' : 'Write a Review'}</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-8">
                   {showReviewForm ? (
                     <div className="space-y-4">
                       <div>

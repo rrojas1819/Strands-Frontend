@@ -402,7 +402,7 @@ export default function StaffReviews({ employeeId, canReply = false, canReview =
     <div className="space-y-6">
       {canReview && user?.role === 'CUSTOMER' && (
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-6 pt-8">
             <h3 className="text-lg font-semibold mb-4">{myReview ? 'Edit Your Review' : 'Write a Review'}</h3>
             {showReviewForm ? (
               <div className="space-y-4">
