@@ -11,7 +11,6 @@ import SalonReviews from '../components/SalonReviews';
 import StaffReviews from '../components/StaffReviews';
 import OwnerNavbar from '../components/OwnerNavbar';
 import { Button } from '../components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { 
@@ -1490,12 +1489,6 @@ export default function SalonOwnerDashboard() {
                       employees.map((employee) => (
                   <div key={employee.employee_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border rounded-lg">
                     <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                      <Avatar className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
-                              <AvatarImage src={employee.profile_picture_url} />
-                        <AvatarFallback className="text-xs sm:text-sm">
-                                {employee.full_name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
                       <div className="min-w-0 flex-1">
                               <h4 className="font-medium text-sm sm:text-base truncate">{employee.full_name}</h4>
                               <p className="text-xs sm:text-sm text-muted-foreground truncate">{employee.email}</p>
