@@ -1178,7 +1178,7 @@ export default function AdminDashboard() {
                 
                 const chartHeight = 280;
                 const chartWidth = 1200;
-                const padding = { top: 20, right: 20, bottom: 80, left: 60 };
+                const padding = { top: 20, right: 20, bottom: 80, left: 70 };
                 const barWidth = (chartWidth - padding.left - padding.right) / data.length * 0.7;
                 const barSpacing = (chartWidth - padding.left - padding.right) / data.length;
                 const chartAreaHeight = chartHeight - padding.top - padding.bottom;
@@ -1194,8 +1194,22 @@ export default function AdminDashboard() {
                   <div className="w-full -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-x-auto">
                     <div className="min-w-[600px] sm:min-w-0">
                       <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
-                        {/* Grid lines and Y-axis labels - aligned with intervals */}
-                        {intervals.map((value) => {
+                        {/* Y-axis label - rendered first to be behind other elements */}
+                        <text
+                          x={15}
+                          y={chartHeight / 2}
+                          textAnchor="middle"
+                          fontSize="13"
+                          fill="#6b7280"
+                          transform={`rotate(-90, 15, ${chartHeight / 2})`}
+                          className="font-medium"
+                          style={{ zIndex: 0 }}
+                        >
+                          Appointments
+                        </text>
+                        
+                        {/* Grid lines and Y-axis labels - excluding topmost to prevent overlap */}
+                        {intervals.filter(value => value < maxCount).map((value) => {
                           const y = chartHeight - padding.bottom - ((value / maxCount) * chartAreaHeight);
                           return (
                             <g key={value}>
@@ -1215,6 +1229,7 @@ export default function AdminDashboard() {
                                 fontSize="12"
                                 fill="#6b7280"
                                 className="font-medium"
+                                style={{ zIndex: 1 }}
                               >
                                 {value}
                               </text>
@@ -1232,6 +1247,7 @@ export default function AdminDashboard() {
                               height={bar.height}
                               fill={bar.isMax ? "#6b21a8" : "#3b82f6"}
                               rx="4"
+                              style={{ zIndex: 2 }}
                             />
                             {/* Value label on top of bar */}
                             <text
@@ -1242,6 +1258,7 @@ export default function AdminDashboard() {
                               fill={bar.isMax ? "#581c87" : "#1f2937"}
                               fontWeight={bar.isMax ? "600" : "500"}
                               className="font-semibold"
+                              style={{ zIndex: 3 }}
                             >
                               {bar.count}
                             </text>
@@ -1259,23 +1276,11 @@ export default function AdminDashboard() {
                             fill={bar.isMax ? "#6b21a8" : "#6b7280"}
                             fontWeight={bar.isMax ? "600" : "400"}
                             className="font-medium"
+                            style={{ zIndex: 2 }}
                           >
                             {bar.date || bar.week || bar.month}
                           </text>
                         ))}
-                        
-                        {/* Y-axis label */}
-                        <text
-                          x={30}
-                          y={chartHeight / 2}
-                          textAnchor="middle"
-                          fontSize="13"
-                          fill="#6b7280"
-                          transform={`rotate(-90, 30, ${chartHeight / 2})`}
-                          className="font-medium"
-                        >
-                          Appointments
-                        </text>
                         
                         {/* X-axis label */}
                         <text
@@ -1285,6 +1290,7 @@ export default function AdminDashboard() {
                           fontSize="13"
                           fill="#6b7280"
                           className="font-medium"
+                          style={{ zIndex: 2 }}
                         >
                           Day
                         </text>
@@ -1330,7 +1336,7 @@ export default function AdminDashboard() {
                 
                 const chartHeight = 300;
                 const chartWidth = 1200;
-                const padding = { top: 20, right: 20, bottom: 80, left: 60 };
+                const padding = { top: 20, right: 20, bottom: 80, left: 70 };
                 const chartAreaHeight = chartHeight - padding.top - padding.bottom;
                 
                 // Calculate points for the line
@@ -1349,8 +1355,22 @@ export default function AdminDashboard() {
                   <div className="w-full -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-x-auto">
                     <div className="min-w-[600px] sm:min-w-0">
                       <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
-                        {/* Grid lines and Y-axis labels - aligned with intervals */}
-                        {intervals.map((value) => {
+                        {/* Y-axis label - rendered first to be behind other elements */}
+                        <text
+                          x={15}
+                          y={chartHeight / 2}
+                          textAnchor="middle"
+                          fontSize="13"
+                          fill="#6b7280"
+                          transform={`rotate(-90, 15, ${chartHeight / 2})`}
+                          className="font-medium"
+                          style={{ zIndex: 0 }}
+                        >
+                          Appointments
+                        </text>
+                        
+                        {/* Grid lines and Y-axis labels - aligned with intervals (excluding topmost) */}
+                        {intervals.filter(value => value < maxCount).map((value) => {
                           const y = chartHeight - padding.bottom - ((value / maxCount) * chartAreaHeight);
                           return (
                             <g key={value}>
@@ -1370,6 +1390,7 @@ export default function AdminDashboard() {
                                 fontSize="12"
                                 fill="#6b7280"
                                 className="font-medium"
+                                style={{ zIndex: 1 }}
                               >
                                 {value}
                               </text>
@@ -1383,6 +1404,7 @@ export default function AdminDashboard() {
                           fill="none"
                           stroke="#3b82f6"
                           strokeWidth="2.5"
+                          style={{ zIndex: 2 }}
                         />
 
                         {/* Data points */}
@@ -1395,6 +1417,7 @@ export default function AdminDashboard() {
                             fill="#3b82f6"
                             stroke="white"
                             strokeWidth="2"
+                            style={{ zIndex: 3 }}
                           />
                         ))}
 
@@ -1411,24 +1434,12 @@ export default function AdminDashboard() {
                               fontSize="11"
                               fill="#6b7280"
                               className="font-medium"
+                              style={{ zIndex: 2 }}
                             >
                               {point.hour || point.day}
                             </text>
                           ) : null;
                         })}
-                        
-                        {/* Y-axis label */}
-                        <text
-                          x={30}
-                          y={chartHeight / 2}
-                          textAnchor="middle"
-                          fontSize="13"
-                          fill="#6b7280"
-                          transform={`rotate(-90, 30, ${chartHeight / 2})`}
-                          className="font-medium"
-                        >
-                          Appointments
-                        </text>
                         
                         {/* X-axis label */}
                         <text
@@ -1438,6 +1449,7 @@ export default function AdminDashboard() {
                           fontSize="13"
                           fill="#6b7280"
                           className="font-medium"
+                          style={{ zIndex: 2 }}
                         >
                           {data[0]?.hour ? 'Time' : 'Day'}
                         </text>
