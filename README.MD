@@ -34,6 +34,18 @@ Encryption: bcrypt
 Hosting: Deployed on AWS EC2 with Route 53 for domain and DNS management
 
 ```
+
+# Demos & Videos:
+
+**1. Selenium UI Test Execution Video**
+- YouTube: https://youtu.be/tRoefhapcTk?si=3pNOJcQV9sOP1e7B
+
+**2. CI/CD Deployment Demo**
+- YouTube: https://www.youtube.com/watch?v=D5ObRRofoo0
+
+**3. Full Application Demo**
+- YouTube: https://youtu.be/tbiK6APg2Cg?si=V-g643cy7bDXXq-W
+
 # Frontend Development Team:
 
 Md Shams Uddin,
