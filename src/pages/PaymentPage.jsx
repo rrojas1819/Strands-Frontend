@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext, RewardsContext } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,9 +7,10 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { notifySuccess, notifyError } from '../utils/notifications';
-import { ArrowLeft, CreditCard, MapPin, Lock, Check, X, Trash2, Gift } from 'lucide-react';
+import { ArrowLeft, CreditCard, MapPin, Lock, Check, X, Trash2, Gift, Clock } from 'lucide-react';
 import StrandsModal from '../components/StrandsModal';
 import { formatInZone } from '../utils/time';
+import { useCountdownTimer } from '../hooks/useCountdownTimer';
 
 // Card brand detection function - matches backend logic
 const detectCardBrand = (cardNumber) => {
@@ -160,13 +161,50 @@ export default function PaymentPage() {
   const salonId = location.state?.salonId;
   const bookingAmount = location.state?.amount || 0;
   const bookingDetails = location.state?.bookingDetails || {};
+  const expiresAt = location.state?.expiresAt || null;
+  const createdAt = location.state?.createdAt || null;
+  
+  // Define apiUrl early so it can be used in callbacks
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
   
   // Debug logging
   useEffect(() => {
     console.log('PaymentPage - Location state:', location.state);
     console.log('PaymentPage - salonId:', salonId);
     console.log('PaymentPage - bookingId:', bookingId);
-  }, [location.state, salonId, bookingId]);
+    console.log('PaymentPage - expiresAt:', expiresAt);
+  }, [location.state, salonId, bookingId, expiresAt]);
+
+  // Handle expiration callback - use useRef to prevent multiple calls
+  const expirationHandledRef = useRef(false);
+  const handleExpiration = useCallback(() => {
+    if (expirationHandledRef.current) return;
+    expirationHandledRef.current = true;
+    
+    notifyError('Your booking reservation has expired. Please start over.');
+    // Delete the pending booking
+    if (bookingId) {
+      const token = localStorage.getItem('auth_token');
+      fetch(`${apiUrl}/bookings/${bookingId}/deletePendingBooking`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }).catch(err => console.error('Failed to delete expired booking:', err));
+    }
+    // Redirect to dashboard after a short delay
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 2000);
+  }, [bookingId, apiUrl, navigate]);
+
+  // Reset expiration handler when expiresAt changes
+  useEffect(() => {
+    expirationHandledRef.current = false;
+  }, [expiresAt]);
+
+  // Countdown timer hook
+  const { formattedTime, isExpired, minutes, seconds } = useCountdownTimer(expiresAt, handleExpiration);
   
   const [loading, setLoading] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
@@ -214,8 +252,6 @@ export default function PaymentPage() {
     exp_year: '',
     cardholder_name: ''
   });
-  
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
   
   // US States for dropdown
   const usStates = [
@@ -530,6 +566,17 @@ export default function PaymentPage() {
   
   const handleCardSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check if booking has expired
+    if (expiresAt) {
+      const now = new Date();
+      const expires = new Date(expiresAt);
+      if (now >= expires) {
+        notifyError('Your booking reservation has expired. Please start over.');
+        handleExpiration();
+        return;
+      }
+    }
     
     if (!selectedCardId && !enteringNewCard) {
       notifyError('Please select a card or enter a new one');
@@ -997,6 +1044,51 @@ export default function PaymentPage() {
           </Button>
           <h1 className="text-2xl font-semibold text-gray-900">Complete payment</h1>
         </div>
+
+        {/* Countdown Timer */}
+        {expiresAt && !isExpired && (
+          <Card className="mb-4 shadow-lg border-orange-300 bg-gradient-to-r from-orange-50 to-orange-100">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-orange-500/20">
+                    <Clock className="h-6 w-6 text-orange-600 animate-pulse" />
+                  </div>
+                  <div>
+                    <p className="text-base font-semibold text-orange-900 mb-0.5">Reservation expires in</p>
+                    <p className="text-xs text-orange-700 font-medium">Complete payment before time runs out</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 bg-white/70 px-5 py-3 rounded-lg border-2 border-orange-300 shadow-md">
+                  <div className="text-4xl font-bold text-orange-600 font-mono tracking-wider tabular-nums">
+                    {minutes < 1 && seconds < 30 ? (
+                      <span className="text-red-600 animate-pulse">{formattedTime}</span>
+                    ) : (
+                      formattedTime
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Expired Message */}
+        {isExpired && (
+          <Card className="mb-4 shadow-lg border-red-300 bg-gradient-to-r from-red-50 to-red-100">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-500/20">
+                  <X className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-base font-semibold text-red-900 mb-0.5">Reservation expired</p>
+                  <p className="text-xs text-red-700 font-medium">Redirecting you back to start a new booking...</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Booking Details Summary */}
         {bookingDetails && (bookingDetails.salon || bookingDetails.stylist || bookingDetails.date) && (
@@ -1676,11 +1768,11 @@ export default function PaymentPage() {
                 <Button 
                   type="submit" 
                   className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm disabled:opacity-50 mt-3" 
-                  disabled={loading || (!selectedCardId && !enteringNewCard) || !billingAddress || promoCodeValidating}
-                  title={!billingAddress ? 'Please save your billing address first' : promoCodeValidating ? 'Validating promo code...' : ''}
+                  disabled={loading || (!selectedCardId && !enteringNewCard) || !billingAddress || promoCodeValidating || isExpired}
+                  title={!billingAddress ? 'Please save your billing address first' : promoCodeValidating ? 'Validating promo code...' : isExpired ? 'Booking has expired' : ''}
                 >
                   <Lock className="h-4 w-4 mr-2" />
-                  {loading ? 'Processing...' : `Process Payment & Book`}
+                  {loading ? 'Processing...' : isExpired ? 'Booking Expired' : `Process Payment & Book`}
                 </Button>
                 
                 {/* Security Notice */}
