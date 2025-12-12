@@ -1139,7 +1139,7 @@ export default function ProductCheckoutPage() {
                             <button
                               type="button"
                               onClick={(e) => handleDeleteCreditCardClick(card.credit_card_id, e)}
-                              className="p-1 text-gray-400 hover:text-red-600 transition-colors rounded hover:bg-red-50"
+                              className="p-1 text-gray-400 hover:text-red-600 transition-colors rounded hover:bg-red-50 flex items-center justify-center"
                               title="Delete card"
                             >
                               <Trash2 className="h-4 w-4" />
