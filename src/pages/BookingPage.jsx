@@ -442,12 +442,14 @@ export default function BookingPage() {
             return sum + price;
           }, 0);
           
-          // Navigate to payment page with booking details
+          // Navigate to payment page with booking details including expiration
           navigate('/payment', {
             state: {
               bookingId: data.data?.booking_id || data.booking_id,
               salonId: salonId,
               amount: totalAmount,
+              expiresAt: data.data?.expires_at || null,
+              createdAt: data.data?.created_at || null,
               bookingDetails: {
                 salon: salon?.name || '',
                 stylist: selectedStylist?.full_name || '',
