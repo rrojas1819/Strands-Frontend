@@ -16,7 +16,7 @@ import HaircutGalleryModal from '../components/HaircutGalleryModal';
 const strandsLogo = '/strands-logo-new.png';
 
 export default function SalonDetail() {
-  const { user } = useContext(AuthContext);
+  const { user, guestView } = useContext(AuthContext);
   const navigate = useNavigate();
   const { salonId } = useParams();
   const [salon, setSalon] = useState(null);
@@ -38,12 +38,18 @@ export default function SalonDetail() {
   const [showHaircutGallery, setShowHaircutGallery] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+    const initializeAndFetch = async () => {
+      // If no user, try to get guest access
+      if (!user) {
+        const result = await guestView();
+        if (!result.success) {
+          navigate('/login');
+          return;
+        }
+        // Guest token generated, continue with fetch
+      }
 
-    const fetchSalonDetails = async () => {
+      const fetchSalonDetails = async () => {
       setLoading(true);
       setError('');
       try {
@@ -58,13 +64,13 @@ export default function SalonDetail() {
           throw new Error('Invalid salon ID');
         }
         
+        // Get current user to check role
+        const currentUser = JSON.parse(localStorage.getItem('user_data') || '{}');
+        
         // Backend's browseSalons doesn't filter by salon_id, so we need to fetch and filter client-side
         // Fetch a reasonable number of salons and find the matching one
         const fetchPromises = [
           fetch(`${apiUrl}/salons/browse?status=APPROVED&limit=1000&offset=0`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }),
-          fetch(`${apiUrl}/user/loyalty/salon-view?salon_id=${salonIdNum}`, {
             headers: { 'Authorization': `Bearer ${token}` },
           }),
           fetch(`${apiUrl}/reviews/salon/${salonIdNum}/all?limit=1&offset=0`, {
@@ -72,8 +78,15 @@ export default function SalonDetail() {
           })
         ];
 
-        // Only fetch myReview if user is a CUSTOMER
-        if (user?.role === 'CUSTOMER') {
+        // Only fetch loyalty data for CUSTOMER users (GUEST users don't have loyalty data)
+        if (currentUser?.role === 'CUSTOMER') {
+          fetchPromises.splice(1, 0, fetch(`${apiUrl}/user/loyalty/salon-view?salon_id=${salonIdNum}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          }));
+        }
+
+        // Only fetch myReview if user is a CUSTOMER (GUEST users don't have reviews)
+        if (currentUser?.role === 'CUSTOMER') {
           fetchPromises.push(
             fetch(`${apiUrl}/reviews/salon/${salonIdNum}/myReview`, {
               headers: { 'Authorization': `Bearer ${token}` },
@@ -83,9 +96,10 @@ export default function SalonDetail() {
 
         const responses = await Promise.allSettled(fetchPromises);
         const salonResponse = responses[0];
-        const loyaltyResponse = responses[1];
-        const reviewsResponse = responses[2];
-        const myReviewResponse = user?.role === 'CUSTOMER' ? responses[3] : null;
+        // Loyalty response is at index 1 if CUSTOMER, otherwise reviews is at index 1
+        const loyaltyResponse = currentUser?.role === 'CUSTOMER' ? responses[1] : null;
+        const reviewsResponse = currentUser?.role === 'CUSTOMER' ? responses[2] : responses[1];
+        const myReviewResponse = currentUser?.role === 'CUSTOMER' ? responses[3] : null;
 
         // Handle salon data
         if (salonResponse.status === 'fulfilled' && salonResponse.value.ok) {
@@ -170,8 +184,8 @@ export default function SalonDetail() {
           throw new Error('Failed to fetch salon details');
         }
 
-        // Handle loyalty data (optional)
-        if (loyaltyResponse.status === 'fulfilled' && loyaltyResponse.value.ok) {
+        // Handle loyalty data (optional) - only for CUSTOMER users
+        if (currentUser?.role === 'CUSTOMER' && loyaltyResponse && loyaltyResponse.status === 'fulfilled' && loyaltyResponse.value.ok) {
           const loyaltyResult = await loyaltyResponse.value.json();
           setLoyaltyData({
             ...loyaltyResult.userData,
@@ -193,7 +207,8 @@ export default function SalonDetail() {
           }
         }
 
-        if (user?.role === 'CUSTOMER' && myReviewResponse && myReviewResponse.status === 'fulfilled' && myReviewResponse.value) {
+        const currentUserForReview = JSON.parse(localStorage.getItem('user_data') || '{}');
+        if (currentUserForReview?.role === 'CUSTOMER' && myReviewResponse && myReviewResponse.status === 'fulfilled' && myReviewResponse.value) {
           try {
             if (myReviewResponse.value.ok) {
               const myReviewResult = await myReviewResponse.value.json();
@@ -216,11 +231,15 @@ export default function SalonDetail() {
 
     fetchSalonDetails();
     
-    // Track salon view analytics (AFDV 1.1)
-    if (user) {
-      trackSalonView(salonId, user.user_id);
+    // Track salon view analytics (AFDV 1.1) - only for users with user_id
+    const currentUser = JSON.parse(localStorage.getItem('user_data') || '{}');
+    if (currentUser && currentUser.user_id) {
+      trackSalonView(salonId, currentUser.user_id);
     }
-  }, [user, navigate, salonId]);
+    };
+
+    initializeAndFetch();
+  }, [user, navigate, salonId, guestView]);
 
   const handleRedeemConfirm = () => {
     // Navigate to booking page - reward will be selected during payment
@@ -650,10 +669,15 @@ export default function SalonDetail() {
                       ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed opacity-60' 
                       : 'bg-primary hover:bg-primary/90'
                   }`}
-                  disabled={salonStatus === 0}
+                  disabled={salonStatus === 0 || !user || user.role !== 'CUSTOMER'}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    if (!user || user.role !== 'CUSTOMER') {
+                      notifyError('Please sign in as a customer to book appointments');
+                      navigate('/login');
+                      return;
+                    }
                     if (salonStatus === 0) {
                       notifyError('Salon is not running yet');
                       return;
@@ -798,8 +822,8 @@ export default function SalonDetail() {
               </CardContent>
             </Card>
 
-            {/* Write Review */}
-            {user?.role === 'CUSTOMER' && (
+            {/* Write Review - Only for CUSTOMER role */}
+            {user && user.role === 'CUSTOMER' && (
               <Card>
                 <CardHeader>
                   <CardTitle>{myReview ? 'Edit Your Review' : 'Write a Review'}</CardTitle>

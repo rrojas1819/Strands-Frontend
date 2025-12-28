@@ -1,13 +1,41 @@
-import React from 'react';
+import React, { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { Calendar, Clock, Star, Users, Shield, TrendingUp } from 'lucide-react';
+import { Calendar, Clock, Star, Users, Shield, TrendingUp, Eye } from 'lucide-react';
 import { ImageWithFallback } from '../components/ImageWithFallback';
+import { AuthContext } from '../context/AuthContext';
+import { notifyError } from '../utils/notifications';
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const authContext = useContext(AuthContext);
+  const guestView = authContext?.guestView;
+  const [isLoadingGuest, setIsLoadingGuest] = useState(false);
+
+  const handleGuestView = async () => {
+    if (!guestView) {
+      notifyError('Guest view is not available. Please try signing in.');
+      return;
+    }
+
+    setIsLoadingGuest(true);
+    try {
+      const result = await guestView();
+      if (result.success) {
+        // Navigate to dashboard (which will show SalonBrowser for GUEST users)
+        navigate('/dashboard');
+      } else {
+        notifyError(result.error || 'Failed to start guest view');
+      }
+    } catch (error) {
+      console.error('Error starting guest view:', error);
+      notifyError('Failed to start guest view. Please try again.');
+    } finally {
+      setIsLoadingGuest(false);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -18,6 +46,14 @@ export default function LandingPage() {
             <img src="/strands-logo-new.png" alt="Strands" className="w-20 h-20" />
           </div>
           <div className="flex items-center space-x-4">
+            <Button 
+              variant="ghost" 
+              onClick={handleGuestView}
+              disabled={isLoadingGuest}
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Browse as Guest
+            </Button>
             <Button variant="ghost" onClick={() => navigate('/login')}>
               Sign In
             </Button>
@@ -47,6 +83,16 @@ export default function LandingPage() {
             </Button>
             <Button size="lg" variant="outline" onClick={() => navigate('/signup')}>
               Get Started
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              onClick={handleGuestView}
+              disabled={isLoadingGuest}
+              className="border-dashed"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              {isLoadingGuest ? 'Loading...' : 'Browse as Guest'}
             </Button>
           </div>
         </div>
@@ -197,9 +243,20 @@ export default function LandingPage() {
           <p className="text-muted-foreground mb-8">
             Join thousands of salons already using Strands to streamline their operations and grow their business.
           </p>
-          <Button size="lg" onClick={() => navigate('/login')}>
-            Sign In Now
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" onClick={() => navigate('/login')}>
+              Sign In Now
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              onClick={handleGuestView}
+              disabled={isLoadingGuest}
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              {isLoadingGuest ? 'Loading...' : 'Browse as Guest'}
+            </Button>
+          </div>
         </div>
       </section>
 
