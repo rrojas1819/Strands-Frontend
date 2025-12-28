@@ -213,7 +213,15 @@ export default function LoyaltyPoints() {
         // Check if user is logged in
         if (!token) {
           // No auth token found
-          setError('Please log in to view your loyalty points');
+          setError('Sign in to see data');
+          setLoading(false);
+          return;
+        }
+
+        // Check if user is GUEST - loyalty data is not available for guests
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        if (userData?.role === 'GUEST') {
+          setError('Sign in to see data');
           setLoading(false);
           return;
         }
@@ -261,6 +269,14 @@ export default function LoyaltyPoints() {
             ? await allRewardsResponse.value.text() 
             : allRewardsResponse.reason?.message || 'Unknown error';
           // Failed to fetch all rewards - continue without them
+          
+          // Check if user is GUEST before showing detailed error
+          const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+          if (userData?.role === 'GUEST') {
+            setError('Sign in to see data');
+            setLoading(false);
+            return;
+          }
           
           if (allRewardsResponse.status === 'fulfilled' && allRewardsResponse.value.status === 404) {
             throw new Error('ENDPOINT_NOT_FOUND: The /api/user/loyalty/all-rewards endpoint returned 404. Please verify the route is registered in the backend.');
@@ -574,7 +590,13 @@ export default function LoyaltyPoints() {
         setLoading(false);
       } catch (err) {
         // Error fetching loyalty data - handled by setError
-        setError(err.message || 'Failed to load loyalty points.');
+        // Check if user is GUEST before showing detailed error
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        if (userData?.role === 'GUEST') {
+          setError('Sign in to see data');
+        } else {
+          setError(err.message || 'Failed to load loyalty points.');
+        }
         setLoading(false);
       }
     };
@@ -637,9 +659,10 @@ export default function LoyaltyPoints() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <div className="text-center py-12 mb-8">
+            <Gift className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+            <p className="text-muted-foreground text-lg">{error}</p>
+          </div>
         )}
 
         {loading && !loyaltyData && (

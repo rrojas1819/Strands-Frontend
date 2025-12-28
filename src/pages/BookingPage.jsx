@@ -43,7 +43,8 @@ export default function BookingPage() {
   const [selectedStylistForReviews, setSelectedStylistForReviews] = useState(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || user.role !== 'CUSTOMER') {
+      notifyError('Please sign in as a customer to book appointments');
       navigate('/login');
       return;
     }
@@ -51,7 +52,9 @@ export default function BookingPage() {
     fetchSalonData();
     
     // Track salon view analytics (AFDV 1.1)
-    trackSalonView(salonId, user.user_id);
+    if (user.user_id) {
+      trackSalonView(salonId, user.user_id);
+    }
   }, [user, navigate, salonId]);
 
   // Pre-fill reschedule data when location.state changes

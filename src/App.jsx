@@ -221,6 +221,44 @@ export default function App() {
     }
   };
 
+  // Guest view functionality - generates GUEST tokens for read-only access
+  const guestView = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/user/guest-view`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.message === "Guest view access granted") {
+        const guestInfo = {
+          user_id: null, // GUEST users don't have a user_id
+          full_name: 'Guest',
+          role: data.data.role, // Should be 'GUEST'
+          email: null
+        };
+        
+        // Store token in both localStorage and cookie
+        localStorage.setItem('auth_token', data.data.token);
+        localStorage.setItem('user_data', JSON.stringify(guestInfo));
+        
+        // Set HTTP-only cookie for token (more secure)
+        document.cookie = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
+        
+        setUser(guestInfo);
+        
+        return { success: true, user: guestInfo };
+      }
+      return { success: false, error: data.message || 'Failed to generate guest token' };
+    } catch (error) {
+      console.error('Guest view error:', error);
+      return { success: false, error: 'Failed to generate guest token. Please try again.' };
+    }
+  };
+
   const logout = async () => {
     try {
       // Get the current token for the logout API call
@@ -271,6 +309,7 @@ export default function App() {
     register, // UAR 1.1: Signup functionality
     login,    // UAR 1.2: Login functionality
     logout,
+    guestView, // Guest view functionality for read-only access
     loading,
   };
 
@@ -310,7 +349,8 @@ export default function App() {
       return <HairstylistDashboard />;
     }
     
-    // Default dashboard for other roles (CUSTOMER, OWNER) - Show salon browser directly
+    // Default dashboard for other roles (CUSTOMER, GUEST) - Show salon browser directly
+    // GUEST users can browse but cannot make bookings
     return <SalonBrowser />;
   };
 
@@ -367,7 +407,7 @@ export default function App() {
             />
             <Route 
               path="/salon/:salonId/book" 
-              element={user ? <BookingPage /> : <Navigate to="/login" replace />} 
+              element={user && user.role === 'CUSTOMER' ? <BookingPage /> : <Navigate to="/login" replace />} 
             />
             <Route 
               path="/appointments" 
@@ -375,11 +415,11 @@ export default function App() {
             />
             <Route 
               path="/payment" 
-              element={user ? <PaymentPage /> : <Navigate to="/login" replace />} 
+              element={user && user.role === 'CUSTOMER' ? <PaymentPage /> : <Navigate to="/login" replace />} 
             />
             <Route 
               path="/products/:salonId" 
-              element={user && user.role === 'CUSTOMER' ? <ProductsPage /> : <Navigate to="/login" replace />} 
+              element={user && (user.role === 'CUSTOMER' || user.role === 'GUEST') ? <ProductsPage /> : <Navigate to="/login" replace />} 
             />
             <Route 
               path="/cart/:salonId" 
@@ -391,7 +431,7 @@ export default function App() {
             />
             <Route 
               path="/order-history" 
-              element={user && user.role === 'CUSTOMER' ? <OrderHistoryPage /> : <Navigate to="/login" replace />} 
+              element={user ? <OrderHistoryPage /> : <Navigate to="/login" replace />} 
             />
             <Route 
               path="/owner/overview" 

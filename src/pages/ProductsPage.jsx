@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -11,7 +11,7 @@ import UserNavbar from '../components/UserNavbar';
 
 export default function ProductsPage() {
   const { salonId } = useParams();
-  const { user } = useContext(AuthContext);
+  const { user, guestView } = useContext(AuthContext);
   const navigate = useNavigate();
   
   const [products, setProducts] = useState([]);
@@ -20,50 +20,83 @@ export default function ProductsPage() {
   const [quantities, setQuantities] = useState({});
   const [cartItemCount, setCartItemCount] = useState(0);
   const [salonName, setSalonName] = useState('');
+  const salonNameFetchRef = useRef(null);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-
-    fetchSalonName();
-    fetchProducts();
-    fetchCartCount();
-  }, [user, salonId, navigate]);
-
-  // Memoize salon name fetch to prevent unnecessary calls
-  const fetchSalonName = useCallback(async () => {
-    if (salonName) return; // Already have salon name
+    setSalonName('');
     
-    try {
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      
-      const response = await fetch(`${apiUrl}/salons/browse?status=APPROVED&salon_id=${salonId}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const salon = data.data?.[0]; // Expecting an array with one salon
-        if (salon) {
-          setSalonName(salon.name);
+    if (!salonId) return;
+    
+    salonNameFetchRef.current = salonId;
+    
+    const initializeAndFetch = async () => {
+      if (!user) {
+        const result = await guestView();
+        if (!result.success) {
+          navigate('/login');
+          return;
         }
       }
-    } catch (err) {
-      console.error('Error fetching salon name:', err);
-    }
-  }, [salonId, salonName]);
+
+      const currentSalonId = salonId;
+      
+      const fetchSalonName = async () => {
+        if (!currentSalonId) return;
+        
+        try {
+          const token = localStorage.getItem('auth_token');
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+          
+          const response = await fetch(`${apiUrl}/salons/browse?status=APPROVED&salon_id=${currentSalonId}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const salons = data.data || [];
+            
+            const salon = salons.find(s => s.salon_id == currentSalonId || s.salon_id === parseInt(currentSalonId));
+            
+            if (salon && salonNameFetchRef.current === currentSalonId) {
+              setSalonName(salon.name);
+            } else if (!salon && salonNameFetchRef.current === currentSalonId) {
+              const firstSalon = salons[0];
+              if (firstSalon && (firstSalon.salon_id == currentSalonId || firstSalon.salon_id === parseInt(currentSalonId))) {
+                setSalonName(firstSalon.name);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching salon name:', err);
+        }
+      };
+
+      fetchSalonName();
+      fetchProducts();
+      if (user && user.role === 'CUSTOMER') {
+        fetchCartCount();
+      }
+    };
+
+    initializeAndFetch();
+    
+    return () => {
+      salonNameFetchRef.current = null;
+    };
+  }, [user, salonId, navigate, guestView]);
 
   const fetchProducts = async () => {
+    if (!salonId) return;
+    
     setLoading(true);
     setError('');
     try {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       
-      const response = await fetch(`${apiUrl}/products/${salonId}`, {
+      // Use the current salonId from the closure
+      const currentSalonId = salonId;
+      const response = await fetch(`${apiUrl}/products/${currentSalonId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
@@ -109,6 +142,13 @@ export default function ProductsPage() {
   };
 
   const handleAddToCart = async (productId, quantity) => {
+    // Only allow CUSTOMER users to add to cart
+    if (!user || user.role !== 'CUSTOMER') {
+      notifyError('Please sign in as a customer to add products to cart');
+      navigate('/login');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -175,19 +215,32 @@ export default function ProductsPage() {
             <h2 className="text-2xl font-bold text-foreground">Products</h2>
             <p className="text-muted-foreground">Browse and add products to your cart</p>
           </div>
-          <Button
-            onClick={() => navigate(`/cart/${salonId}`)}
-            className="flex items-center space-x-2"
-            disabled={cartItemCount === 0}
-          >
-            <ShoppingCart className="w-4 h-4" />
-            <span>View Cart</span>
-            {cartItemCount > 0 && (
-              <Badge className="ml-2 bg-blue-600 text-white">
-                {cartItemCount}
-              </Badge>
-            )}
-          </Button>
+          {user && user.role === 'CUSTOMER' && (
+            <Button
+              onClick={() => navigate(`/cart/${salonId}`)}
+              className="flex items-center space-x-2"
+              disabled={cartItemCount === 0}
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span>View Cart</span>
+              {cartItemCount > 0 && (
+                <Badge className="ml-2 bg-blue-600 text-white">
+                  {cartItemCount}
+                </Badge>
+              )}
+            </Button>
+          )}
+          {(!user || user.role !== 'CUSTOMER') && (
+            <Button
+              onClick={() => {
+                notifyError('Please sign in as a customer to add products to cart');
+                navigate('/login');
+              }}
+              variant="outline"
+            >
+              Sign In to Shop
+            </Button>
+          )}
         </div>
 
         {error && (
@@ -246,53 +299,66 @@ export default function ProductsPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center border rounded-lg">
+                    {user && user.role === 'CUSTOMER' ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="flex items-center border rounded-lg">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleQuantityChange(product.product_id, -1)}
+                            disabled={quantities[product.product_id] <= 1}
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                          <Input
+                            type="number"
+                            min="1"
+                            max={product.stock_qty || 999}
+                            value={quantities[product.product_id] || 1}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 1;
+                              const max = product.stock_qty || 999;
+                              setQuantities(prev => ({
+                                ...prev,
+                                [product.product_id]: Math.max(1, Math.min(val, max))
+                              }));
+                            }}
+                            className="w-16 text-center border-0 h-8 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleQuantityChange(product.product_id, 1)}
+                            disabled={quantities[product.product_id] >= (product.stock_qty || 999)}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        
                         <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => handleQuantityChange(product.product_id, -1)}
-                          disabled={quantities[product.product_id] <= 1}
+                          onClick={() => handleAddToCart(product.product_id, quantities[product.product_id] || 1)}
+                          className="flex-1"
+                          disabled={!product.stock_qty || product.stock_qty === 0}
                         >
-                          <Minus className="w-4 h-4" />
-                        </Button>
-                        <Input
-                          type="number"
-                          min="1"
-                          max={product.stock_qty || 999}
-                          value={quantities[product.product_id] || 1}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 1;
-                            const max = product.stock_qty || 999;
-                            setQuantities(prev => ({
-                              ...prev,
-                              [product.product_id]: Math.max(1, Math.min(val, max))
-                            }));
-                          }}
-                          className="w-16 text-center border-0 h-8 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => handleQuantityChange(product.product_id, 1)}
-                          disabled={quantities[product.product_id] >= (product.stock_qty || 999)}
-                        >
-                          <Plus className="w-4 h-4" />
+                          Add to Cart
                         </Button>
                       </div>
-                      
+                    ) : (
                       <Button
-                        onClick={() => handleAddToCart(product.product_id, quantities[product.product_id] || 1)}
-                        className="flex-1"
-                        disabled={!product.stock_qty || product.stock_qty === 0}
+                        onClick={() => {
+                          notifyError('Please sign in as a customer to add products to cart');
+                          navigate('/login');
+                        }}
+                        variant="outline"
+                        className="w-full"
                       >
-                        Add to Cart
+                        Sign In to Add to Cart
                       </Button>
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

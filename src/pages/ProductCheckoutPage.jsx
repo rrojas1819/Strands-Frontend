@@ -217,7 +217,7 @@ export default function ProductCheckoutPage() {
   });
   
   useEffect(() => {
-    if (!user) {
+    if (!user || user.role !== 'CUSTOMER') {
       navigate('/login');
       return;
     }

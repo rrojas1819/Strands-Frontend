@@ -13,7 +13,7 @@ import UserNavbar from '../components/UserNavbar';
 const strandsLogo = '/strands-logo-new.png';
 
 export default function SalonBrowser() {
-  const { user } = useContext(AuthContext);
+  const { user, guestView } = useContext(AuthContext);
   const navigate = useNavigate();
   const [salons, setSalons] = useState([]);
   const [salonPhotos, setSalonPhotos] = useState({}); // Map of salon_id -> photo URL
@@ -76,22 +76,33 @@ export default function SalonBrowser() {
   const isFetchingRef = useRef(false);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+    const initializeAndFetch = async () => {
+      // If no user, try to get guest access
+      if (!user) {
+        const result = await guestView();
+        if (!result.success) {
+          navigate('/login');
+          return;
+        }
+        // Guest token generated, continue with fetch
+      }
 
-    // Prevent multiple simultaneous fetches
-    if (isFetchingRef.current) {
-      return;
-    }
+      // Prevent multiple simultaneous fetches
+      if (isFetchingRef.current) {
+        return;
+      }
 
-    const fetchSalons = async () => {
-      isFetchingRef.current = true;
-      setLoading(true);
-      setError('');
-      try {
-        const token = localStorage.getItem('auth_token');
+      const fetchSalons = async () => {
+        isFetchingRef.current = true;
+        setLoading(true);
+        setError('');
+        try {
+          const token = localStorage.getItem('auth_token');
+          if (!token) {
+            setError('Authentication required');
+            setLoading(false);
+            return;
+          }
         
         // Fetch ALL salons in batches to ensure we get all of them
         // Backend sorts ALL salons before pagination, so we fetch all with sort parameter
@@ -283,7 +294,10 @@ export default function SalonBrowser() {
     };
 
     fetchSalons();
-  }, [user, navigate, sortBy]); // Refetch when sortBy changes (backend handles sorting)
+    };
+
+    initializeAndFetch();
+  }, [user, navigate, sortBy, guestView]); // Refetch when sortBy changes (backend handles sorting)
 
   // Memoize filtered salons (client-side filtering only, sorting is done by backend)
   const filteredSalons = useMemo(() => {
@@ -745,7 +759,7 @@ export default function SalonBrowser() {
                       variant="outline" 
                       size="sm"
                       onClick={() => {
-                        if (user) {
+                        if (user && user.user_id) {
                           trackSalonView(salon.salon_id, user.user_id);
                         }
                         navigate(`/salon/${salon.salon_id}`);
@@ -772,7 +786,13 @@ export default function SalonBrowser() {
                           return;
                         }
                         // If status is undefined/null, allow booking (status not loaded yet)
-                        if (user) {
+                        // Only allow booking for CUSTOMER role
+                        if (!user || user.role !== 'CUSTOMER') {
+                          notifyError('Please sign in as a customer to book appointments');
+                          navigate('/login');
+                          return;
+                        }
+                        if (user && user.user_id) {
                           trackSalonView(salon.salon_id, user.user_id);
                         }
                         navigate(`/salon/${salon.salon_id}/book`, { state: { salonName: salon.name } });
