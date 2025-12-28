@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { X, Mail, Clock, CheckCircle, Eye, Trash2, Copy, Check, ChevronLeft, ChevronRight, Filter, CheckCheck, Trash } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -9,11 +9,13 @@ import { useNotifications } from '../hooks/useNotifications';
 import { toast } from 'sonner';
 import { decryptMessage, isEncrypted } from '../utils/decryption';
 import { DateTime } from 'luxon';
+import { AuthContext } from '../context/AuthContext';
 
 // Notification encryption key (should match backend)
 const NOTIFICATION_ENCRYPTION_KEY = '78049334f68ba40c1b067f494995bb0128ebf739d56821917aa2d9bb0e72f3a1';
 
 export default function NotificationInbox({ isOpen, onClose }) {
+  const { user } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -59,7 +61,15 @@ export default function NotificationInbox({ isOpen, onClose }) {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        setError('Authentication required');
+        setError('Sign in to get notifications');
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is GUEST - notifications are not available for guests
+      const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+      if (userData?.role === 'GUEST') {
+        setError('Sign in to get notifications');
         setLoading(false);
         return;
       }
@@ -90,6 +100,13 @@ export default function NotificationInbox({ isOpen, onClose }) {
       });
 
       if (!response.ok) {
+        // Check user role first - GUEST users don't have access to notifications
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        if (userData?.role === 'GUEST') {
+          setError('Sign in to get notifications');
+          setLoading(false);
+          return;
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to fetch notifications');
       }
@@ -151,7 +168,13 @@ export default function NotificationInbox({ isOpen, onClose }) {
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
-      setError(err.message || 'Failed to load notifications');
+      // Check if user is GUEST for better error message
+      const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+      if (userData?.role === 'GUEST') {
+        setError('Sign in to get notifications');
+      } else {
+        setError(err.message || 'Failed to load notifications');
+      }
     } finally {
       setLoading(false);
     }
@@ -635,10 +658,8 @@ export default function NotificationInbox({ isOpen, onClose }) {
             </div>
           ) : error ? (
             <div className="text-center py-12">
-              <p className="text-red-500">{error}</p>
-              <Button onClick={() => fetchNotifications(1)} className="mt-4" variant="outline">
-                Retry
-              </Button>
+              <Mail className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">{error}</p>
             </div>
           ) : notifications.length === 0 ? (
             <div className="text-center py-12">

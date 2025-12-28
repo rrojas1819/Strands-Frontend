@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Edit, Trash2 } from 'lucide-react';
 import StrandsModal from './ui/strands-modal';
+import { AuthContext } from '../context/AuthContext';
 
 const emptyNoteState = {
   loading: false,
@@ -25,12 +26,23 @@ const PrivateNoteCard = ({
   className = '',
   onNoteChange
 }) => {
+  const { user } = useContext(AuthContext);
   const [noteState, setNoteState] = useState(emptyNoteState);
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
   const abortControllerRef = useRef(null);
   const hasAttemptedFetchRef = useRef(false);
   const hasFetchedOnMountRef = useRef(false);
+  
+  const isGuest = (() => {
+    if (user?.role === 'GUEST') return true;
+    try {
+      const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+      return userData?.role === 'GUEST';
+    } catch {
+      return false;
+    }
+  })();
 
   const formatTimestamp = useCallback((timestamp) => {
     if (!timestamp) return '';
@@ -133,14 +145,26 @@ const PrivateNoteCard = ({
       }
     } catch (err) {
       if (err.name === 'AbortError') {
-        return; // Silently ignore aborted requests
+        return;
       }
-      const errorMessage = err.message || 'Failed to load note';
-      setNoteState((prev) => ({
-        ...prev,
-        loading: false,
-        error: errorMessage
-      }));
+      const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+      const isGuestUser = userData?.role === 'GUEST';
+      
+      if (!isGuestUser) {
+        const errorMessage = err.message || 'Failed to load note';
+        setNoteState((prev) => ({
+          ...prev,
+          loading: false,
+          error: errorMessage
+        }));
+      } else {
+        // For GUEST users, just set loading to false without error
+        setNoteState((prev) => ({
+          ...prev,
+          loading: false,
+          error: ''
+        }));
+      }
     }
   }, [bookingId]);
 
@@ -416,7 +440,6 @@ const PrivateNoteCard = ({
           </div>
         </div>
       ) : noteState.noteId ? (
-        // Note exists - show it with edit/delete buttons
         <>
           <p className="text-sm text-foreground whitespace-pre-line">{noteState.text}</p>
           {noteState.updatedAt && (
@@ -424,45 +447,49 @@ const PrivateNoteCard = ({
               Updated {formatTimestamp(noteState.updatedAt)}
             </p>
           )}
-          <div className="flex justify-end gap-2 mt-3">
+          {!isGuest && (
+            <div className="flex justify-end gap-2 mt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleAddNoteClick}
+              >
+                <Edit className="w-4 h-4 mr-1" />
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-red-600 hover:text-red-700"
+                onClick={confirmDelete}
+                disabled={noteState.deleting}
+              >
+                {noteState.deleting ? 'Deleting...' : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        // No note exists after fetch - show add button only (only for non-GUEST users)
+        !isGuest && (
+          <div className="space-y-3">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={handleAddNoteClick}
             >
-              <Edit className="w-4 h-4 mr-1" />
-              Edit
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-red-600 hover:text-red-700"
-              onClick={confirmDelete}
-              disabled={noteState.deleting}
-            >
-              {noteState.deleting ? 'Deleting...' : (
-                <>
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Delete
-                </>
-              )}
+              Add private note
             </Button>
           </div>
-        </>
-      ) : (
-        // No note exists after fetch - show add button only
-        <div className="space-y-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddNoteClick}
-          >
-            Add private note
-          </Button>
-        </div>
+        )
       )}
 
-      {noteState.error && (
+      {noteState.error && !isGuest && (
         <p className="text-xs text-red-600 mt-3">{noteState.error}</p>
       )}
 

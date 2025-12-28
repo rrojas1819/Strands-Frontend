@@ -38,7 +38,8 @@ export default function OrderHistoryPage() {
       return;
     }
 
-    // Fetch ALL salons in batches to ensure we check all salons for orders
+    const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+
     const initializeData = async () => {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -219,8 +220,75 @@ export default function OrderHistoryPage() {
         const data = await response.json();
         const orders = data.orders || [];
         
-        // Backend provides salon_name in each order - use it directly
-        orders.forEach(order => {
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        const isGuest = userData?.role === 'GUEST';
+        
+        const mockOrders = isGuest ? [
+          {
+            order_code: 'TRIM-001',
+            salon_id: 999,
+            salon_name: 'Trim',
+            subtotal_order_price: 50.00,
+            order_tax: 4.00,
+            total_order_price: 54.00,
+            created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            product_id: 1,
+            name: 'Shampoo',
+            description: 'Shampoo for hair.',
+            category: 'SHAMPOO',
+            purchase_price: 25.00,
+            quantity: 2
+          },
+          {
+            order_code: 'TRIM-002',
+            salon_id: 999,
+            salon_name: 'Trim',
+            subtotal_order_price: 50.00,
+            order_tax: 4.00,
+            total_order_price: 54.00,
+            created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+            product_id: 2,
+            name: 'Conditioner',
+            description: 'Conditioner for hair.',
+            category: 'CONDITIONER',
+            purchase_price: 50.00,
+            quantity: 1
+          },
+          {
+            order_code: 'TRIM-003',
+            salon_id: 999,
+            salon_name: 'Trim',
+            subtotal_order_price: 40.00,
+            order_tax: 3.20,
+            total_order_price: 43.20,
+            created_at: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+            product_id: 3,
+            name: 'Beard Balm',
+            description: 'Balm for your beard',
+            category: 'OTHER',
+            purchase_price: 25.00,
+            quantity: 1
+          },
+          {
+            order_code: 'TRIM-003',
+            salon_id: 999,
+            salon_name: 'Trim',
+            subtotal_order_price: 40.00,
+            order_tax: 3.20,
+            total_order_price: 43.20,
+            created_at: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+            product_id: 4,
+            name: 'Beard Oil',
+            description: 'Oil for your beard',
+            category: 'OTHER',
+            purchase_price: 15.00,
+            quantity: 1
+          }
+        ] : [];
+        
+        const allOrders = [...orders, ...mockOrders];
+        
+        allOrders.forEach(order => {
           if (!order.salon_name) {
             order.salon_name = 'Unknown Salon';
           }
@@ -262,31 +330,44 @@ export default function OrderHistoryPage() {
           });
         }
         
-        setOrders(orders);
-        
         // Update pagination from backend response
         if (data.pagination) {
-          setPagination(data.pagination);
+          setPagination({
+            ...data.pagination,
+            total_orders: (data.pagination.total_orders || orders.length) + (isGuest ? mockOrders.length : 0)
+          });
           setPageInputValue(data.pagination.current_page?.toString() || '1');
         } else {
           const currentPage = Math.floor(offset / (pagination.limit || 10)) + 1;
           setPagination(prev => ({
             ...prev,
             current_page: currentPage,
-            total_orders: orders.length,
+            total_orders: allOrders.length,
             offset: offset,
-            has_next_page: orders.length === (pagination.limit || 10),
+            has_next_page: allOrders.length === (pagination.limit || 10),
             has_prev_page: offset > 0
           }));
           setPageInputValue(currentPage.toString());
         }
+        
+        setOrders(allOrders);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        notifyError(errorData.message || 'Failed to load orders');
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        if (userData?.role === 'GUEST') {
+          notifyError('Sign in to see data');
+        } else {
+          notifyError(errorData.message || 'Failed to load orders');
+        }
         setOrders([]);
       }
     } catch (err) {
-      // Error already handled with notifyError
+      const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+      if (userData?.role === 'GUEST') {
+        notifyError('Sign in to see data');
+      } else {
+        notifyError('Failed to load orders');
+      }
       notifyError('Failed to load orders');
       setOrders([]);
     } finally {
@@ -852,9 +933,26 @@ export default function OrderHistoryPage() {
         {orders.length === 0 ? (
           <Card>
             <CardContent className="py-24 text-center flex flex-col items-center justify-center min-h-[400px]">
-              <Package className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No orders found</h3>
-              <p className="text-muted-foreground">You haven't placed any orders yet.</p>
+              <Package className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
+              {(() => {
+                const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+                if (userData?.role === 'GUEST') {
+                  return (
+                    <>
+                      <h3 className="text-xl font-semibold mb-2">No order history</h3>
+                      <p className="text-muted-foreground">
+                        Sign in as a customer to view your order history.
+                      </p>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <h3 className="text-xl font-semibold mb-2">No orders found</h3>
+                    <p className="text-muted-foreground">You haven't placed any orders yet.</p>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         ) : (

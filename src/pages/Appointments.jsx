@@ -110,18 +110,86 @@ export default function Appointments() {
         const data = await response.json();
         const appointmentsList = Array.isArray(data.data) ? data.data : [];
         
-        // Backend has already filtered by status, so we use the response directly
-        setAppointments(appointmentsList);
+        const mockAppointments = [
+          {
+            booking_id: 9999,
+            salon: {
+              name: 'Trim',
+              salon_id: 999
+            },
+            stylists: [
+              {
+                name: 'Kai smith',
+                employee_id: 999,
+                title: 'Senior Stylist'
+              }
+            ],
+            appointment: {
+              status: 'SCHEDULED',
+              scheduled_start: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              scheduled_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString()
+            },
+            services: [
+              {
+                service_id: 1,
+                name: 'Haircut',
+                duration: 60,
+                price: 50.00
+              }
+            ],
+            total_price: 50.00,
+            actual_amount_paid: 50.00,
+            status: 'SCHEDULED',
+            scheduled_start: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            scheduled_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString()
+          },
+          {
+            booking_id: 9998,
+            salon: {
+              name: 'Trim',
+              salon_id: 999
+            },
+            stylists: [
+              {
+                name: 'Kai smith',
+                employee_id: 999,
+                title: 'Senior Stylist'
+              }
+            ],
+            appointment: {
+              status: 'COMPLETED',
+              scheduled_start: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+              scheduled_end: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString()
+            },
+            services: [
+              {
+                service_id: 2,
+                name: 'Haircut & Styling',
+                duration: 90,
+                price: 75.00
+              }
+            ],
+            total_price: 75.00,
+            actual_amount_paid: 75.00,
+            status: 'COMPLETED',
+            scheduled_start: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+            scheduled_end: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000 + 90 * 60 * 1000).toISOString()
+          }
+        ];
+        
+        const allAppointments = [...appointmentsList, ...mockAppointments];
+        
+        setAppointments(allAppointments);
         
         // Don't clear notes - keep cached notes to avoid refetching
         // Only fetch notes for appointments we don't have yet
         
-        // Update pagination from backend response
+        // Update pagination from backend response (include mock data in count)
         if (data.pagination) {
           const newPagination = {
             current_page: data.pagination.current_page || parseInt(data.pagination.page) || page,
             total_pages: data.pagination.total_pages || 1,
-            total_items: data.pagination.total_items || data.pagination.total || appointmentsList.length,
+            total_items: (data.pagination.total_items || data.pagination.total || appointmentsList.length) + mockAppointments.length,
             limit: data.pagination.limit || limit,
             offset: data.pagination.offset || ((page - 1) * limit),
             has_next_page: data.pagination.has_next_page !== undefined ? data.pagination.has_next_page : (page < (data.pagination.total_pages || 1)),
@@ -135,7 +203,7 @@ export default function Appointments() {
           const newPagination = {
             current_page: page,
             total_pages: 1,
-            total_items: appointmentsList.length,
+            total_items: allAppointments.length,
             limit: limit,
             offset: (page - 1) * limit,
             has_next_page: false,
@@ -168,11 +236,22 @@ export default function Appointments() {
       } else {
         const errorText = await response.text();
         console.error('Failed to fetch appointments:', errorText);
-        throw new Error('Failed to fetch appointments');
+        
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        if (userData?.role === 'GUEST') {
+          setError('Sign in to see data');
+        } else {
+          throw new Error('Failed to fetch appointments');
+        }
       }
     } catch (err) {
       console.error('Error fetching appointments:', err);
-      setError(err.message || 'Failed to load appointments.');
+      const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+      if (userData?.role === 'GUEST') {
+        setError('Sign in to see data');
+      } else {
+        setError(err.message || 'Failed to load appointments.');
+      }
       setLoading(false);
     }
   };
@@ -638,65 +717,75 @@ export default function Appointments() {
           
           {/* Filter Tabs */}
           <div className="flex flex-wrap gap-2 mt-4">
-            <Button
-              variant={filter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                if (filter !== 'all' && !loading) {
-                  setFilter('all');
-                }
-              }}
-              disabled={loading}
-              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
-            >
-              All
-            </Button>
-            <Button
-              variant={filter === 'scheduled' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                if (filter !== 'scheduled' && !loading) {
-                  setFilter('scheduled');
-                }
-              }}
-              disabled={loading}
-              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
-            >
-              Upcoming
-            </Button>
-            <Button
-              variant={filter === 'past' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                if (filter !== 'past' && !loading) {
-                  setFilter('past');
-                }
-              }}
-              disabled={loading}
-              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
-            >
-              Completed
-            </Button>
-            <Button
-              variant={filter === 'canceled' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                if (filter !== 'canceled' && !loading) {
-                  setFilter('canceled');
-                }
-              }}
-              disabled={loading}
-              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
-            >
-              Canceled
-            </Button>
+            {(() => {
+              const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+              const isGuest = userData?.role === 'GUEST';
+              
+              return (
+                <>
+                  <Button
+                    variant={filter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      if (filter !== 'all' && !loading && !isGuest) {
+                        setFilter('all');
+                      }
+                    }}
+                    disabled={loading || isGuest}
+                    className={`text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 ${isGuest ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={filter === 'scheduled' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      if (filter !== 'scheduled' && !loading && !isGuest) {
+                        setFilter('scheduled');
+                      }
+                    }}
+                    disabled={loading || isGuest}
+                    className={`text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 ${isGuest ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    Upcoming
+                  </Button>
+                  <Button
+                    variant={filter === 'past' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      if (filter !== 'past' && !loading && !isGuest) {
+                        setFilter('past');
+                      }
+                    }}
+                    disabled={loading || isGuest}
+                    className={`text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 ${isGuest ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    Completed
+                  </Button>
+                  <Button
+                    variant={filter === 'canceled' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      if (filter !== 'canceled' && !loading && !isGuest) {
+                        setFilter('canceled');
+                      }
+                    }}
+                    disabled={loading || isGuest}
+                    className={`text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 ${isGuest ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    Canceled
+                  </Button>
+                </>
+              );
+            })()}
           </div>
         </div>
 
         {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <div className="text-center py-12 mb-8">
+            <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+            <p className="text-muted-foreground text-lg">{error}</p>
+          </div>
         )}
 
         {loading ? (
@@ -747,14 +836,16 @@ export default function Appointments() {
               const status = appointment.appointment?.status || appointment.status;
               const canModify = status === 'SCHEDULED' && !isPast;
               
-              // Check if appointment is today - cannot cancel or reschedule same day
+              const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+              const isGuest = userData?.role === 'GUEST';
+              
               const appointmentUtc = appointment.appointment?.scheduled_start || appointment.scheduled_start;
               const todayInViewerZone = todayYmdInZone(undefined);
               const appointmentDateStr = formatLocal(appointmentUtc, { dateStyle: 'short' }).split(',')[0];
               const todayFormatted = formatLocal(new Date().toISOString(), { dateStyle: 'short' }).split(',')[0];
               const isSameDay = appointmentDateStr === todayFormatted;
-              const canCancel = canModify && !isSameDay;
-              const canReschedule = canModify && !isSameDay;
+              const canCancel = canModify && !isSameDay && !isGuest;
+              const canReschedule = canModify && !isSameDay && !isGuest;
 
               const originalTotal = typeof appointment.total_price === 'number'
                 ? appointment.total_price
@@ -864,7 +955,7 @@ export default function Appointments() {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2 sm:ml-4 flex-shrink-0">
-                      {isPast && appointment.stylists && appointment.stylists.length > 0 && (
+                      {isPast && appointment.stylists && appointment.stylists.length > 0 && !isGuest && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -884,7 +975,7 @@ export default function Appointments() {
                           <span className="sm:hidden">Review</span>
                         </Button>
                       )}
-                      {isPast && status === 'COMPLETED' && appointment.booking_id && (
+                      {isPast && status === 'COMPLETED' && appointment.booking_id && !isGuest && (
                         <Button
                           size="sm"
                           variant="outline"

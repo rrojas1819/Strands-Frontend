@@ -275,7 +275,7 @@ export default function PaymentPage() {
   });
   
   useEffect(() => {
-    if (!user) {
+    if (!user || user.role !== 'CUSTOMER') {
       navigate('/login');
       return;
     }

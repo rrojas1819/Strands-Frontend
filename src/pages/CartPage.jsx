@@ -24,7 +24,7 @@ export default function CartPage() {
   const [salonName, setSalonName] = useState('');
 
   useEffect(() => {
-    if (!user) {
+    if (!user || user.role !== 'CUSTOMER') {
       navigate('/login');
       return;
     }
